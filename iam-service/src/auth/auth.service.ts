@@ -27,12 +27,12 @@ export class AuthService {
             user.password_hash,
             authDto.password_hash
         )
-
+        console.log("Password match:", passMatch);
         if (!passMatch) {
             throw new ForbiddenException("Credentials incorrect")
         }
 
-        
+        console.log("User signed in:", user.email);
 
         const payload = { sub: user.id, email: user.email }
         const access_token = await this.jwtService.signAsync(
@@ -43,7 +43,6 @@ export class AuthService {
             payload, 
             { expiresIn: '2h' }
         )
-
         return {
             access_token,
             refresh_token

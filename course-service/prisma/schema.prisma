@@ -7,52 +7,22 @@
 generator client {
   provider = "prisma-client-js"
   engineType = "binary"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas = ["course_service"]
 }
 
 enum ContentStatus {
   draft
   published
   archived
+  @@schema("course_service")
 }
 
-
-
-enum ResourceType {
-  video
-  document
-}
-
-model Resource {
-  id              BigInt             @id @default(autoincrement())
-  title           String             @db.VarChar(255)
-  type            ResourceType
-  thumb           String?            @db.VarChar(500)
-  link            String?            @db.VarChar(500)
-  manifest_url    String?            @db.VarChar(500)
-  created_at      DateTime           @default(now()) @db.Timestamptz
-  updated_at      DateTime           @updatedAt @db.Timestamptz
-  lesson_id       BigInt             
-
-  // Relations
-  watching_progress WatchingProgress[]
-}
-
-model WatchingProgress {
-  user_id         String
-  resource_id     BigInt
-  is_opened       Boolean            @default(false)
-  last_watch      DateTime?          @db.Timestamptz
-
-  // Relations
-  resource        Resource           @relation(fields: [resource_id], references: [id], onDelete: Cascade)
-
-  @@id([user_id, resource_id])
-}
 
 model Course {
   id                 BigInt         @id @default(autoincrement())
@@ -70,6 +40,7 @@ model Course {
   enrollments        String[]
   chapters           Chapter[]
   forum              Forum?
+  @@schema("course_service")
 }
 
 model Skill {
@@ -78,6 +49,7 @@ model Skill {
 
   // Relations
   course_skills CourseSkill[]
+  @@schema("course_service")
 }
 
 model CourseSkill {
@@ -89,6 +61,7 @@ model CourseSkill {
   skill         Skill   @relation(fields: [skill_id], references: [id], onDelete: Cascade)
 
   @@id([course_id, skill_id])
+  @@schema("course_service")
 }
 
 
@@ -106,6 +79,7 @@ model Chapter {
   // Relations
   course             Course?        @relation(fields: [course_id], references: [id], onDelete: Cascade)
   lessons            Lesson[]
+  @@schema("course_service")
 }
 
 model Lesson {
@@ -121,6 +95,7 @@ model Lesson {
   // Relations
   chapter            Chapter        @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
   resources          BigInt[]
+  @@schema("course_service")
 }
 
 model Forum {
@@ -133,6 +108,7 @@ model Forum {
   // Relations
   course             Course         @relation(fields: [course_id], references: [id], onDelete: Cascade)
   messages           Message[]
+  @@schema("course_service")
 }
 
 model Message {
@@ -150,4 +126,5 @@ model Message {
   forum               Forum     @relation(fields: [forum_id], references: [id], onDelete: Cascade)
   parent_message      Message?  @relation("MessageReplies", fields: [parent_message_id], references: [id], onDelete: Cascade)
   replies             Message[] @relation("MessageReplies")
+  @@schema("course_service")
 }

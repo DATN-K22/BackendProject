@@ -1,25 +1,29 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
   engineType = "binary"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["iam_service"]
 }
 
 enum UserRole {
   user
   admin
+  @@schema("iam_service")
 }
 
 enum EventStatus {
   CONFIRMED
   TENTATIVE
   CANCELLED
+  @@schema("iam_service")
 }
 
-model User {
+model Users {
   id            String    @id @default(uuid(7)) @db.Uuid
   email         String    @unique
   password_hash String
@@ -36,6 +40,7 @@ model User {
   // Relations
   events        Event[]
   skills        UserSkill[]
+  @@schema("iam_service")
 }
 
 model Skill {
@@ -44,22 +49,24 @@ model Skill {
 
   // Relations
   users         UserSkill[]
+  @@schema("iam_service")
 }
 
 model UserSkill {
-  user_id       String
+  user_id       String   @db.Uuid
   skill_id      BigInt
 
   // Relations
-  user          User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user          Users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
   skill         Skill   @relation(fields: [skill_id], references: [id], onDelete: Cascade)
 
   @@id([user_id, skill_id])
+  @@schema("iam_service")
 }
 
 model Event {
   id               BigInt   @id @default(autoincrement())
-  user_id          String
+  user_id          String   @db.Uuid
   uid              String   @unique @default(uuid()) @db.VarChar(255)
   title            String   @db.VarChar(255)
   description      String?  @db.Text
@@ -76,10 +83,11 @@ model Event {
   original_event_id BigInt?
   
   // Relations
-  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user             Users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   original_event   Event?   @relation("RecurringExceptions", fields: [original_event_id], references: [id])
   exceptions       Event[]  @relation("RecurringExceptions")
   exception_dates  EventExceptionDate[]
+  @@schema("iam_service")
 }
 
 model EventExceptionDate {
@@ -89,6 +97,7 @@ model EventExceptionDate {
   reason          String?  @db.VarChar(255)
 
   event           Event    @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  @@schema("iam_service")
 }
 
 

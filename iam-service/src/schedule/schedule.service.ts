@@ -252,17 +252,25 @@ export class ScheduleService {
     async deleteEvent(event_id: bigint, user_id: string): Promise<{ message: string }> {
         try {
             const event = await this.prisma.event.findUnique({
-                where: {
-                    id: event_id
-                }
+                where: { id: event_id }
             });
 
             await this.AuthorizeEvent(event, user_id);
 
+            // If this is a child/modified instance, find the parent to delete the entire series
+            const eventToDelete = event.original_event_id || event_id;
+
+            // If we're deleting a different event (parent), authorize it too
+            if (event.original_event_id) {
+                const parentEvent = await this.prisma.event.findUnique({
+                    where: { id: event.original_event_id }
+                });
+                await this.AuthorizeEvent(parentEvent, user_id);
+            }
+
+            // Delete the parent event - Prisma cascades to all children
             await this.prisma.event.delete({
-                where: {
-                    id: event_id
-                }
+                where: { id: eventToDelete }
             });
 
             return {

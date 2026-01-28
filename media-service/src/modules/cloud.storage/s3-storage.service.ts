@@ -10,6 +10,8 @@ import {
   HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { AppException } from 'src/utils/excreption/AppException';
+import { ErrorCode } from 'src/utils/excreption/ErrorCode';
 
 @Injectable()
 export class S3StorageService implements ICloudStorageService {
@@ -73,4 +75,13 @@ export class S3StorageService implements ICloudStorageService {
       return false;
     }
   }
+
+  extractKeyFromUrl(url: string): string {
+  try {
+    const parsedUrl = new URL(url);
+    return decodeURIComponent(parsedUrl.pathname.substring(1)); 
+  } catch (err) {
+    throw new AppException(ErrorCode.INVALID_FILE_URL, true);
+  }
+}
 }

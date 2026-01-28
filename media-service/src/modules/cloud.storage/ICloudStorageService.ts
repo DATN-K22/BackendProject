@@ -14,4 +14,6 @@ export interface ICloudStorageService {
   listFiles(bucket: string, prefix?: string): Promise<string[]>;
 
   fileExists(bucket: string, key: string): Promise<boolean>;
+  
+  extractKeyFromUrl(url: string): string;
 }

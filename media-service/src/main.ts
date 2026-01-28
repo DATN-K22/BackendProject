@@ -1,8 +1,31 @@
+// main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { AppValidationPipe } from 'src/utils/pipe/validation.pipe';
+import { ConfigService } from '@nestjs/config';
+import { GlobalExceptionFilter } from './utils/excreption/GlobalExceptionHandler';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  await app.listen(process.env.PORT ?? 3000);
+  app.useGlobalPipes(AppValidationPipe);
+  app.useGlobalFilters(new GlobalExceptionFilter())
+  const configService = app.get(ConfigService);
+
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('My API')
+    .setDescription('API documentation')
+    .setVersion('1.0')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+
+  if (configService.get('NODE_ENV') !== 'production') {
+    SwaggerModule.setup('api/docs', app, document);
+  }
+
+  const port = configService.get<number>('PORT', 3000);
+  await app.listen(port);
 }
+
 bootstrap();

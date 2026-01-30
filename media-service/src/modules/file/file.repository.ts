@@ -1,8 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "src/modules/prisma/prisma.service";
 import { CreateFileDto } from "./dto/request/create-file.dto";
-import { CreateFileResponse } from "./dto/response/create-file.response";
-import { timeStamp } from "console";
 
 @Injectable()
 export class FileRepository {

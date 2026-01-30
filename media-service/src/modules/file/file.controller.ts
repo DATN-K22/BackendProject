@@ -20,10 +20,10 @@ export class FileController {
     return ApiResponse.OkCreateResponse("Save record successfully", await this.fileService.create(createFileDto));
   }
 
-  @Get()
-  findAll() {
-    return this.fileService.findAll();
-  }
+  // @Get()
+  // findAll() {
+  //   return this.fileService.findAll();
+  // }
 
   @Get('presigned-url/:key')
   @ApiOperation({summary: 'Get Presigned URL for uploading file'})
@@ -44,15 +44,15 @@ export class FileController {
     return ApiResponse.OkResponse('Presigned URL retrieved successfully.', url);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.fileService.findOne(+id);
-  }
+  // @Get(':id')
+  // findOne(@Param('id') id: string) {
+  //   return this.fileService.findOne(+id);
+  // }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateFileDto: UpdateFileDto) {
-    return this.fileService.update(+id, updateFileDto);
-  }
+  // @Patch(':id')
+  // update(@Param('id') id: string, @Body() updateFileDto: UpdateFileDto) {
+  //   return this.fileService.update(+id, updateFileDto);
+  // }
 
   @Delete(':id')
   @ApiOperation({summary: "Delete file in both database and cloud storage"})

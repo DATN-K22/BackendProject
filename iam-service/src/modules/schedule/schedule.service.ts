@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEventDto, CreateEventExceptionDto, EventExceptionResponseDto, EventWithRelationsDto, UpdateEventDto } from './dto';
 import { Event } from '@prisma/client';
 

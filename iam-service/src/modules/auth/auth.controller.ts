@@ -13,6 +13,7 @@ import {
 import { AuthService } from './auth.service'
 import { AuthSignInDto, AuthSignUpDto } from './dto/auth.dto'
 import { Request, Response } from 'express'
+import { ApiTags } from '@nestjs/swagger'
 
 @Controller('auth')
 @UsePipes(
@@ -23,6 +24,7 @@ import { Request, Response } from 'express'
     transformOptions: { enableImplicitConversion: true }
   })
 )
+@ApiTags("Authentication management")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 

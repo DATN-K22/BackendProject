@@ -1,18 +1,123 @@
 generator client {
-  provider = "prisma-client-js"
-  engineType = "binary"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+  engineType      = "binary"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["iam_service"]
 }
 
-model User {
-  id            Int    @id @default(autoincrement())
-  first_name    String
-  last_name     String
-  email         String @unique
+enum UserRole {
+  user
+  admin
+
+  @@schema("iam_service")
+}
+
+enum EventStatus {
+  CONFIRMED
+  TENTATIVE
+  CANCELLED
+
+  @@schema("iam_service")
+}
+
+model Users {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  email         String   @unique
   password_hash String
-  role          String
+  first_name    String?
+  last_name     String?
+  avt_url       String?
+  role          UserRole @default(user)
+  created_at    DateTime @default(now()) @db.Timestamptz
+
+  // Store course IDs from course-service 
+  owned_course_ids BigInt[] @default([])
+  enroll_course    BigInt[] @default([])
+
+  // Relations
+  events        Event[]
+  skills        UserSkill[]
+  refreshTokens RefreshToken[]
+
+  @@schema("iam_service")
+}
+
+model RefreshToken {
+  id          BigInt   @id @default(autoincrement())
+  user_id     String   @db.Uuid
+  jti         String   @unique // JWT id
+  token_hash  String
+  expires_at  DateTime
+  revoked     Boolean  @default(false)
+  replaced_by String? // jti of token that replaced this one (for auditing)
+  created_at  DateTime @default(now()) @db.Timestamptz
+
+  user Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@schema("iam_service")
+}
+
+model Skill {
+  id   BigInt @id @default(autoincrement())
+  name String @unique @db.VarChar(100)
+
+  // Relations
+  users UserSkill[]
+
+  @@schema("iam_service")
+}
+
+model UserSkill {
+  user_id  String @db.Uuid
+  skill_id BigInt
+
+  // Relations
+  user  Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skill_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, skill_id])
+  @@schema("iam_service")
+}
+
+model Event {
+  id                BigInt      @id @default(autoincrement())
+  user_id           String      @db.Uuid
+  uid               String      @unique @default(uuid()) @db.VarChar(255)
+  title             String      @db.VarChar(255)
+  description       String?     @db.Text
+  location          String?     @db.VarChar(255)
+  status            EventStatus @default(CONFIRMED)
+  time_start        DateTime    @db.Timestamptz
+  time_end          DateTime    @db.Timestamptz
+  timezone          String?     @default("UTC") @db.VarChar(50)
+  rrule_string      String?     @db.Text
+  sequence          Int         @default(0)
+  created_at        DateTime    @default(now()) @db.Timestamptz
+  updated_at        DateTime    @updatedAt @db.Timestamptz
+  recurrence_id     DateTime?   @db.Timestamptz
+  original_event_id BigInt?
+
+  // Relations
+  user            Users                @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  original_event  Event?               @relation("RecurringExceptions", fields: [original_event_id], references: [id])
+  exceptions      Event[]              @relation("RecurringExceptions")
+  exception_dates EventExceptionDate[]
+
+  @@schema("iam_service")
+}
+
+model EventExceptionDate {
+  id             BigInt   @id @default(autoincrement())
+  event_id       BigInt
+  exception_date DateTime @db.Date // Ngày bị loại bỏ khỏi chuỗi lặp
+  reason         String?  @db.VarChar(255)
+
+  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+
+  @@schema("iam_service")
 }

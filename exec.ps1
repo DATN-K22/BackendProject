@@ -25,6 +25,8 @@ switch ($Action) {
             Pop-Location # Quay về thư mục gốc
         }
         Write-Host "All services initialized!" -ForegroundColor Green
+
+        docker compose -f Docker-compose.yml up
     }
     
     "run" {
@@ -36,6 +38,8 @@ switch ($Action) {
             # Điều này giúp các service chạy song song mà không chặn nhau
             Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd $service; npm run start:dev"
         }
+        
+        docker compose -f Docker-compose.yml up
     }
     
     Default {

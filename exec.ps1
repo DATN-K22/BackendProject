@@ -10,7 +10,7 @@ $version = 1.0
 Write-Host "Running project: $projectName with version $version" -ForegroundColor Magenta
 
 # Danh sách các service để dễ quản lý, tránh lặp lại code (DRY)
-$services = "iam-service", "media-service"
+$services = "iam-service", "media-service", "course-service"
 
 switch ($Action) {
     "init" {

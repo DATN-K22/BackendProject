@@ -22,12 +22,13 @@ export class ScheduleController {
         return this.scheduleService.createEvent(createEventDto, userId);
     }
 
-    @Put('events')
+    @Put('events/:id')
     async updateEvent(
         @Body() updateEventDto: UpdateEventDto,
+        @Param('id') eventId: string,
         @GetUser('id') userId: string
     ) {
-        return this.scheduleService.updateEvent(updateEventDto, userId);
+        return this.scheduleService.updateEvent(updateEventDto, userId, BigInt(eventId));
     }
 
     @Delete('events/:id')

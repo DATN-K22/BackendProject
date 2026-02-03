@@ -45,6 +45,8 @@ model Course {
   created_at         DateTime       @default(now()) @db.Timestamptz
   course_level       CourseLevel    @default(Beginner)
   rating             Float          @default(0)
+  language           String         @default("simple")
+  fts_vector         Unsupported("tsvector")?
   // Relations
   enrollments        String[]
   chapters           Chapter[]

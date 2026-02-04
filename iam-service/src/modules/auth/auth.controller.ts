@@ -14,6 +14,7 @@ import { AuthService } from './auth.service'
 import { AuthSignInDto, AuthSignUpDto } from './dto/auth.dto'
 import { Request, Response } from 'express'
 import { ApiTags } from '@nestjs/swagger'
+import { ApiResponse } from '../../utils/dto/ApiResponse'
 
 @Controller('auth')
 @UsePipes(
@@ -39,7 +40,9 @@ export class AuthController {
       maxAge: 1000 * 60 * 60 * 24 * 30
     })
 
-    return { access_token: tokens.access_token }
+    return ApiResponse.OkResponse({ 
+      accessToken: tokens.access_token
+    })
   }
 
   @HttpCode(HttpStatus.OK)
@@ -54,7 +57,9 @@ export class AuthController {
       maxAge: 1000 * 60 * 60 * 24 * 30
     })
 
-    return { access_token: tokens.access_token }
+    return ApiResponse.OkResponse({ 
+      accessToken: tokens.access_token
+    })
   }
 
   @HttpCode(HttpStatus.OK)

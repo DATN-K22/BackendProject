@@ -23,11 +23,11 @@ export class ApiResponse<T> {
     @ApiProperty({ example: '2024-10-01T12:34:56.789Z' })
     timestamp: string;
 
-    static OkResponse(message: string, data: any, code: number = 2000) {
+    static OkResponse(data: any, message: string = "", code: number = 2000) {
         return new ApiResponse(true, code, message, data);
     }
 
-    static OkCreateResponse(message: string, data: any, code: number = 2001) {
+    static OkCreateResponse(data: any, message: string, code: number = 2001) {
         return new ApiResponse(true, code, message, data);
     }
 }

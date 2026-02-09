@@ -24,7 +24,7 @@ import { ApiTags } from '@nestjs/swagger'
     transformOptions: { enableImplicitConversion: true }
   })
 )
-@ApiTags("Authentication management")
+@ApiTags('Authentication management')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -39,7 +39,7 @@ export class AuthController {
       maxAge: 1000 * 60 * 60 * 24 * 30
     })
 
-    return { access_token: tokens.access_token }
+    return { access_token: tokens.access_token, refresh_token: tokens.refresh_token, role: tokens.role }
   }
 
   @HttpCode(HttpStatus.OK)
@@ -54,7 +54,7 @@ export class AuthController {
       maxAge: 1000 * 60 * 60 * 24 * 30
     })
 
-    return { access_token: tokens.access_token }
+    return { access_token: tokens.access_token, refresh_token: tokens.refresh_token, role: tokens.role }
   }
 
   @HttpCode(HttpStatus.OK)
@@ -64,7 +64,8 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
-    const token = refreshToken || (req.cookies && req.cookies.refreshToken)
+    const token = refreshToken
+    console.log('Received refresh token from cookie:', token) // Debug log
     if (!token) throw new UnauthorizedException('No refresh token provided')
 
     const tokens = await this.authService.refreshToken(token)
@@ -76,13 +77,19 @@ export class AuthController {
       maxAge: 1000 * 60 * 60 * 24 * 30
     })
 
-    return { access_token: tokens.access_token }
+    return { access_token: tokens.access_token, refresh_token: tokens.refresh_token }
   }
 
   @Post('logout')
   async logout(@Body('jti') jti: string, @Res({ passthrough: true }) res: Response) {
-    if (jti) await this.authService.logout(jti)
-    res.clearCookie('refreshToken', { path: '/auth/refresh' })
-    return { ok: true }
+    if (jti) {
+      const result = await this.authService.logout(jti)
+      if (result == true) {
+        res.clearCookie('refreshToken', { path: '/auth/refresh' })
+        return { ok: true }
+      }
+    } else {
+      throw new UnauthorizedException('No jti provided')
+    }
   }
 }

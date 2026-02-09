@@ -4,22 +4,22 @@ import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator'
 
 export class AuthSignUpDto {
   @IsEmail()
-  @ApiProperty({example: "example@gmail.com"})
+  @ApiProperty({ example: 'example@gmail.com' })
   email: string
 
   @IsString()
   @IsNotEmpty()
-  @ApiProperty({example: "abc@123"})
+  @ApiProperty({ example: 'abc@123' })
   password: string
 
   @IsOptional()
   @IsString()
-  @ApiProperty({example: "testing"})
+  @ApiProperty({ example: 'testing' })
   first_name?: string
 
   @IsOptional()
   @IsString()
-  @ApiProperty({example: "user"})
+  @ApiProperty({ example: 'user' })
   last_name?: string
 
   @IsOptional()
@@ -30,11 +30,25 @@ export class AuthSignUpDto {
 
 export class AuthSignInDto {
   @IsEmail()
-  @ApiProperty({example: "example@gmail.com"})
+  @ApiProperty({ example: 'example@gmail.com' })
   email: string
 
   @IsString()
   @IsNotEmpty()
-  @ApiProperty({example: "abc@123"})
+  @ApiProperty({ example: 'abc@123' })
   password: string
+}
+
+export class AuthRefeshTokenDto {
+  @IsString()
+  @IsNotEmpty()
+  @ApiProperty({ example: 'refresh_token_here' })
+  refreshToken: string
+}
+
+export class JtiDto {
+  @IsString()
+  @IsNotEmpty()
+  @ApiProperty({ example: 'jti_here' })
+  jti: string
 }

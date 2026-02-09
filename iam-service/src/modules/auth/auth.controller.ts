@@ -11,7 +11,7 @@ import {
   UnauthorizedException
 } from '@nestjs/common'
 import { AuthService } from './auth.service'
-import { AuthSignInDto, AuthSignUpDto } from './dto/auth.dto'
+import { AuthRefeshTokenDto, AuthSignInDto, AuthSignUpDto, JtiDto } from './dto/auth.dto'
 import { Request, Response } from 'express'
 import { ApiTags } from '@nestjs/swagger'
 
@@ -60,11 +60,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
   async refreshToken(
-    @Body('refreshToken') refreshToken: string,
+    @Body() refreshToken: AuthRefeshTokenDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
-    const token = refreshToken
+    const token = refreshToken.refreshToken
     console.log('Received refresh token from cookie:', token) // Debug log
     if (!token) throw new UnauthorizedException('No refresh token provided')
 
@@ -81,9 +81,9 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(@Body('jti') jti: string, @Res({ passthrough: true }) res: Response) {
+  async logout(@Body() jti: JtiDto, @Res({ passthrough: true }) res: Response) {
     if (jti) {
-      const result = await this.authService.logout(jti)
+      const result = await this.authService.logout(jti.jti)
       if (result == true) {
         res.clearCookie('refreshToken', { path: '/auth/refresh' })
         return { ok: true }

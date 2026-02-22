@@ -62,7 +62,6 @@ model Chapter {
   title              String         @db.VarChar(255)
   short_description  String?        @db.Text
   long_description   String?        @db.Text
-  price              Decimal?       @db.Decimal(10, 2)
   status             ContentStatus  @default(draft)
   sort_order         Int?
 

@@ -61,24 +61,20 @@ export class AuthService {
     const payload = this.getAccessTokenPayload(user)
 
     const access_token = await this.jwtService.signAsync(payload, {
-      expiresIn: '15m',
-      secret: this.configService.get<string>('JWT_ACCESS_TOKEN_SECRET') || process.env.JWT_ACCESS_TOKEN_SECRET
+      expiresIn: this.configService.get('JWT_ACCESS_TOKEN_EXPIRATION'),
+      secret: this.configService.get('JWT_ACCESS_TOKEN_SECRET')
     })
 
-    const refreshSecret =
-      this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET') || process.env.JWT_REFRESH_TOKEN_SECRET
+    const refreshSecret = this.configService.get('JWT_REFRESH_TOKEN_SECRET')
     const refreshPayload = { ...payload, jti }
-
     const refresh_token = await this.jwtService.signAsync(refreshPayload, {
-      expiresIn: '30d',
+      expiresIn: this.configService.get('JWT_REFRESH_TOKEN_EXPIRATION'),
       secret: refreshSecret
     })
 
     const tokenHash = await argon.hash(refresh_token)
     const expiresAt = new Date()
-    const expiresSec = Number(
-      this.configService.get<number>('JWT_REFRESH_TOKEN_EXPIRES_IN_SECONDS') || 60 * 60 * 24 * 30
-    )
+    const expiresSec = Number(this.configService.get('JWT_REFRESH_TOKEN_EXPIRES_IN_SECONDS'))
     expiresAt.setSeconds(expiresAt.getSeconds() + expiresSec)
 
     await this.prisma.refreshToken.create({
@@ -90,12 +86,11 @@ export class AuthService {
       }
     })
 
-    return { access_token, refresh_token }
+    return { access_token, refresh_token, role: user.role }
   }
 
   async refreshToken(oldRefreshToken: string) {
-    const refreshSecret =
-      this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET') || process.env.JWT_REFRESH_TOKEN_SECRET
+    const refreshSecret = this.configService.get('JWT_REFRESH_TOKEN_SECRET')
     try {
       const decoded = await this.jwtService.verifyAsync(oldRefreshToken, {
         secret: refreshSecret
@@ -146,10 +141,10 @@ export class AuthService {
   }
 
   async logout(jti: string) {
-    await this.prisma.refreshToken.updateMany({
+    const result = await this.prisma.refreshToken.updateMany({
       where: { jti },
       data: { revoked: true }
     })
-    return { ok: true }
+    return result.count > 0
   }
 }

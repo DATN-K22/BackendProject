@@ -4,15 +4,16 @@ import { AppService } from './app.service'
 import { PrismaModule } from './prisma/prisma.module'
 import { AuthModule } from './modules/auth/auth.module'
 import { ConfigModule } from '@nestjs/config/dist/config.module'
-import { ScheduleModule } from './modules/schedule/schedule.module';
+import { ScheduleModule } from './modules/schedule/schedule.module'
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true
+      isGlobal: true,
+      envFilePath: '.env'
     }),
     PrismaModule,
-    AuthModule, 
+    AuthModule,
     ScheduleModule
   ],
   controllers: [AppController],

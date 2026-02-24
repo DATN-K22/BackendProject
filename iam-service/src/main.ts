@@ -1,22 +1,21 @@
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ConfigService } from '@nestjs/config';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
+import { ConfigService } from '@nestjs/config'
+import * as cookieParser from 'cookie-parser'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
 
-  const configService = app.get(ConfigService);
-  const swaggerConfig = new DocumentBuilder()
-  .setTitle('My API') 
-  .setDescription('API documentation')
-  .setVersion('1.0')
-  .build();
+  app.use(cookieParser())
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  const configService = app.get(ConfigService)
+  const swaggerConfig = new DocumentBuilder().setTitle('IAM Service API').build()
 
-    if (configService.get('NODE_ENV') !== 'production') {
-    SwaggerModule.setup('api/docs', app, document);
+  const document = SwaggerModule.createDocument(app, swaggerConfig)
+
+  if (configService.get('NODE_ENV') !== 'production') {
+    SwaggerModule.setup('api/docs', app, document)
   }
 
   await app.listen(process.env.PORT ?? 3001)

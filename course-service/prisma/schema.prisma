@@ -1,119 +1,109 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client-js"
-  engineType = "binary"
-  previewFeatures = ["multiSchema", "fullTextSearchPostgres"]
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres", "multiSchema"]
+  engineType      = "binary"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas = ["course_service"]
+  schemas  = ["course_service"]
+}
+
+model Course {
+  id                BigInt                   @id @default(autoincrement())
+  owner_id          String
+  title             String                   @db.VarChar(255)
+  short_description String?
+  long_description  String?
+  thumbnail_url     String?                  @db.VarChar(255)
+  price             Decimal                  @default(0) @db.Decimal(10, 2)
+  status            ContentStatus            @default(draft)
+  created_at        DateTime                 @default(now()) @db.Timestamptz(6)
+  enrollments       String[]
+  course_level      CourseLevel              @default(Beginner)
+  language          String                   @default("simple")
+  rating            Float                    @default(0)
+  fts_vector        Unsupported("tsvector")?
+  chapters          Chapter[]
+  forum             Forum?
+
+  @@schema("course_service")
+}
+
+model Chapter {
+  id                BigInt        @id @default(autoincrement())
+  course_id         BigInt?
+  resource_id       BigInt?
+  title             String        @db.VarChar(255)
+  short_description String?
+  long_description  String?
+  status            ContentStatus @default(draft)
+  sort_order        Int?
+  course            Course?       @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  lessons           Lesson[]
+
+  @@schema("course_service")
+}
+
+model Lesson {
+  id                BigInt        @id @default(autoincrement())
+  chapter_id        BigInt
+  title             String        @db.VarChar(255)
+  short_description String?
+  long_description  String?
+  thumbnail_url     String?       @db.VarChar(255)
+  status            ContentStatus @default(published)
+  sort_order        Int?
+  resources         BigInt[]
+  chapter           Chapter       @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
+
+  @@schema("course_service")
+}
+
+model Forum {
+  id                BigInt    @id @default(autoincrement())
+  course_id         BigInt    @unique
+  short_description String?   @db.VarChar(255)
+  long_description  String?
+  thumbnail_url     String?   @db.VarChar(255)
+  course            Course    @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  messages          Message[]
+
+  @@schema("course_service")
+}
+
+model Message {
+  id                BigInt    @id @default(autoincrement())
+  forum_id          BigInt
+  user_id           BigInt?
+  parent_message_id BigInt?
+  content           String
+  open_time         DateTime? @db.Timestamptz(6)
+  closed_time       DateTime? @db.Timestamptz(6)
+  status            String    @default("active") @db.VarChar(50)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  forum             Forum     @relation(fields: [forum_id], references: [id], onDelete: Cascade)
+  parent_message    Message?  @relation("MessageReplies", fields: [parent_message_id], references: [id], onDelete: Cascade)
+  replies           Message[] @relation("MessageReplies")
+
+  @@schema("course_service")
 }
 
 enum ContentStatus {
   draft
   published
   archived
+
   @@schema("course_service")
 }
 
 enum CourseLevel {
   Beginner
-  Intermediate 
+  Intermediate
   Advanced
   Expert
   AllLevels
-  @@schema("course_service")
-}
 
-
-model Course {
-  id                 BigInt         @id @default(autoincrement())
-  owner_id           String        // References user from iam-service
-  title              String         @db.VarChar(255)
-  short_description  String?        @db.Text
-  long_description   String?        @db.Text
-  thumbnail_url      String?        @db.VarChar(255)
-  price              Decimal        @default(0) @db.Decimal(10, 2)
-  status             ContentStatus  @default(draft)
-  created_at         DateTime       @default(now()) @db.Timestamptz
-  course_level       CourseLevel    @default(Beginner)
-  rating             Float          @default(0)
-  language           String         @default("simple")
-  fts_vector         Unsupported("tsvector")?
-  // Relations
-  enrollments        String[]
-  chapters           Chapter[]
-  forum              Forum?
-  @@schema("course_service")
-}
-
-
-model Chapter {
-  id                 BigInt         @id @default(autoincrement())
-  course_id          BigInt?
-  resource_id        BigInt?
-  title              String         @db.VarChar(255)
-  short_description  String?        @db.Text
-  long_description   String?        @db.Text
-  status             ContentStatus  @default(draft)
-  sort_order         Int?
-
-  // Relations
-  course             Course?        @relation(fields: [course_id], references: [id], onDelete: Cascade)
-  lessons            Lesson[]
-  @@schema("course_service")
-}
-
-model Lesson {
-  id                 BigInt         @id @default(autoincrement())
-  chapter_id         BigInt
-  title              String         @db.VarChar(255)
-  short_description  String?        @db.Text
-  long_description   String?        @db.Text
-  thumbnail_url      String?        @db.VarChar(255)
-  status             ContentStatus  @default(published)
-  sort_order         Int?
-
-  // Relations
-  chapter            Chapter        @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
-  resources          BigInt[]
-  @@schema("course_service")
-}
-
-model Forum {
-  id                 BigInt         @id @default(autoincrement())
-  course_id          BigInt         @unique
-  short_description  String?        @db.VarChar(255)
-  long_description   String?        @db.Text
-  thumbnail_url      String?        @db.VarChar(255)
-
-  // Relations
-  course             Course         @relation(fields: [course_id], references: [id], onDelete: Cascade)
-  messages           Message[]
-  @@schema("course_service")
-}
-
-model Message {
-  id                  BigInt    @id @default(autoincrement())
-  forum_id            BigInt
-  user_id             BigInt?   // References user from iam-service
-  parent_message_id   BigInt?
-  content             String    @db.Text
-  open_time           DateTime? @db.Timestamptz
-  closed_time         DateTime? @db.Timestamptz
-  status              String    @default("active") @db.VarChar(50)
-  created_at          DateTime  @default(now()) @db.Timestamptz
-
-  // Relations
-  forum               Forum     @relation(fields: [forum_id], references: [id], onDelete: Cascade)
-  parent_message      Message?  @relation("MessageReplies", fields: [parent_message_id], references: [id], onDelete: Cascade)
-  replies             Message[] @relation("MessageReplies")
   @@schema("course_service")
 }

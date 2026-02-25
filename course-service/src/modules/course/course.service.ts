@@ -15,9 +15,9 @@ export class CourseService {
   //   return this.courseRepository.findAll(offset, limit);
   // }
 
-  async getTopRatingCourse(offset: number, limit: number) {
-    return this.courseRepository.getTopRatingCourse(offset, limit)
-  }
+  // async getTopRatingCourse(offset: number, limit: number) {
+  //   return this.courseRepository.getTopRatingCourse(offset, limit)
+  // }
 
   async getLatestIncompleteCourseForUser(userId: string) {
     // get latest incomplete course list for user

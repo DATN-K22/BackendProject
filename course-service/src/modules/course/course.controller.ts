@@ -96,13 +96,13 @@ export class CourseController {
     )
   }
 
-  @Get('/top-rating')
-  async getTopRatingCourses() {
-    return ApiResponse.OkResponse(
-      await this.courseService.getTopRatingCourse(0, 5),
-      'Get top rating courses successfully'
-    )
-  }
+  // @Get('/top-rating')
+  // async getTopRatingCourses() {
+  //   return ApiResponse.OkResponse(
+  //     await this.courseService.getTopRatingCourse(0, 5),
+  //     'Get top rating courses successfully'
+  //   )
+  // }
 
   @Delete(':id')
   remove(@Param('id') id: string) {

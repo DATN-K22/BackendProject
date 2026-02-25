@@ -21,7 +21,6 @@ enum ContentStatus {
 enum CourseLevel {
   Beginner
   Intermediate
-  Intermediate
   Advanced
   Expert
   AllLevels

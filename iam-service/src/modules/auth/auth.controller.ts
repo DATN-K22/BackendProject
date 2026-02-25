@@ -25,7 +25,7 @@ import { ApiResponse } from '../../utils/dto/ApiResponse'
     transformOptions: { enableImplicitConversion: true }
   })
 )
-@ApiTags("Authentication management")
+@ApiTags('Authentication management')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -40,7 +40,7 @@ export class AuthController {
       maxAge: 1000 * 60 * 60 * 24 * 30
     })
 
-    return ApiResponse.OkResponse({ 
+    return ApiResponse.OkResponse({
       accessToken: tokens.access_token
     })
   }
@@ -48,7 +48,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('signin')
   async signin(@Body() dto: AuthSignInDto, @Res({ passthrough: true }) res: Response) {
-    const tokens = await this.authService.signin(dto)
+    const { tokens, user } = await this.authService.signin(dto)
 
     res.cookie('refreshToken', tokens.refresh_token, {
       httpOnly: true,
@@ -57,8 +57,9 @@ export class AuthController {
       maxAge: 1000 * 60 * 60 * 24 * 30
     })
 
-    return ApiResponse.OkResponse({ 
-      accessToken: tokens.access_token
+    return ApiResponse.OkResponse({
+      accessToken: tokens.access_token,
+      user: user
     })
   }
 

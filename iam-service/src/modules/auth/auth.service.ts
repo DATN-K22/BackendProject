@@ -42,7 +42,16 @@ export class AuthService {
 
   async signin(dto: AuthSignInDto) {
     const user = await this.prisma.users.findUnique({
-      where: { email: dto.email }
+      where: { email: dto.email },
+      select: {
+        id: true,
+        email: true,
+        password_hash: true,
+        first_name: true,
+        last_name: true,
+        role: true,
+        avt_url: true
+      }
     })
     if (!user) {
       throw new ForbiddenException('Credentials incorrect')
@@ -53,7 +62,17 @@ export class AuthService {
       throw new ForbiddenException('Credentials incorrect')
     }
 
-    return this.createTokensForUser(user)
+    return {
+      tokens: await this.createTokensForUser(user),
+      user: {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        role: user.role,
+        avt_url: user.avt_url
+      }
+    }
   }
 
   private async createTokensForUser(user: any) {

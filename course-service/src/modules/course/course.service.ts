@@ -11,8 +11,19 @@ export class CourseService {
     return this.courseRepository.create(createCourseDto);
   }
 
-  async findAll(offset: number, limit: number) {
-    return this.courseRepository.findAll(offset, limit);
+  // async findAll(offset: number, limit: number) {
+  //   return this.courseRepository.findAll(offset, limit);
+  // }
+
+  async getTopRatingCourse(offset: number, limit: number) {
+    return this.courseRepository.getTopRatingCourse(offset, limit);
+  }
+
+  async getLatestIncompleteCourseForUser(userId: string) {
+    // get latest incomplete course list for user
+    // Don't have the progress field in course table, so we need to get the progress from enrollment table and filter the courses that have progress < 100%
+    // get creator of each course and return with creator info
+    return this.courseRepository.getLatestIncompleteCourseForUser(userId);
   }
 
   findOne(id: number) {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Request } from '@nestjs/common';
 import { CourseService } from './course.service';
 import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiResponse } from '../../utils/dto/ApiResponse';
@@ -8,7 +8,7 @@ import { PaginationDto } from '../../utils/dto/PagnitionDto';
 import { ApiSuccessResponse } from '../../utils/helper/api-success-response.decorator';
 import { CoursesListResponse } from './dto/response/CourseslListResponse';
 
-@Controller('course')
+@Controller('courses')
 @ApiTags('Course Management APIsl')
 export class CourseController {
   constructor(private readonly courseService: CourseService) {}
@@ -43,15 +43,15 @@ export class CourseController {
     return ApiResponse.OkCreateResponse(await this.courseService.create(createCourseDto), 'Create Course successfully');
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Get all courses', description: 'Retrieve a list of all available courses with pagnition' })
-  @ApiBody({
-    type: PaginationDto
-  })
-  @ApiSuccessResponse(CoursesListResponse)
-  async findAll(@Query('offset') offset: string, @Query('limit') limit: string) {
-    return ApiResponse.OkResponse(await this.courseService.findAll(+offset, +limit), 'Get all courses successfully');
-  }
+  // @Get()
+  // @ApiOperation({ summary: 'Get all courses', description: 'Retrieve a list of all available courses with pagnition' })
+  // @ApiBody({
+  //   type: PaginationDto
+  // })
+  // @ApiSuccessResponse(CoursesListResponse)
+  // async findAll(@Query('offset') offset: string, @Query('limit') limit: string) {
+  //   return ApiResponse.OkResponse(await this.courseService.findAll(+offset, +limit), 'Get all courses successfully');
+  // }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
@@ -86,6 +86,22 @@ export class CourseController {
   })
   async update(@Param('id') id: string, @Body() updateCourseDto: UpdateCourseDto) {
     return ApiResponse.OkResponse(await this.courseService.update(+id, updateCourseDto), 'Update course successfully');
+  }
+
+  @Get('/user/:id/courses/incomplete/latest')
+  async getLatestIncompleteCourseForUser(@Param('id') userId: string) {
+    return ApiResponse.OkResponse(
+      await this.courseService.getLatestIncompleteCourseForUser(userId),
+      'Get latest incomplete course for user successfully'
+    );
+  }
+
+  @Get('/top-rating')
+  async getTopRatingCourses() {
+    return ApiResponse.OkResponse(
+      await this.courseService.getTopRatingCourse(0, 5),
+      'Get top rating courses successfully'
+    );
   }
 
   @Delete(':id')

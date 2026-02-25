@@ -10,7 +10,8 @@ import { UserModule } from './modules/user/user.module'
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true
+      isGlobal: true,
+      envFilePath: '.env'
     }),
     PrismaModule,
     AuthModule,

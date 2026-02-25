@@ -11,7 +11,7 @@ import {
   UnauthorizedException
 } from '@nestjs/common'
 import { AuthService } from './auth.service'
-import { AuthSignInDto, AuthSignUpDto } from './dto/auth.dto'
+import { AuthRefeshTokenDto, AuthSignInDto, AuthSignUpDto, JtiDto } from './dto/auth.dto'
 import { Request, Response } from 'express'
 import { ApiTags } from '@nestjs/swagger'
 import { ApiResponse } from '../../utils/dto/ApiResponse'
@@ -26,12 +26,13 @@ import { ApiResponse } from '../../utils/dto/ApiResponse'
   })
 )
 @ApiTags('Authentication management')
+@ApiTags('Authentication management')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
   async signup(@Body() dto: AuthSignUpDto, @Res({ passthrough: true }) res: Response) {
-    const tokens = await this.authService.signup(dto)
+    const { tokens, user } = await this.authService.signup(dto)
 
     res.cookie('refreshToken', tokens.refresh_token, {
       httpOnly: true,
@@ -41,7 +42,8 @@ export class AuthController {
     })
 
     return ApiResponse.OkResponse({
-      accessToken: tokens.access_token
+      accessToken: tokens.access_token,
+      user: user
     })
   }
 
@@ -66,11 +68,12 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
   async refreshToken(
-    @Body('refreshToken') refreshToken: string,
+    @Body() refreshToken: AuthRefeshTokenDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
-    const token = refreshToken || (req.cookies && req.cookies.refreshToken)
+    const token = refreshToken.refreshToken
+    console.log('Received refresh token from cookie:', token) // Debug log
     if (!token) throw new UnauthorizedException('No refresh token provided')
 
     const tokens = await this.authService.refreshToken(token)
@@ -82,13 +85,19 @@ export class AuthController {
       maxAge: 1000 * 60 * 60 * 24 * 30
     })
 
-    return { access_token: tokens.access_token }
+    return { access_token: tokens.access_token, refresh_token: tokens.refresh_token }
   }
 
   @Post('logout')
-  async logout(@Body('jti') jti: string, @Res({ passthrough: true }) res: Response) {
-    if (jti) await this.authService.logout(jti)
-    res.clearCookie('refreshToken', { path: '/auth/refresh' })
-    return { ok: true }
+  async logout(@Body() jti: JtiDto, @Res({ passthrough: true }) res: Response) {
+    if (jti) {
+      const result = await this.authService.logout(jti.jti)
+      if (result == true) {
+        res.clearCookie('refreshToken', { path: '/auth/refresh' })
+        return { ok: true }
+      }
+    } else {
+      throw new UnauthorizedException('No jti provided')
+    }
   }
 }

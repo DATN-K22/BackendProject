@@ -31,7 +31,17 @@ export class AuthService {
         }
       })
 
-      return this.createTokensForUser(user)
+      return {
+        tokens: await this.createTokensForUser(user),
+        user: {
+          id: user.id,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          role: user.role,
+          avt_url: user.avt_url
+        }
+      }
     } catch (error) {
       if (error?.code === 'P2002') {
         throw new ForbiddenException('Email already exists')
@@ -53,7 +63,17 @@ export class AuthService {
       throw new ForbiddenException('Credentials incorrect')
     }
 
-    return this.createTokensForUser(user)
+    return {
+      tokens: await this.createTokensForUser(user),
+      user: {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        role: user.role,
+        avt_url: user.avt_url
+      }
+    }
   }
 
   private async createTokensForUser(user: any) {

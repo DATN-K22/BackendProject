@@ -24,7 +24,7 @@ export class ApiResponse<T> {
     timestamp: string;
 
     static OkResponse(message: string, data: any, code: number = 2000) {
-        return new ApiResponse(true, 2000, message, data);
+        return new ApiResponse(true, code, message, data);
     }
 
     static OkCreateResponse(message: string, data: any, code: number = 2001) {

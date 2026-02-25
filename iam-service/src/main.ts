@@ -9,8 +9,27 @@ async function bootstrap() {
 
   app.use(cookieParser())
 
+  // 1. Cấu hình CORS
+  app.enableCors({
+    origin: true, // Cho phép tất cả các nguồn (hoặc điền mảng domain cụ thể)
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true
+  })
+
   const configService = app.get(ConfigService)
-  const swaggerConfig = new DocumentBuilder().setTitle('IAM Service API').build()
+
+  // 2. Swagger
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('My API')
+    .setDescription('API documentation')
+    .setVersion('1.0')
+    .addBearerAuth({
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+      in: 'header'
+    })
+    .build()
 
   const document = SwaggerModule.createDocument(app, swaggerConfig)
 
@@ -22,5 +41,5 @@ async function bootstrap() {
 }
 
 bootstrap()
-  .then(() => {})
-  .catch((err) => {})
+  .then(() => console.log(`Application is running at port ${process.env.PORT}`))
+  .catch((err) => console.error(err))

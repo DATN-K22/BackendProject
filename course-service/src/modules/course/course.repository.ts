@@ -36,23 +36,25 @@ export class CourseRepositoy {
     };
   }
 
-  async findAll(offset: number, limit: number) {
-    const [courses, totalItems] = await Promise.all([
-      this.prismaService.course.findMany({
-        skip: offset,
-        take: limit,
-        orderBy: { created_at: 'desc' }
-      }),
-      this.prismaService.course.count()
-    ]);
-    return {
-      courses,
-      page: {
-        total_pages: Math.ceil(totalItems / limit),
-        total_items: totalItems,
-        offset: offset,
-        limit: limit
-      }
-    };
-  }
+  // async findAll(offset: number, limit: number) {
+  //   const [courses, totalItems] = await Promise.all([
+  //     this.prismaService.course.findMany({
+  //       skip: offset,
+  //       take: limit,
+  //       orderBy: { created_at: 'desc' }
+  //     }),
+  //     this.prismaService.course.count()
+  //   ]);
+  //   return {
+  //     courses,
+  //     page: {
+  //       total_pages: Math.ceil(totalItems / limit),
+  //       total_items: totalItems,
+  //       offset: offset,
+  //       limit: limit
+  //     }
+  //   };
+  // }
+
+  async getLatestIncompleteCourseForUser(userId: string) {}
 }

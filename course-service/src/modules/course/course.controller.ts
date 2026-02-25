@@ -1,12 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Request } from '@nestjs/common';
-import { CourseService } from './course.service';
-import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiResponse } from '../../utils/dto/ApiResponse';
-import { CreateCourseDto } from './dto/request/create-course.dto';
-import { UpdateCourseDto } from './dto/request/update-course.dto';
-import { PaginationDto } from '../../utils/dto/PagnitionDto';
-import { ApiSuccessResponse } from '../../utils/helper/api-success-response.decorator';
-import { CoursesListResponse } from './dto/response/CourseslListResponse';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Request } from '@nestjs/common'
+import { CourseService } from './course.service'
+import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { ApiResponse } from '../../utils/dto/ApiResponse'
+import { CreateCourseDto } from './dto/request/create-course.dto'
+import { UpdateCourseDto } from './dto/request/update-course.dto'
+import { PaginationDto } from '../../utils/dto/PagnitionDto'
+import { ApiSuccessResponse } from '../../utils/helper/api-success-response.decorator'
+import { CoursesListResponse } from './dto/response/CourseslListResponse'
 
 @Controller('courses')
 @ApiTags('Course Management APIsl')
@@ -40,7 +40,7 @@ export class CourseController {
     }
   })
   async create(@Body() createCourseDto: CreateCourseDto) {
-    return ApiResponse.OkCreateResponse(await this.courseService.create(createCourseDto), 'Create Course successfully');
+    return ApiResponse.OkCreateResponse(await this.courseService.create(createCourseDto), 'Create Course successfully')
   }
 
   // @Get()
@@ -55,7 +55,7 @@ export class CourseController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.courseService.findOne(+id);
+    return this.courseService.findOne(+id)
   }
 
   @Patch(':id')
@@ -85,7 +85,7 @@ export class CourseController {
     }
   })
   async update(@Param('id') id: string, @Body() updateCourseDto: UpdateCourseDto) {
-    return ApiResponse.OkResponse(await this.courseService.update(+id, updateCourseDto), 'Update course successfully');
+    return ApiResponse.OkResponse(await this.courseService.update(+id, updateCourseDto), 'Update course successfully')
   }
 
   @Get('/user/:id/courses/incomplete/latest')
@@ -93,7 +93,7 @@ export class CourseController {
     return ApiResponse.OkResponse(
       await this.courseService.getLatestIncompleteCourseForUser(userId),
       'Get latest incomplete course for user successfully'
-    );
+    )
   }
 
   @Get('/top-rating')
@@ -101,11 +101,11 @@ export class CourseController {
     return ApiResponse.OkResponse(
       await this.courseService.getTopRatingCourse(0, 5),
       'Get top rating courses successfully'
-    );
+    )
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.courseService.remove(+id);
+    return this.courseService.remove(+id)
   }
 }

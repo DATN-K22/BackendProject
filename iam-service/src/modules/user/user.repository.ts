@@ -18,4 +18,26 @@ export class UserRespository {
       throw new InternalServerErrorException('Failed to find user')
     }
   }
+
+  async findByIds(ids: string[]) {
+    try {
+      const users = await this.prismaService.users.findMany({
+        where: {
+          id: {
+            in: ids
+          }
+        },
+        select: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          avt_url: true
+        }
+      })
+      return users
+    } catch (error) {
+      this.logger.error(`Failed to find users by ids ${ids}`, error.stack)
+      throw new InternalServerErrorException('Failed to find users')
+    }
+  }
 }

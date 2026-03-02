@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { ConfigService } from '@nestjs/config'
+import { Transport, MicroserviceOptions } from '@nestjs/microservices'
 import * as cookieParser from 'cookie-parser'
 
 async function bootstrap() {
@@ -9,16 +10,24 @@ async function bootstrap() {
 
   app.use(cookieParser())
 
-  // 1. Cấu hình CORS
   app.enableCors({
-    origin: true, // Cho phép tất cả các nguồn (hoặc điền mảng domain cụ thể)
+    origin: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true
   })
 
   const configService = app.get(ConfigService)
 
-  // 2. Swagger
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.TCP,
+    options: {
+      host: 'localhost',
+      port: configService.get<number>('TCP_PORT', 4001)
+    }
+  })
+
+  await app.startAllMicroservices()
+
   const swaggerConfig = new DocumentBuilder()
     .setTitle('My API')
     .setDescription('API documentation')
@@ -37,9 +46,8 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document)
   }
 
-  await app.listen(process.env.PORT ?? 3001)
+  const port = configService.get<number>('PORT', 3001)
+  await app.listen(port)
 }
 
 bootstrap()
-  .then(() => console.log(`Application is running at port ${process.env.PORT}`))
-  .catch((err) => console.error(err))

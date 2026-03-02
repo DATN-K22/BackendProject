@@ -29,7 +29,7 @@ OPENAPI_SPEC: dict = {
         ),
         "version": "1.0.0",
     },
-    "servers": [{"url": "http://localhost:8080", "description": "Local dev"}],
+    "servers": [{"url": "/", "description": "Current origin"}],
     "tags": [
         {"name": "Health", "description": "Liveness and readiness probes"},
         {"name": "A2A", "description": "Agent-to-Agent JSON-RPC 2.0 endpoints"},

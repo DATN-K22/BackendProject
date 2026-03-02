@@ -13,6 +13,11 @@ async function bootstrap() {
 
   app.useGlobalPipes(AppValidationPipe)
   app.useGlobalFilters(new GlobalExceptionFilter())
+  app.enableCors({
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true
+  })
   const configService = app.get(ConfigService)
 
   const swaggerConfig = new DocumentBuilder().setTitle('Course Service API').build()

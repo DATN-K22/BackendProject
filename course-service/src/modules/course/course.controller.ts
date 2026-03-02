@@ -1,14 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Request } from '@nestjs/common'
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Headers } from '@nestjs/common'
 import { CourseService } from './course.service'
 import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { ApiResponse } from '../../utils/dto/ApiResponse'
 import { CreateCourseDto } from './dto/request/create-course.dto'
 import { UpdateCourseDto } from './dto/request/update-course.dto'
-import { PaginationDto } from '../../utils/dto/PagnitionDto'
-import { ApiSuccessResponse } from '../../utils/helper/api-success-response.decorator'
-import { CoursesListResponse } from './dto/response/CourseslListResponse'
+import { IncompleteCourse } from './dto/response/IncompleteCourseResponse'
+import { CourseDetailResponse } from './dto/response/CourseDetailResponse'
 
-@Controller('courses')
+@Controller('course')
 @ApiTags('Course Management APIsl')
 export class CourseController {
   constructor(private readonly courseService: CourseService) {}
@@ -54,8 +53,10 @@ export class CourseController {
   // }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.courseService.findOne(+id)
+  @ApiOperation({ summary: 'Get the detail information of a course by its id' })
+  @ApiOkResponse({ type: CourseDetailResponse })
+  async findOne(@Headers('x-user-id') userId: string, @Param('id') id: string) {
+    return ApiResponse.OkResponse(await this.courseService.findOne(id, userId), "Get course's detail successfully")
   }
 
   @Patch(':id')
@@ -88,21 +89,28 @@ export class CourseController {
     return ApiResponse.OkResponse(await this.courseService.update(+id, updateCourseDto), 'Update course successfully')
   }
 
-  @Get('/user/:id/courses/incomplete/latest')
-  async getLatestIncompleteCourseForUser(@Param('id') userId: string) {
+  @Get('/me/latest-incomplete')
+  @ApiOperation({ summary: "Get all the latest courses that user hasn't finished yet" })
+  @ApiOkResponse({ type: [IncompleteCourse] })
+  async getLatestIncompleteCourseForUser(
+    @Query('offset') offset: string = '0',
+    @Headers('x-user-id') userId: string,
+    @Query('limit') limit: string = '10'
+  ) {
     return ApiResponse.OkResponse(
-      await this.courseService.getLatestIncompleteCourseForUser(userId),
+      await this.courseService.getLatestIncompleteCourseForUser(userId, +offset, +limit),
       'Get latest incomplete course for user successfully'
     )
   }
 
-  // @Get('/top-rating')
-  // async getTopRatingCourses() {
-  //   return ApiResponse.OkResponse(
-  //     await this.courseService.getTopRatingCourse(0, 5),
-  //     'Get top rating courses successfully'
-  //   )
-  // }
+  @Get('/me/recommendation')
+  @ApiOperation({ summary: 'Get courses that is recommended for user' })
+  async getRecommendationCourses(@Query('offset') offset: string = '0', @Query('limit') limit: string = '10') {
+    return ApiResponse.OkResponse(
+      await this.courseService.getRecommendationCourses(+offset, +limit),
+      `Get recommendation courses successfully`
+    )
+  }
 
   @Delete(':id')
   remove(@Param('id') id: string) {

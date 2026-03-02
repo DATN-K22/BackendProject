@@ -5,16 +5,15 @@ import { UpdateUserDto } from './dto/update-user.dto'
 import { ApiResponse } from '../../utils/dto/ApiResponse'
 import { ApiBearerAuth } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { MessagePattern, Payload } from '@nestjs/microservices'
 
 @Controller('user')
-@UseGuards(JwtAuthGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Get('me')
-  @ApiBearerAuth()
-  async getMe(@Request() req: any) {
-    return this.userService.getMe(req)
+  @MessagePattern('iam.user.findByIds')
+  async findByIds(@Payload() users_ids: string[]): Promise<any[]> {
+    return this.userService.findByIds(users_ids)
   }
 
   @Post()

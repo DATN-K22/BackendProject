@@ -8,6 +8,7 @@ import { ChapterModule } from './modules/chapter/chapter.module'
 import { LessonModule } from './modules/lesson/lesson.module'
 import { ForumModule } from './modules/forum/forum.module'
 import { MessageModule } from './modules/message/message.module'
+import { IamModule } from './modules/iam/iam.module'
 
 @Module({
   imports: [
@@ -20,7 +21,8 @@ import { MessageModule } from './modules/message/message.module'
     ChapterModule,
     LessonModule,
     ForumModule,
-    MessageModule
+    MessageModule,
+    IamModule
   ],
   controllers: [AppController],
   providers: [AppService]

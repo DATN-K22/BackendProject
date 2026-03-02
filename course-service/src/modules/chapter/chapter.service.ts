@@ -2,10 +2,14 @@ import { Injectable } from '@nestjs/common'
 import { CreateChapterDto } from './dto/create-chapter.dto'
 import { PrismaService } from '../prisma/prisma.service'
 import { UpdateChapterDto } from './dto/update-chapter.dto'
+import { ChapterRepository } from './chaper.repository'
 
 @Injectable()
 export class ChapterService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly chapterRepository: ChapterRepository
+  ) {}
 
   create(dto: CreateChapterDto) {
     return this.prisma.chapter.create({
@@ -17,25 +21,45 @@ export class ChapterService {
     })
   }
 
-  findAll(params: { skip?: number; take?: number; courseId?: bigint }) {
-    const { skip, take, courseId } = params
-    return this.prisma.chapter.findMany({
-      skip,
-      take,
-      where: courseId ? { course_id: courseId } : undefined,
-      orderBy: [{ sort_order: 'asc' }, { id: 'asc' }],
-      include: {
-        course: {
-          select: {
-            id: true,
-            title: true
-          }
-        },
-        lessons: {
-          orderBy: { sort_order: 'asc' }
+  async findAll(courseId: bigint, userId: string) {
+    const records = await this.chapterRepository.findAll(courseId, userId)
+
+    let courseProgressSum = 0
+    let progressChapterCount = 0
+
+    const chapters = records.map((chapter) => {
+      const totalLessons = chapter.lessons.length
+
+      if (totalLessons === 0) {
+        return {
+          ...chapter,
+          progress: 0
         }
       }
+
+      let finishedCount = 0
+      for (const lesson of chapter.lessons) {
+        if (lesson.isFinished) finishedCount++
+      }
+
+      const chapterProgress = (finishedCount / totalLessons) * 100
+
+      courseProgressSum += chapterProgress
+      progressChapterCount++
+
+      return {
+        ...chapter,
+        progress: Number(chapterProgress.toFixed(2))
+      }
     })
+
+    const courseProgress =
+      progressChapterCount === 0 ? 0 : Number((courseProgressSum / progressChapterCount).toFixed(2))
+
+    return {
+      chapters,
+      progress: courseProgress
+    }
   }
 
   findOne(id: string) {

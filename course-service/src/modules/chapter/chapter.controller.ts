@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, Query } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger'
 import { ChapterService } from './chapter.service'
 import { CreateChapterDto } from './dto/create-chapter.dto'
 import { UpdateChapterDto } from './dto/update-chapter.dto'
+import { ApiResponse as ApiSwaggerResponse } from '../../utils/dto/ApiResponse'
 
 @ApiTags('Chapters')
 @Controller('chapters')
@@ -18,15 +19,11 @@ export class ChapterController {
 
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách chapters' })
-  @ApiQuery({ name: 'skip', required: false, type: Number })
-  @ApiQuery({ name: 'take', required: false, type: Number })
-  @ApiQuery({ name: 'course_id', required: false, type: String })
-  findAll(@Query('skip') skip?: string, @Query('take') take?: string, @Query('course_id') courseId?: string) {
-    return this.chapterService.findAll({
-      skip: skip ? Number(skip) : undefined,
-      take: take ? Number(take) : undefined,
-      courseId: courseId ? BigInt(courseId) : undefined
-    })
+  async findAll(@Headers('x-user-id') userId: string, @Query('course_id') courseId?: string) {
+    return ApiSwaggerResponse.OkResponse(
+      await this.chapterService.findAll(courseId ? BigInt(courseId) : undefined, userId),
+      'Get list of chapter by course id successfully'
+    )
   }
 
   @Get(':id')

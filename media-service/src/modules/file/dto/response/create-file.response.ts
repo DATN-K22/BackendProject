@@ -1,14 +1,14 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateFileResponse {
   @ApiProperty({ example: 1 })
-  id: number;
+  id: string;
 
   @ApiProperty({ example: 'lesson video' })
   title: string;
 
-  @ApiProperty({example: "video"})
-  type: string
+  @ApiProperty({ example: 'video' })
+  type: string;
 
   @ApiProperty({ example: 'https://cdn.xxx/thumb.png' })
   thumb: string | null;
@@ -26,5 +26,5 @@ export class CreateFileResponse {
   updated_at: Date;
 
   @ApiProperty({ example: 10, nullable: true })
-  lesson_id: number ;
+  lesson_id: number;
 }

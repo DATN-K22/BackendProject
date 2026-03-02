@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
+from starlette.authentication import AuthCredentials, SimpleUser
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -87,6 +88,10 @@ class GatewaySecurityMiddleware(BaseHTTPMiddleware):
             tenant_id=request.headers["x-tenant-id"],
             raw_headers=dict(request.headers),
         )
+        # Bridge gateway identity into Starlette auth scope so A2A/ADK can pick up
+        # call_context.user.user_name from request.user via DefaultCallContextBuilder.
+        request.scope["user"] = SimpleUser(request.state.security.user_id)
+        request.scope["auth"] = AuthCredentials(["authenticated"])
 
         response = await call_next(request)
         return response

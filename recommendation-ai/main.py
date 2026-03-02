@@ -13,7 +13,6 @@ warnings.filterwarnings("ignore", category=UserWarning, module="google.adk")
 
 import uvicorn
 from starlette.applications import Starlette
-from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
@@ -22,6 +21,7 @@ from starlette.routing import Route
 from google.adk.a2a.utils.agent_to_a2a import to_a2a
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
 
 # Local modules
 from agents.root_agent import create_root_agent
@@ -66,17 +66,29 @@ async def health_check(request: Request) -> JSONResponse:
 async def readiness_check(request: Request) -> JSONResponse:
     """Readiness check - verifies dependencies are available."""
     try:
-        # Check Redis connection if available
+        session_backend = getattr(request.app.state, "session_backend", "unknown")
         session_service = getattr(request.app.state, "session_service", None)
-        if session_service and hasattr(session_service, "_client"):
-            # Quick ping to verify Redis is responsive
+        if session_backend == "redis" and session_service and hasattr(session_service, "_client"):
             if session_service._client:
                 await session_service._client.ping()
-        
-        return JSONResponse({
-            "status": "ready",
-            "service": APP_NAME
-        })
+
+        if session_backend == "in-memory":
+            return JSONResponse(
+                {
+                    "status": "ready",
+                    "service": APP_NAME,
+                    "session_backend": session_backend,
+                    "mode": "degraded",
+                }
+            )
+
+        return JSONResponse(
+            {
+                "status": "ready",
+                "service": APP_NAME,
+                "session_backend": session_backend,
+            }
+        )
     except Exception as e:
         logger.error(f"Readiness check failed: {e}")
         return JSONResponse(
@@ -101,24 +113,21 @@ async def build_app() -> Starlette:
       5. Add health check routes
     """
 
-    # 1. Redis session service with error handling
+    # 1. Redis session service with in-memory fallback
     session_service = RedisSessionService(redis_url=REDIS_URL)
+    session_backend = "redis"
     try:
         await session_service.connect()
         logger.info("Redis session service connected at %s", REDIS_URL)
     except Exception as e:
         logger.error(f"Failed to connect to Redis at {REDIS_URL}: {e}")
-        logger.error("Service will start but session persistence will fail")
-        # In production, you might want to fail fast instead:
-        # raise RuntimeError(f"Cannot start without Redis: {e}") from e
+        logger.warning("Falling back to in-memory session service; sessions won't persist across restarts.")
+        session_service = InMemorySessionService()
+        session_backend = "in-memory"
 
-    # 2. Root agent (course_agent + schedule_agent as sub-agents)
+
     root_agent = create_root_agent()
 
-    # 3. to_a2a() — the ADK-native way to expose an agent via A2A protocol
-    #
-    #    Build a Runner with our custom session/artifact services first,
-    #    then pass it to to_a2a() via the runner= kwarg.
     runner = Runner(
         agent=root_agent,
         app_name=APP_NAME,
@@ -133,21 +142,12 @@ async def build_app() -> Starlette:
     )
     logger.info("to_a2a() wrapped root_agent as A2A Starlette app.")
 
-    # 4. Wrap with security middleware
-    #    Starlette middleware wraps the entire app, so every route — including
-    #    the A2A JSON-RPC endpoint and the agent card endpoint — is protected.
-    #    Requests that did not pass through the API gateway (missing the
-    #    X-Forwarded-By-Gateway header) are rejected with 401 before reaching
-    #    any ADK code.
     a2a_app.add_middleware(
         GatewaySecurityMiddleware,
         trusted_gateway_secret=os.getenv("GATEWAY_SHARED_SECRET"),
     )
     logger.info("GatewaySecurityMiddleware applied.")
 
-    # 5. Add health check routes
-    #    Mount health endpoints that bypass security middleware for k8s probes
-    #    We'll create a new route and mount it
     a2a_app.routes.insert(0, Route("/health", health_check, methods=["GET"]))
     a2a_app.routes.insert(1, Route("/ready", readiness_check, methods=["GET"]))
     for i, route in enumerate(DOCS_ROUTES):
@@ -155,8 +155,8 @@ async def build_app() -> Starlette:
     logger.info("Health check endpoints added at /health and /ready")
     logger.info("API docs available at /docs")
 
-    # Store session service in app state for readiness check
     a2a_app.state.session_service = session_service
+    a2a_app.state.session_backend = session_backend
 
     return a2a_app
 

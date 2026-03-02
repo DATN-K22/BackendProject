@@ -1,13 +1,3 @@
-"""
-session/redis_session_service.py
-
-ADK-compatible SessionService backed by Redis.
-Each session is stored as a JSON hash under the key:
-    session:{app_name}:{user_id}:{session_id}
-
-TTL is refreshed on every read/write.
-"""
-
 from __future__ import annotations
 
 import json
@@ -16,6 +6,7 @@ from datetime import timedelta
 from typing import Any, Dict, Optional
 
 import redis.asyncio as aioredis
+from google.adk.events import Event
 from google.adk.sessions import BaseSessionService, Session
 from google.adk.sessions.base_session_service import (
     GetSessionConfig,
@@ -98,11 +89,19 @@ class RedisSessionService(BaseSessionService):
         if raw is None:
             return None
         data = json.loads(raw)
+        events_data = data.get("events", [])
+        events = []
+        for e in events_data:
+            try:
+                events.append(Event.model_validate(e))
+            except Exception:
+                pass  # skip malformed events
         session = Session(
             id=data["id"],
             app_name=data["app_name"],
             user_id=data["user_id"],
             state=data.get("state", {}),
+            events=events,
         )
         # Refresh TTL on access
         await self._r.expire(key, int(self._ttl.total_seconds()))
@@ -139,6 +138,12 @@ class RedisSessionService(BaseSessionService):
     async def update_session(self, session: Session) -> None:
         await self._save(session)
 
+    async def append_event(self, session: Session, event: Event) -> Event:
+        """Persist a new event to the session and save to Redis."""
+        session.events.append(event)
+        await self._save(session)
+        return event
+
     async def delete_session(
         self,
         *,
@@ -153,12 +158,19 @@ class RedisSessionService(BaseSessionService):
 
     async def _save(self, session: Session) -> None:
         key = self._key(session.app_name, session.user_id, session.id)
+        events_serialized = []
+        for e in (session.events or []):
+            try:
+                events_serialized.append(e.model_dump(mode="json"))
+            except Exception:
+                pass  # skip non-serializable events
         payload = json.dumps(
             {
                 "id": session.id,
                 "app_name": session.app_name,
                 "user_id": session.user_id,
                 "state": session.state,
+                "events": events_serialized,
             }
         )
         await self._r.set(key, payload, ex=int(self._ttl.total_seconds()))

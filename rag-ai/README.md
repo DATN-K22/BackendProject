@@ -24,8 +24,36 @@ rag-ai/
   config/
     settings.py
   ingestion/
+    interfaces/
+      source_connector.py
+      data_loader.py
+      chunker.py
+      embedder.py
+      vector_store.py
+    events/
+      event_schema.py
+    models/
+      document.py
+    sources/
+      presigned_url_source.py
+    loaders/
+      plain_text_loader.py
+      pypdf_loader.py
+      pymupdf_loader.py
+    chunking/
+      text_chunker.py
+    embeddings/
+      openai_embedder.py
+    vector_stores/
+      qdrant_store.py
+    pipeline/
+      orchestrator.py
+      index_documents.py
+    file_loader.py
     index_documents.py
   retrieval/
+    stores/
+      qdrant_store.py
     qdrant_store.py
     retriever.py
   security/
@@ -63,3 +91,24 @@ python3 main.py
 - `GET /health`
 - `GET /ready`
 
+## Ingestion Event Model
+
+RAG service expects document-ingestion events from your media service:
+
+```json
+{
+  "document_id": "doc-123",
+  "presigned_url": "https://storage/...signature...",
+  "version": "1",
+  "tenant_id": "tenant-a",
+  "metadata": {
+    "uploaded_by": "user-1"
+  }
+}
+```
+
+Run ingestion manually for one event:
+
+```bash
+python -m ingestion.pipeline.index_documents '{"document_id":"doc-123","presigned_url":"https://...","version":"1"}'
+```

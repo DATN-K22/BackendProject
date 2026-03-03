@@ -4,7 +4,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 
 from config.settings import Settings
-from retrieval.qdrant_store import build_qdrant_client
+from retrieval.stores.qdrant_store import build_qdrant_client
 
 
 def build_retriever(settings: Settings):

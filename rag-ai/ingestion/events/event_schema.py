@@ -14,4 +14,14 @@ class DocumentUploadEvent:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "DocumentUploadEvent":
-        pass
+        metadata = payload.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            raise ValueError("metadata must be a dictionary")
+
+        return cls(
+            document_id=str(payload["document_id"]),
+            presigned_url=str(payload["presigned_url"]),
+            version=str(payload.get("version", "1")),
+            tenant_id=payload.get("tenant_id"),
+            metadata=metadata,
+        )

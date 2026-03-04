@@ -26,4 +26,40 @@ class IngestionOrchestrator:
         self.vector_store = vector_store
 
     def ingest(self, event: DocumentUploadEvent) -> int:
-        pass
+        blob = self.source_connector.fetch(
+            event.presigned_url,
+            document_id=event.document_id,
+            metadata={**event.metadata, "version": event.version},
+        )
+        if not self.data_loader.supports(blob):
+            raise ValueError(
+                f"No supported loader for content_type={blob.content_type} filename={blob.filename}"
+            )
+
+        parsed_document = self.data_loader.load(blob)
+        chunks = self.chunker.chunk(parsed_document)
+        if not chunks:
+            return 0
+
+        vectors = self.embedder.embed([chunk.text for chunk in chunks])
+        if len(vectors) != len(chunks):
+            raise ValueError(
+                "Embedder returned mismatched vector count: "
+                f"{len(vectors)} vectors for {len(chunks)} chunks"
+            )
+
+        points = [
+            VectorPoint(
+                point_id=chunk.chunk_id,
+                vector=vector,
+                payload={
+                    **chunk.metadata,
+                    "document_id": chunk.document_id,
+                    "chunk_id": chunk.chunk_id,
+                    "text": chunk.text,
+                },
+            )
+            for chunk, vector in zip(chunks, vectors, strict=True)
+        ]
+        self.vector_store.upsert(points, namespace=event.tenant_id)
+        return len(points)

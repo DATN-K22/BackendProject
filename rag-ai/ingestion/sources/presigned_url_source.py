@@ -20,7 +20,32 @@ class HttpPresignedUrlSource(SourceConnector):
         document_id: str,
         metadata: Mapping[str, Any] | None = None,
     ) -> DocumentBlob:
-        pass
+        request = Request(source_uri, method="GET")
+        with urlopen(request, timeout=self.timeout_seconds) as response:
+            content = response.read(self.max_bytes + 1)
+            if len(content) > self.max_bytes:
+                raise ValueError(
+                    f"File exceeds {self.max_bytes} bytes limit from source {source_uri}"
+                )
+            content_type = response.headers.get_content_type()
+            filename = _resolve_filename(response.headers.get("Content-Disposition"), source_uri)
+
+        return DocumentBlob(
+            document_id=document_id,
+            source_uri=source_uri,
+            content=content,
+            content_type=content_type,
+            filename=filename,
+            metadata=dict(metadata or {}),
+        )
+
 
 def _resolve_filename(content_disposition: str | None, source_uri: str) -> str:
-    pass
+    if content_disposition and "filename=" in content_disposition:
+        filename = content_disposition.split("filename=", 1)[1].strip('" ')
+        if filename:
+            return filename
+
+    path = urlparse(source_uri).path
+    tail = path.rsplit("/", 1)[-1]
+    return unquote(tail) if tail else "document"

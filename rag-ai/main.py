@@ -16,6 +16,7 @@ from starlette.routing import Route
 
 from agents.root_agent import create_root_agent
 from config.settings import load_settings
+from docs.openapi import DOCS_ROUTES
 from security.middleware import GatewaySecurityMiddleware
 from session.redis_session_service import RedisSessionService
 
@@ -64,20 +65,24 @@ async def build_app() -> Starlette:
         session_service = InMemorySessionService()
         session_backend = "in-memory"
 
-    root_agent = create_root_agent(settings.chat_model)
+    root_agent = create_root_agent(settings.chat_model, settings=settings)
     runner = Runner(
         agent=root_agent,
         app_name=settings.app_name,
         session_service=session_service,
         artifact_service=InMemoryArtifactService(),
     )
-    a2a_app: Starlette = to_a2a(root_agent, port=settings.port, runner=runner)
+    
+    a2a_app: Starlette = to_a2a(root_agent, port=settings.port, runner=runner,)
     a2a_app.add_middleware(
         GatewaySecurityMiddleware,
         trusted_gateway_secret=settings.gateway_shared_secret,
     )
     a2a_app.routes.insert(0, Route("/health", health_check, methods=["GET"]))
     a2a_app.routes.insert(1, Route("/ready", readiness_check, methods=["GET"]))
+    for i, route in enumerate(DOCS_ROUTES):
+        a2a_app.routes.insert(2 + i, route)
+    logger.info("API docs available at /docs")
     a2a_app.state.session_service = session_service
     a2a_app.state.session_backend = session_backend
     return a2a_app

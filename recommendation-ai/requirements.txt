@@ -1,5 +1,5 @@
 # ADK with A2A and extensions (LiteLLM) extras
-google-adk[a2a,extensions]>=1.0.0
+google-adk[a2a,extensions]>=1.26.0
 
 # Session store
 redis>=5.0.0

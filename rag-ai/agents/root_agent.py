@@ -4,6 +4,7 @@ from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
 
 from agents.rag_agent import create_rag_agent
+from config.settings import Settings
 
 
 ROOT_INSTRUCTION = """
@@ -15,11 +16,11 @@ Routing rules:
 """
 
 
-def create_root_agent(model_name: str) -> LlmAgent:
+def create_root_agent(model_name: str, settings: Settings | None = None) -> LlmAgent:
     return LlmAgent(
         name="rag_assistant",
         model=LiteLlm(model=model_name),
         instruction=ROOT_INSTRUCTION,
-        sub_agents=[create_rag_agent(model_name)],
+        sub_agents=[create_rag_agent(model_name, settings=settings)],
         description="Root orchestrator for the RAG AI service.",
     )

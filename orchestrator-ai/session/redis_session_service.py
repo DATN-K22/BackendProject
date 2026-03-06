@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 import uuid
 from datetime import timedelta
 from typing import Any, Dict, Optional
@@ -8,55 +10,41 @@ from typing import Any, Dict, Optional
 import redis.asyncio as aioredis
 from google.adk.events import Event
 from google.adk.sessions import BaseSessionService, Session
-from google.adk.sessions.base_session_service import (
-    GetSessionConfig,
-    ListSessionsResponse,
-)
+from google.adk.sessions.base_session_service import GetSessionConfig, ListSessionsResponse
 
 DEFAULT_TTL = timedelta(hours=2)
 KEY_PREFIX = "session"
+TRACE_SESSIONS = os.getenv("SESSION_TRACE", "false").lower() == "true"
+logger = logging.getLogger(__name__)
 
 
 class RedisSessionService(BaseSessionService):
-    def __init__(
-        self,
-        redis_url: str = "redis://localhost:6379/0",
-        ttl: timedelta = DEFAULT_TTL,
-    ):
+    def __init__(self, redis_url: str, ttl: timedelta = DEFAULT_TTL):
         self._redis_url = redis_url
         self._ttl = ttl
         self._client: Optional[aioredis.Redis] = None
 
-    # ------------------------------------------------------------------
-    # Lifecycle
-    # ------------------------------------------------------------------
-
     async def connect(self) -> None:
-        self._client = await aioredis.from_url(
-            self._redis_url, decode_responses=True
-        )
+        self._client = await aioredis.from_url(self._redis_url, decode_responses=True)
 
     async def close(self) -> None:
         if self._client:
             await self._client.aclose()
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
     @property
     def _r(self) -> aioredis.Redis:
         if self._client is None:
-            raise RuntimeError("RedisSessionService not connected – call connect().")
+            raise RuntimeError("RedisSessionService not connected - call connect().")
         return self._client
 
     @staticmethod
     def _key(app_name: str, user_id: str, session_id: str) -> str:
         return f"{KEY_PREFIX}:{app_name}:{user_id}:{session_id}"
 
-    # ------------------------------------------------------------------
-    # BaseSessionService interface
-    # ------------------------------------------------------------------
+    @staticmethod
+    def _trace(message: str, *args: Any) -> None:
+        if TRACE_SESSIONS:
+            logger.info("[session-trace] " + message, *args)
 
     async def create_session(
         self,
@@ -67,12 +55,8 @@ class RedisSessionService(BaseSessionService):
         session_id: Optional[str] = None,
     ) -> Session:
         session_id = session_id or str(uuid.uuid4())
-        session = Session(
-            id=session_id,
-            app_name=app_name,
-            user_id=user_id,
-            state=state or {},
-        )
+        self._trace("create_session app=%s user_id=%s session_id=%s", app_name, user_id, session_id)
+        session = Session(id=session_id, app_name=app_name, user_id=user_id, state=state or {})
         await self._save(session)
         return session
 
@@ -87,38 +71,27 @@ class RedisSessionService(BaseSessionService):
         key = self._key(app_name, user_id, session_id)
         raw = await self._r.get(key)
         if raw is None:
+            self._trace("get_session_miss key=%s", key)
             return None
         data = json.loads(raw)
-        events_data = data.get("events", [])
         events = []
-        for e in events_data:
+        for e in data.get("events", []):
             try:
                 events.append(Event.model_validate(e))
             except Exception:
-                pass  # skip malformed events
-        session = Session(
+                pass
+        await self._r.expire(key, int(self._ttl.total_seconds()))
+        self._trace("get_session_hit key=%s", key)
+        return Session(
             id=data["id"],
             app_name=data["app_name"],
             user_id=data["user_id"],
             state=data.get("state", {}),
             events=events,
         )
-        # Refresh TTL on access
-        await self._r.expire(key, int(self._ttl.total_seconds()))
-        return session
 
-    async def list_sessions(
-        self,
-        *,
-        app_name: str,
-        user_id: Optional[str] = None,
-    ) -> ListSessionsResponse:
-        # Scan keys matching session:{app_name}:{user_id}:* or session:{app_name}:*:*
-        if user_id:
-            pattern = self._key(app_name, user_id, "*")
-        else:
-            pattern = f"{KEY_PREFIX}:{app_name}:*"
-
+    async def list_sessions(self, *, app_name: str, user_id: Optional[str] = None) -> ListSessionsResponse:
+        pattern = self._key(app_name, user_id, "*") if user_id else f"{KEY_PREFIX}:{app_name}:*"
         sessions: list[Session] = []
         async for key in self._r.scan_iter(pattern):
             raw = await self._r.get(key)
@@ -146,7 +119,7 @@ class RedisSessionService(BaseSessionService):
             if not isinstance(key, str) or key.startswith("temp:"):
                 continue
             if value is None:
-                session.state.pop(key, None)   # optional delete semantics
+                session.state.pop(key, None)
             else:
                 session.state[key] = value
 
@@ -154,17 +127,9 @@ class RedisSessionService(BaseSessionService):
         await self._save(session)
         return event
 
-    async def delete_session(
-        self,
-        *,
-        app_name: str,
-        user_id: str,
-        session_id: str,
-    ) -> None:
+    async def delete_session(self, *, app_name: str, user_id: str, session_id: str) -> None:
         key = self._key(app_name, user_id, session_id)
         await self._r.delete(key)
-
-    # ------------------------------------------------------------------
 
     async def _save(self, session: Session) -> None:
         key = self._key(session.app_name, session.user_id, session.id)
@@ -173,7 +138,7 @@ class RedisSessionService(BaseSessionService):
             try:
                 events_serialized.append(e.model_dump(mode="json"))
             except Exception:
-                pass  # skip non-serializable events
+                pass
         payload = json.dumps(
             {
                 "id": session.id,

@@ -112,9 +112,21 @@ class RedisSessionService(BaseSessionService):
         await self._save(session)
 
     async def append_event(self, session: Session, event: Event) -> Event:
+        actions = getattr(event, "actions", None)
+        state_delta = getattr(actions, "state_delta", None) or {}
+
+        for key, value in state_delta.items():
+            if not isinstance(key, str) or key.startswith("temp:"):
+                continue
+            if value is None:
+                session.state.pop(key, None)   # optional delete semantics
+            else:
+                session.state[key] = value
+
         session.events.append(event)
         await self._save(session)
         return event
+
 
     async def delete_session(self, *, app_name: str, user_id: str, session_id: str) -> None:
         key = self._key(app_name, user_id, session_id)

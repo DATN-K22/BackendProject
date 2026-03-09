@@ -11,9 +11,9 @@ import { MessagePattern, Payload } from '@nestjs/microservices'
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @MessagePattern('iam.user.findByIds')
-  async findByIds(@Payload() users_ids: string[]): Promise<any[]> {
-    return this.userService.findByIds(users_ids)
+  @Post('find-by-ids')
+  async findByIds(@Body('user_ids') user_ids: string[]): Promise<any[]> {
+    return this.userService.findByIds(user_ids)
   }
 
   @Post()

@@ -81,7 +81,7 @@ model Lesson {
   id                BigInt        @id @default(autoincrement())
   chapter_id        BigInt
   title             String        @db.VarChar(255)
-  short_description String?       @db.Text // could be removed
+  short_description String?       @db.Text
   long_description  String?       @db.Text
   thumbnail_url     String?       @db.VarChar(255) // could be removed
   status            ContentStatus @default(published)
@@ -119,6 +119,7 @@ model LessonStatus {
 
   lesson Lesson @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
 
+  @@unique([user_id, lesson_id], name: "uq_lesson_status_user_lesson")
   @@index([user_id, updated_at(sort: Desc)], name: "idx_lesson_status_user_updated")
   @@index([lesson_id], name: "idx_lesson_status_lesson")
   @@schema("course_service")

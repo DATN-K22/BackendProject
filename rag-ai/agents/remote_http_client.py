@@ -18,7 +18,7 @@ def get_remote_agent_http_client() -> httpx.AsyncClient:
     global _remote_agent_http_client
     if _remote_agent_http_client is None:
         _remote_agent_http_client = httpx.AsyncClient(
-            timeout=httpx.Timeout(90.0),
+            timeout=httpx.Timeout(30.0),
             event_hooks={"request": [_inject_identity_headers]},
         )
     return _remote_agent_http_client

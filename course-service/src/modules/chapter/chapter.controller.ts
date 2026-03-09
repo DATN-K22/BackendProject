@@ -4,7 +4,6 @@ import { ChapterService } from './chapter.service'
 import { CreateChapterDto } from './dto/create-chapter.dto'
 import { UpdateChapterDto } from './dto/update-chapter.dto'
 import { ApiResponse as ApiSwaggerResponse } from '../../utils/dto/ApiResponse'
-
 @ApiTags('Chapters')
 @Controller('chapters')
 export class ChapterController {
@@ -17,13 +16,26 @@ export class ChapterController {
     return this.chapterService.create(dto)
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Lấy danh sách chapters' })
-  async findAll(@Headers('x-user-id') userId: string, @Query('course_id') courseId?: string) {
+  @Get('/TOC')
+  @ApiOperation({ summary: 'get list of chapters for table of content' })
+  async findAllChapterForTOC(@Headers('x-user-id') userId: string, @Query('course_id') courseId: string) {
     return ApiSwaggerResponse.OkResponse(
-      await this.chapterService.findAll(courseId ? BigInt(courseId) : undefined, userId),
+      await this.chapterService.findAllChapterForTOC(courseId, userId),
       'Get list of chapter by course id successfully'
     )
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Lấy danh sách chapters' })
+  @ApiQuery({ name: 'skip', required: false, type: Number })
+  @ApiQuery({ name: 'take', required: false, type: Number })
+  @ApiQuery({ name: 'course_id', required: false, type: String })
+  findAll(@Query('skip') skip?: string, @Query('take') take?: string, @Query('course_id') courseId?: string) {
+    return this.chapterService.findAll({
+      skip: skip ? Number(skip) : undefined,
+      take: take ? Number(take) : undefined,
+      courseId: courseId ? BigInt(courseId) : undefined
+    })
   }
 
   @Get(':id')

@@ -8,7 +8,8 @@ import { ChapterModule } from './modules/chapter/chapter.module'
 import { LessonModule } from './modules/lesson/lesson.module'
 import { ForumModule } from './modules/forum/forum.module'
 import { MessageModule } from './modules/message/message.module'
-import { IamModule } from './modules/iam/iam.module'
+import { IamModule } from './modules/iam-service/iam.module'
+import { MediaModule } from './modules/media-service/media.module'
 
 @Module({
   imports: [
@@ -22,7 +23,8 @@ import { IamModule } from './modules/iam/iam.module'
     LessonModule,
     ForumModule,
     MessageModule,
-    IamModule
+    IamModule,
+    MediaModule
   ],
   controllers: [AppController],
   providers: [AppService]

@@ -17,12 +17,9 @@ export class FileService {
     @Inject(CLOUD_STORAGE_SERVICE)
     private readonly cloudStorageService: ICloudStorageService,
     private readonly configService: ConfigService,
-    private readonly fileRepository: FileRepository,
+    private readonly fileRepository: FileRepository
   ) {
-    this.bucketName = this.configService.get<string>(
-      'AWS_S3_BUCKET',
-      'default-bucket',
-    );
+    this.bucketName = this.configService.get<string>('AWS_S3_BUCKET', 'default-bucket');
   }
 
   async create(createFileDto: CreateFileDto) {
@@ -85,10 +82,25 @@ export class FileService {
       default:
         throw new AppException(ErrorCode.UNSUPORTED_FILE_TYPE, true);
     }
-    return this.cloudStorageService.getPresignedUrl(
-      this.bucketName,
-      key,
-      contentType,
-    );
+    return this.cloudStorageService.getPresignedUrl(this.bucketName, key, contentType);
+  }
+
+  async findResourcesByLessonId(lessonId: string) {
+    const resources = await this.fileRepository.findResourcesByLessonId(lessonId);
+
+    const result: { document: typeof resources; video: typeof resources } = {
+      document: [],
+      video: []
+    };
+
+    resources.forEach((resource) => {
+      if (resource.type === 'document') {
+        result.document.push(resource);
+      } else if (resource.type === 'video') {
+        result.video.push(resource);
+      }
+    });
+
+    return result;
   }
 }

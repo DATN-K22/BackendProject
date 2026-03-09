@@ -1,12 +1,78 @@
 import { Injectable } from '@nestjs/common'
-import { PrismaService } from '../prisma/prisma.service'
 import { ChapterResponse } from './dto/ChapterResponse'
+import { PrismaService } from '../prisma/prisma.service'
+import { CreateChapterDto } from './dto/create-chapter.dto'
+import { UpdateChapterDto } from './dto/update-chapter.dto'
 
 @Injectable()
 export class ChapterRepository {
   constructor(private readonly prismaService: PrismaService) {}
+  create(dto: CreateChapterDto) {
+    return this.prismaService.chapter.create({
+      data: {
+        ...dto,
+        course_id: dto.course_id ? BigInt(dto.course_id) : null,
+        resource_id: dto.resource_id ? BigInt(dto.resource_id) : null
+      }
+    })
+  }
 
-  async findAll(courseId: bigint, userId: string): Promise<ChapterResponse[]> {
+  findAll(params: { skip?: number; take?: number; courseId?: bigint }) {
+    const { skip, take, courseId } = params
+    return this.prismaService.chapter.findMany({
+      skip,
+      take,
+      where: courseId ? { course_id: courseId } : undefined,
+      orderBy: [{ sort_order: 'asc' }, { id: 'asc' }],
+      include: {
+        course: {
+          select: {
+            id: true,
+            title: true
+          }
+        },
+        lessons: {
+          orderBy: { sort_order: 'asc' }
+        }
+      }
+    })
+  }
+
+  findOne(id: string) {
+    return this.prismaService.chapter.findUnique({
+      where: { id: BigInt(id) },
+      include: {
+        course: {
+          select: {
+            id: true,
+            title: true
+          }
+        },
+        lessons: {
+          orderBy: { sort_order: 'asc' }
+        }
+      }
+    })
+  }
+
+  update(id: string, dto: UpdateChapterDto) {
+    return this.prismaService.chapter.update({
+      where: { id: BigInt(id) },
+      data: {
+        ...dto,
+        course_id: dto.course_id ? BigInt(dto.course_id) : undefined,
+        resource_id: dto.resource_id ? BigInt(dto.resource_id) : undefined
+      }
+    })
+  }
+
+  remove(id: string) {
+    return this.prismaService.chapter.delete({
+      where: { id: BigInt(id) }
+    })
+  }
+
+  async findAllForTOC(courseId: bigint, userId: string): Promise<{ course: any; chapters: ChapterResponse[] }> {
     const rows = await this.prismaService.$queryRawUnsafe<any[]>(
       `
     SELECT
@@ -21,6 +87,10 @@ export class ChapterRepository {
       l.status             AS lesson_status,
       l.type               AS lesson_type,
       l.sort_order         AS lesson_sort_order,
+
+
+      c.id                 AS course_id,
+      c.title              AS course_title,
 
       CASE 
         WHEN ls.id IS NOT NULL THEN true 
@@ -55,6 +125,15 @@ export class ChapterRepository {
       courseId
     )
 
+    if (!rows.length) {
+      return { course: null, chapters: [] }
+    }
+
+    const course = {
+      id: rows[0].course_id.toString(),
+      title: rows[0].course_title
+    }
+
     const chapterMap = new Map<string, ChapterResponse>()
 
     for (const row of rows) {
@@ -84,6 +163,9 @@ export class ChapterRepository {
       })
     }
 
-    return Array.from(chapterMap.values())
+    return {
+      course,
+      chapters: Array.from(chapterMap.values())
+    }
   }
 }

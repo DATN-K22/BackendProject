@@ -1,5 +1,6 @@
 import { CourseLevel } from '@prisma/client'
 import { ApiProperty } from '@nestjs/swagger'
+import { ChapterResponse } from '../../../chapter/dto/ChapterResponse'
 
 export class CourseDetailResponse {
   @ApiProperty({
@@ -74,4 +75,9 @@ export class CourseDetailResponse {
 
   @ApiProperty({ example: 45.5 })
   progress: number
+
+  chapters: {
+    progress: number
+    chapters: ChapterResponse[]
+  }
 }

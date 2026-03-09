@@ -47,7 +47,8 @@ export class CourseRepositoy {
             user_id: userId
           },
           select: {
-            id: true
+            id: true,
+            complete_percent: true
           }
         }
       }

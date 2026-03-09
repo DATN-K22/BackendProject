@@ -4,7 +4,8 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
 import { ConfigService } from '@nestjs/config'
 import { GlobalExceptionFilter } from './utils/excreption/GlobalExceptionHandler'
 import { AppValidationPipe } from './utils/pipe/validation.pipe'
-import { BigIntInterceptor } from './common/interceptors/bigint.interceptor'
+import { BigIntInterceptor } from './utils/interceptors/bigint.interceptor'
+import { Logger } from '@nestjs/common'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
@@ -30,6 +31,9 @@ async function bootstrap() {
 
   const port = configService.get<number>('PORT', 3003)
   await app.listen(port)
+
+  const logger = new Logger('Bootstrap')
+  logger.log(`=== Course Service running ===`)
 }
 
 bootstrap()

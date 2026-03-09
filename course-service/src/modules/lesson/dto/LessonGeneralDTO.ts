@@ -1,9 +1,4 @@
-export class LessonGeneralDTO {
-  id: string
-  title: string
-  status: string
-  type: string
-  sort_order: number
-  duration?: number
-  isFinished: boolean
-}
+import { PartialType } from '@nestjs/swagger'
+import { LessonDetailDTO } from './LessonDetailDTO'
+
+export class LessonGeneralDTO extends PartialType(LessonDetailDTO) {}

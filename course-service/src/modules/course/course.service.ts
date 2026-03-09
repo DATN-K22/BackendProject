@@ -2,15 +2,17 @@ import { Inject, Injectable, Logger } from '@nestjs/common'
 import { CourseRepositoy } from './course.repository'
 import { UpdateCourseDto } from './dto/request/update-course.dto'
 import { CreateCourseDto } from './dto/request/create-course.dto'
-import { IamClient } from '../iam/IamClient'
+import { IamClient } from '../iam-service/IamClient'
 import { IncompleteCourse } from './dto/response/IncompleteCourseResponse'
 import { AppException } from '../../utils/excreption/AppException'
 import { ErrorCode } from '../../utils/excreption/ErrorCode'
+import { ChapterService } from '../chapter/chapter.service'
 
 @Injectable()
 export class CourseService {
   constructor(
     private readonly courseRepository: CourseRepositoy,
+    private readonly chapterService: ChapterService,
 
     @Inject('IamClient')
     private readonly iamClient: IamClient
@@ -55,16 +57,24 @@ export class CourseService {
     })
   }
 
-  async findOne(id: string, userId: string) {
-    const course = [await this.courseRepository.findOne(id, userId)]
-    const creatorInfoMap = await this.getCreatorIds(course)
+  async findOne(id: string, userId: string, include: string) {
+    const course = await this.courseRepository.findOne(id, userId)
+    if (!course) return null
+
+    const chapterPromise = include ? this.chapterService.findAllChapterForTOC(id, userId) : Promise.resolve(null)
+
+    const creatorPromise = this.getCreatorIds([course])
+
+    const [chapters, creatorInfoMap] = await Promise.all([chapterPromise, creatorPromise])
+
     return {
-      ...course[0],
-      isEnrolled: course[0].isEnrolled || course[0].owner_id === userId,
+      ...course,
+      isEnrolled: course.isEnrolled || course.owner_id === userId,
       user: {
-        id: course[0].owner_id,
-        ...creatorInfoMap.get(course[0].owner_id)
-      }
+        id: course.owner_id,
+        ...creatorInfoMap.get(course.owner_id)
+      },
+      chapters
     }
   }
 

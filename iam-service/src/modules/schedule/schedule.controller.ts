@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ScheduleService } from './schedule.service';
 import { CreateEventDto, CreateEventExceptionDto, UpdateEventDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -12,6 +12,22 @@ export class ScheduleController {
     @Get()
     async getMySchedule(@GetUser('id') userId: string) {
         return this.scheduleService.getMySchedule(userId);
+    }
+
+    @Get('events/search')
+    async getEventsByName(
+        @Query('title') title: string,
+        @GetUser('id') userId: string
+    ) {
+        return this.scheduleService.getEventsByName(title, userId);
+    }
+
+    @Get('events/:id')
+    async getEventById(
+        @Param('id') eventId: string,
+        @GetUser('id') userId: string
+    ) {
+        return this.scheduleService.getEventById(BigInt(eventId), userId);
     }
 
     @Post('events')

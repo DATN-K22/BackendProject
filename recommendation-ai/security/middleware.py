@@ -62,7 +62,7 @@ class GatewaySecurityMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable):
         # --- 0. Skip security for public paths ---
-        if request.url.path in PUBLIC_PATHS or request.url.path.startswith("/.well-known"):
+        if request.url.path in PUBLIC_PATHS:
             return await call_next(request)
 
         # --- 1. Verify the request came through the gateway ---
@@ -95,6 +95,8 @@ class GatewaySecurityMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
         return response
+
+
 
 
 # ---------------------------------------------------------------------------

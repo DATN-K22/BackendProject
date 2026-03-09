@@ -11,7 +11,14 @@ import os
 from dataclasses import dataclass
 from typing import List, Optional
 
-from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, SseConnectionParams
+from google.adk.agents.readonly_context import ReadonlyContext
+from google.adk.tools.base_tool import BaseTool
+from google.adk.tools.mcp_tool.mcp_tool import MCPTool
+from google.adk.tools.mcp_tool.mcp_toolset import (
+    MCPToolset,
+    SseConnectionParams,
+    StreamableHTTPConnectionParams,
+)
 
 
 @dataclass
@@ -20,6 +27,59 @@ class MCPServerConfig:
     url: str                        # SSE endpoint
     api_key: Optional[str] = None   # Optional server-level API key
     enabled: bool = True            # Set False (or via env) to skip
+
+
+MCP_CONNECT_TIMEOUT_SEC = float(os.getenv("MCP_CONNECT_TIMEOUT_SEC", "5"))
+MCP_READ_TIMEOUT_SEC = float(os.getenv("MCP_READ_TIMEOUT_SEC", "20"))
+
+
+class UserScopedMCPTool(MCPTool):
+    """MCP tool that forwards ADK user context as headers on each call."""
+
+    async def _get_headers(self, tool_context, credential) -> Optional[dict[str, str]]:
+        headers = await super()._get_headers(tool_context, credential) or {}
+
+        # ADK derives invocation user_id from A2A call context.
+        invocation_ctx = getattr(tool_context, "_invocation_context", None)
+        user_id = getattr(invocation_ctx, "user_id", None)
+        if user_id:
+            headers["x-user-id"] = str(user_id)
+
+        # Optional propagation from session state if present.
+        state = getattr(tool_context, "state", None)
+        if state:
+            tenant_id = state.get("tenant_id")
+            roles = state.get("roles")
+            if tenant_id:
+                headers["x-tenant-id"] = str(tenant_id)
+            if roles:
+                headers["x-user-roles"] = ",".join(roles) if isinstance(roles, list) else str(roles)
+
+        return headers
+
+
+class UserScopedMCPToolset(MCPToolset):
+    """MCP toolset that builds user-aware MCP tools."""
+
+    async def get_tools(
+        self,
+        readonly_context: Optional[ReadonlyContext] = None,
+    ) -> List[BaseTool]:
+        session = await self._mcp_session_manager.create_session()
+        tools_response = await session.list_tools()
+
+        tools: List[BaseTool] = []
+        for tool in tools_response.tools:
+            mcp_tool = UserScopedMCPTool(
+                mcp_tool=tool,
+                mcp_session_manager=self._mcp_session_manager,
+                auth_scheme=self._auth_scheme,
+                auth_credential=self._auth_credential,
+            )
+
+            if self._is_tool_selected(mcp_tool, readonly_context):
+                tools.append(mcp_tool)
+        return tools
 
 
 def build_toolset(config: MCPServerConfig) -> Optional[MCPToolset]:
@@ -31,12 +91,23 @@ def build_toolset(config: MCPServerConfig) -> Optional[MCPToolset]:
     if config.api_key:
         headers["Authorization"] = f"Bearer {config.api_key}"
 
-    return MCPToolset(
-        connection_params=SseConnectionParams(
+    # Use SSE transport for /sse endpoints, streamable HTTP otherwise.
+    if config.url.rstrip("/").endswith("/sse"):
+        connection_params = SseConnectionParams(
             url=config.url,
             headers=headers,
+            timeout=MCP_CONNECT_TIMEOUT_SEC,
+            sse_read_timeout=MCP_READ_TIMEOUT_SEC,
         )
-    )
+    else:
+        connection_params = StreamableHTTPConnectionParams(
+            url=config.url,
+            headers=headers,
+            timeout=MCP_CONNECT_TIMEOUT_SEC,
+            sse_read_timeout=MCP_READ_TIMEOUT_SEC,
+        )
+
+    return UserScopedMCPToolset(connection_params=connection_params)
 
 
 # ---------------------------------------------------------------------------

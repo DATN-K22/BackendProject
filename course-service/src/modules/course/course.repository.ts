@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateCourseDto } from './dto/request/create-course.dto';
-import { UpdateCourseDto } from './dto/request/update-course.dto';
+import { Injectable, Logger } from '@nestjs/common'
+import { PrismaService } from '../prisma/prisma.service'
+import { CreateCourseDto } from './dto/request/create-course.dto'
+import { UpdateCourseDto } from './dto/request/update-course.dto'
+import { Course, Prisma } from '@prisma/client'
 
 @Injectable()
 export class CourseRepositoy {
@@ -18,24 +19,48 @@ export class CourseRepositoy {
         price: createCourseDto.price,
         status: createCourseDto.status as any
       }
-    });
+    })
     return {
       ...record,
       id: record.id.toString()
-    };
+    }
   }
 
   async update(updateCourseDto: UpdateCourseDto, courseId: number) {
     const record = await this.prismaService.course.update({
       data: updateCourseDto,
       where: { id: courseId }
-    });
+    })
     return {
       ...record,
       id: record.id.toString()
-    };
+    }
   }
+  async findOne(id: string, userId: string) {
+    const course = await this.prismaService.course.findFirst({
+      where: {
+        id: BigInt(id)
+      },
+      include: {
+        enrollments: {
+          where: {
+            user_id: userId
+          },
+          select: {
+            id: true,
+            complete_percent: true
+          }
+        }
+      }
+    })
 
+    if (!course) return null
+
+    return {
+      ...course,
+      isEnrolled: course.enrollments.length > 0
+    }
+  }
   // async findAll(offset: number, limit: number) {
   //   const [courses, totalItems] = await Promise.all([
   //     this.prismaService.course.findMany({
@@ -56,5 +81,67 @@ export class CourseRepositoy {
   //   };
   // }
 
-  async getLatestIncompleteCourseForUser(userId: string) {}
+  async getLatestIncompleteCourseForUser(userId: string, offset: number, limit: number) {
+    const result = await this.prismaService.$queryRawUnsafe<
+      {
+        id: string
+        owner_id: string
+        title: string
+        thumbnail_url: string
+        progress: number
+      }[]
+    >(
+      `
+    SELECT 
+      c.id,
+      c.owner_id,
+      c.title,
+      c.thumbnail_url,
+      e.complete_percent as progress 
+    FROM "Enrollment" e
+    JOIN "Course" c ON e.course_id = c.id
+    LEFT JOIN "Chapter" ch ON ch.course_id = c.id
+    LEFT JOIN "Lesson" l ON l.chapter_id = ch.id
+    LEFT JOIN "LessonStatus" ls
+      ON ls.lesson_id = l.id AND ls.user_id = e.user_id
+    WHERE e.user_id = $1
+    GROUP BY 
+      c.id, 
+      c.owner_id, 
+      c.title, 
+      c.thumbnail_url, 
+      e.complete_percent, 
+      e.enrolled_at
+    HAVING
+      COUNT(DISTINCT l.id) > COUNT(DISTINCT ls.lesson_id)
+      OR e.complete_percent = 0
+    ORDER BY
+      MAX(COALESCE(ls.updated_at, e.enrolled_at)) DESC
+    LIMIT $2
+    OFFSET $3
+  `,
+      userId,
+      Number(limit),
+      Number(offset)
+    )
+    return result
+  }
+
+  async getRecommendationCourses(offset: number, limit: number) {
+    return this.prismaService.course.findMany({
+      skip: offset,
+      take: limit,
+      orderBy: [{ rating: 'desc' }, { created_at: 'desc' }],
+      select: {
+        id: true,
+        owner_id: true,
+        title: true,
+        thumbnail_url: true,
+        rating: true,
+        short_description: true,
+        price: true,
+        created_at: true
+      }
+    })
+  }
 }

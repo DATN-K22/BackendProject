@@ -1,28 +1,23 @@
-import { IsNumber } from '@nestjs/class-validator';
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
-
-export enum ContentStatus {
-  DRAFT = 'draft',
-  PUBLISHED = 'published',
-  ARCHIVED = 'archived'
-}
+import { IsNumber } from '@nestjs/class-validator'
+import { ApiProperty } from '@nestjs/swagger'
+import { ContentStatus } from '@prisma/client'
+import { IsEnum, IsOptional, IsString } from 'class-validator'
 
 export class CreateCourseDto {
   @ApiProperty({ example: 'E.g: 1' })
   @IsString()
-  owner_id: string;
+  owner_id: string
 
   @IsString()
   @ApiProperty({
     example: 'AWS Certified Solutions Architect - Associate (SAA-C03): Scaling and Decoupling Architectures'
   })
-  title: string;
+  title: string
 
   @ApiProperty({ example: '' })
   @IsString()
   @IsOptional()
-  short_description?: string;
+  short_description?: string
 
   @ApiProperty({
     example:
@@ -30,21 +25,21 @@ export class CreateCourseDto {
   })
   @IsString()
   @IsOptional()
-  long_description?: string;
+  long_description?: string
 
   @ApiProperty({ example: '' })
   @IsString()
   @IsOptional()
-  thumbnail_url?: string;
+  thumbnail_url?: string
 
   @ApiProperty({ example: '100000' })
   @IsNumber()
-  price: number;
+  price: number
 
   @ApiProperty({
-    example: ContentStatus.DRAFT,
+    example: ContentStatus.draft,
     enum: ContentStatus
   })
   @IsEnum(ContentStatus)
-  status: ContentStatus;
+  status: ContentStatus
 }

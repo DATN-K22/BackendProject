@@ -1,9 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, Query } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger'
 import { ChapterService } from './chapter.service'
 import { CreateChapterDto } from './dto/create-chapter.dto'
 import { UpdateChapterDto } from './dto/update-chapter.dto'
-
+import { ApiResponse as ApiSwaggerResponse } from '../../utils/dto/ApiResponse'
 @ApiTags('Chapters')
 @Controller('chapters')
 export class ChapterController {
@@ -14,6 +14,15 @@ export class ChapterController {
   @ApiResponse({ status: 201, description: 'Chapter được tạo thành công' })
   create(@Body() dto: CreateChapterDto) {
     return this.chapterService.create(dto)
+  }
+
+  @Get('/TOC')
+  @ApiOperation({ summary: 'get list of chapters for table of content' })
+  async findAllChapterForTOC(@Headers('x-user-id') userId: string, @Query('course_id') courseId: string) {
+    return ApiSwaggerResponse.OkResponse(
+      await this.chapterService.findAllChapterForTOC(courseId, userId),
+      'Get list of chapter by course id successfully'
+    )
   }
 
   @Get()

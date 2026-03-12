@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateCourseDto } from './dto/request/create-course.dto';
-import { UpdateCourseDto } from './dto/request/update-course.dto';
+import { Injectable, Logger } from '@nestjs/common'
+import { PrismaService } from '../prisma/prisma.service'
+import { CreateCourseDto } from './dto/request/create-course.dto'
+import { UpdateCourseDto } from './dto/request/update-course.dto'
 
 @Injectable()
 export class CourseRepositoy {
@@ -18,43 +18,44 @@ export class CourseRepositoy {
         price: createCourseDto.price,
         status: createCourseDto.status as any
       }
-    });
+    })
     return {
       ...record,
       id: record.id.toString()
-    };
+    }
   }
 
   async update(updateCourseDto: UpdateCourseDto, courseId: number) {
     const record = await this.prismaService.course.update({
       data: updateCourseDto,
       where: { id: courseId }
-    });
+    })
     return {
       ...record,
       id: record.id.toString()
-    };
+    }
   }
 
-  // async findAll(offset: number, limit: number) {
-  //   const [courses, totalItems] = await Promise.all([
-  //     this.prismaService.course.findMany({
-  //       skip: offset,
-  //       take: limit,
-  //       orderBy: { created_at: 'desc' }
-  //     }),
-  //     this.prismaService.course.count()
-  //   ]);
-  //   return {
-  //     courses,
-  //     page: {
-  //       total_pages: Math.ceil(totalItems / limit),
-  //       total_items: totalItems,
-  //       offset: offset,
-  //       limit: limit
-  //     }
-  //   };
-  // }
+  async findAll(offset: number, limit: number, ownerId?: string) {
+    const [courses, totalItems] = await Promise.all([
+      this.prismaService.course.findMany({
+        skip: offset,
+        take: limit,
+        orderBy: { created_at: 'desc' },
+        where: ownerId ? { owner_id: ownerId } : undefined
+      }),
+      this.prismaService.course.count()
+    ])
+    return {
+      courses,
+      page: {
+        total_pages: Math.ceil(totalItems / limit),
+        total_items: totalItems,
+        offset: offset,
+        limit: limit
+      }
+    }
+  }
 
   async getLatestIncompleteCourseForUser(userId: string) {}
 }

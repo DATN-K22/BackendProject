@@ -11,9 +11,9 @@ export class CourseService {
     return this.courseRepository.create(createCourseDto)
   }
 
-  // async findAll(offset: number, limit: number) {
-  //   return this.courseRepository.findAll(offset, limit);
-  // }
+  async findAll(offset: number, limit: number, ownerId?: string) {
+    return this.courseRepository.findAll(offset, limit, ownerId)
+  }
 
   // async getTopRatingCourse(offset: number, limit: number) {
   //   return this.courseRepository.getTopRatingCourse(offset, limit)

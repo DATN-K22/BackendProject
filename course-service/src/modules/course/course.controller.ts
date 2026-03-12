@@ -43,15 +43,18 @@ export class CourseController {
     return ApiResponse.OkCreateResponse(await this.courseService.create(createCourseDto), 'Create Course successfully')
   }
 
-  // @Get()
-  // @ApiOperation({ summary: 'Get all courses', description: 'Retrieve a list of all available courses with pagnition' })
-  // @ApiBody({
-  //   type: PaginationDto
-  // })
-  // @ApiSuccessResponse(CoursesListResponse)
-  // async findAll(@Query('offset') offset: string, @Query('limit') limit: string) {
-  //   return ApiResponse.OkResponse(await this.courseService.findAll(+offset, +limit), 'Get all courses successfully');
-  // }
+  @Get()
+  @ApiOperation({ summary: 'Get all courses', description: 'Retrieve a list of all available courses with pagnition' })
+  @ApiBody({
+    type: PaginationDto
+  })
+  @ApiSuccessResponse(CoursesListResponse)
+  async findAll(@Query('offset') offset: string, @Query('limit') limit: string, @Query('owner_id') ownerId?: string) {
+    return ApiResponse.OkResponse(
+      await this.courseService.findAll(+offset, +limit, ownerId),
+      'Get all courses successfully'
+    )
+  }
 
   @Get(':id')
   findOne(@Param('id') id: string) {

@@ -119,6 +119,15 @@ async function bootstrap() {
     }),
   );
 
+  server.use(
+    '/api/hands-on-lab',
+    createProxyMiddleware({
+      target: configService.get<string>('LAB_SERVICE_URL'),
+      changeOrigin: true,
+      pathRewrite: { '^/api/hands-on-lab': '' },
+    }),
+  );
+
   // Media
   server.use(
     '/api/media',

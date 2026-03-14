@@ -14,6 +14,7 @@ import { AuthService } from './auth.service'
 import { AuthRefeshTokenDto, AuthSignInDto, AuthSignUpDto, JtiDto } from './dto/auth.dto'
 import { Request, Response } from 'express'
 import { ApiTags } from '@nestjs/swagger'
+import { ApiResponse } from '../../utils/dto/ApiResponse'
 
 @Controller('auth')
 @UsePipes(
@@ -25,12 +26,13 @@ import { ApiTags } from '@nestjs/swagger'
   })
 )
 @ApiTags('Authentication management')
+@ApiTags('Authentication management')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
   async signup(@Body() dto: AuthSignUpDto, @Res({ passthrough: true }) res: Response) {
-    const tokens = await this.authService.signup(dto)
+    const { tokens, user } = await this.authService.signup(dto)
 
     res.cookie('refreshToken', tokens.refresh_token, {
       httpOnly: true,
@@ -39,13 +41,16 @@ export class AuthController {
       maxAge: 1000 * 60 * 60 * 24 * 30
     })
 
-    return { access_token: tokens.access_token, refresh_token: tokens.refresh_token, role: tokens.role }
+    return ApiResponse.OkResponse({
+      accessToken: tokens.access_token,
+      user: user
+    })
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('signin')
   async signin(@Body() dto: AuthSignInDto, @Res({ passthrough: true }) res: Response) {
-    const tokens = await this.authService.signin(dto)
+    const { tokens, user } = await this.authService.signin(dto)
 
     res.cookie('refreshToken', tokens.refresh_token, {
       httpOnly: true,
@@ -54,7 +59,10 @@ export class AuthController {
       maxAge: 1000 * 60 * 60 * 24 * 30
     })
 
-    return { access_token: tokens.access_token, refresh_token: tokens.refresh_token, role: tokens.role }
+    return ApiResponse.OkResponse({
+      accessToken: tokens.access_token,
+      user: user
+    })
   }
 
   @HttpCode(HttpStatus.OK)

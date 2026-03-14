@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import uuid
+
 from ingestion.interfaces.chunker import Chunker
 from ingestion.models.document import ParsedDocument, TextChunk
+
+_NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # uuid.NAMESPACE_URL
 
 
 class FixedWindowChunker(Chunker):
@@ -44,7 +48,8 @@ class FixedWindowChunker(Chunker):
                 if not chunk_text.strip():
                     start += self.chunk_size - self.overlap
                     continue
-                chunk_id = f"{document.document_id}_page{page.page_number}_chunk{chunk_idx}"
+                chunk_key = f"{document.document_id}_page{page.page_number}_chunk{chunk_idx}"
+                chunk_id = str(uuid.uuid5(_NAMESPACE, chunk_key))
                 chunk_idx += 1
                 chunks.append(TextChunk(chunk_id=chunk_id, document_id=document.document_id, text=chunk_text, metadata={"page_number": page.page_number}))
                 start += self.chunk_size - self.overlap

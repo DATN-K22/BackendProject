@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from google.adk.agents import LlmAgent
-from google.adk.tools import FunctionTool
+from google.adk.tools import FunctionTool, LongRunningFunctionTool
 from google.adk.models.lite_llm import LiteLlm
+from google.adk.tools.tool_context import ToolContext
 
 from mcptools.toolset_factory import SCHEDULE_MCP_CONFIG, build_toolset
 
@@ -15,15 +16,25 @@ Your responsibilities:
 - Detect and resolve time conflicts.
 - Modify the student's schedule **only after explicit human approval**.
 
+IMPORTANT — Recurrence rules (rrule) constraints:
+- A weekly recurring event (FREQ=WEEKLY) MUST target exactly ONE day (BYDAY contains only one day, e.g. BYDAY=MO).
+- If the student wants to study on multiple days per week (e.g. Monday and Wednesday),
+  you MUST create ONE separate event per day — never a single event with multiple BYDAY values.
+- Example: "Study React every Monday and Wednesday 9-11am" → create TWO events:
+    Event 1: FREQ=WEEKLY;BYDAY=MO
+    Event 2: FREQ=WEEKLY;BYDAY=WE
+- Always explain this to the student when presenting the approval summary.
+
 IMPORTANT — Human approval workflow for schedule modifications:
 1. When the student requests a schedule change, first show them a clear summary
    of EXACTLY what will change (add/remove/move which slots).
 2. Call the `request_schedule_approval` tool with the proposed changes.
    This will PAUSE execution and wait for the student to confirm or reject.
-3. Only proceed with modify schedule tools (create/update/delete/modify-this-and-following/add-exception-date) (via MCP) if the student approves.
+3. Only proceed with modify schedule tools (create/update/delete/modify-this-and-following/add-exception-date) (via MCP) if the student approves with the message "approved".
 4. If the student rejects, acknowledge and ask how they'd like to adjust.
 
 Never call modify schedule tools (create/update/delete/modify-this-and-following/add-exception-date) without prior human approval in the same turn.
+In your recommend for the next action, never recommend something out of your responsibilities described above.
 """
 
 
@@ -31,12 +42,8 @@ Never call modify schedule tools (create/update/delete/modify-this-and-following
 # Human-in-the-loop approval gate
 # ---------------------------------------------------------------------------
 
-def request_schedule_approval(proposed_changes: dict) -> dict:
+async def request_schedule_approval(proposed_changes: dict,  tool_context: ToolContext) -> dict:
     """
-    Signals ADK to pause and request human confirmation before the schedule
-    is modified.  The runtime converts this into an `interrupt` event that
-    travels back through the A2A transport to the calling client.
-
     Args:
         proposed_changes: Dict describing the intended schedule mutation,
                           e.g. {"action": "add", "course_id": "CS101",
@@ -45,18 +52,16 @@ def request_schedule_approval(proposed_changes: dict) -> dict:
     Returns:
         A pending approval token that the agent must include when resuming.
     """
-    # ADK intercepts raises on this special return shape to trigger HITL.
-    # See: google.adk.agents.interrupt
-    raise __import__("google.adk.agents.interrupt", fromlist=["Interrupt"]).Interrupt(
-        message=(
-            "Please review the proposed schedule change and confirm:\n"
-            + __import__("json").dumps(proposed_changes, indent=2)
-        ),
-        interrupt_data={"pending_changes": proposed_changes},
-    )
+    return {
+        "status": "pending",
+        "changes": proposed_changes
+    }
+    
+    
+    
 
 
-approval_tool = FunctionTool(func=request_schedule_approval)
+approval_tool = LongRunningFunctionTool(func=request_schedule_approval)
 
 
 def create_schedule_agent() -> LlmAgent:

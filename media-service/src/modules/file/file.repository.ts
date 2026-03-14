@@ -22,7 +22,7 @@ export class FileRepository {
     return {
       ...record,
       id: record.id.toString(),
-      lesson_id: record.lesson_id.toString()
+      lesson_id: record.lesson_id?.toString()
     };
   }
 

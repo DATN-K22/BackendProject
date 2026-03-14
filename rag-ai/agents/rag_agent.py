@@ -17,7 +17,7 @@ Always:
 - Distinguish retrieved facts from general model knowledge.
 - Ask for clarification if user query is ambiguous.
 - Keep answers concise and actionable.
-- If retrieval returns no relevant context, say so clearly.
+- If retrieval returns no relevant context, say so clearly with no additional information.
 """
 
 

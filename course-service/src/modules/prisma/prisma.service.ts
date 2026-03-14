@@ -41,11 +41,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   async fullTextSearch<T = any>(options: FtsOptions): Promise<T[]> {
     const {
       modelName,
-      schemaName = 'public',
+      schemaName = 'course_service',
       tableName,
       vectorColumn = 'fts_vector',
       query,
-      lang = 'simple',
+      lang = 'english',
       limit = 10,
       offset = 0,
       minRank = 0, 
@@ -84,11 +84,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     const fullTablePath = `"${schemaName}"."${finalTableName}"`;
 
     const sql = `
-      SELECT *, 
-             ts_rank("${vectorColumn}", plainto_tsquery($1::regconfig, $2)) as rank
-      FROM ${fullTablePath}
-      WHERE "${vectorColumn}" @@ plainto_tsquery($1::regconfig, $2)
-            AND ts_rank("${vectorColumn}", plainto_tsquery($1::regconfig, $2)) > $5
+      SELECT t.id::text, t.owner_id, t.title, t.short_description, t.long_description, 
+             t.price, t.status, t.created_at, t.course_level,
+             t.rating, t.language,
+             ts_rank(t."${vectorColumn}", plainto_tsquery($1::regconfig, $2)) as rank
+      FROM ${fullTablePath} t
+      WHERE t."${vectorColumn}" @@ plainto_tsquery($1::regconfig, $2)
+            AND ts_rank(t."${vectorColumn}", plainto_tsquery($1::regconfig, $2)) > $5
       ORDER BY rank DESC
       LIMIT $3 OFFSET $4
     `;
@@ -111,11 +113,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   ): Promise<FtsResult<T>> {
     const {
       modelName,
-      schemaName = 'public',
+      schemaName = 'course_service',
       tableName,
       vectorColumn = 'fts_vector',
       query,
-      lang = 'simple',
+      lang = 'english',
       limit = 10,
       offset = 0,
       minRank = 0,

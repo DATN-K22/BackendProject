@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, InternalServerErrorException, Unauthori
 import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import * as argon from 'argon2'
-import { v4 as uuidv4 } from 'uuid'
+import { randomUUID } from 'crypto'
 import { PrismaService } from '../../prisma/prisma.service'
 import { AuthSignInDto, AuthSignUpDto } from './dto/auth.dto'
 
@@ -77,7 +77,7 @@ export class AuthService {
   }
 
   private async createTokensForUser(user: any) {
-    const jti = uuidv4()
+    const jti = randomUUID()
     const payload = this.getAccessTokenPayload(user)
 
     const access_token = await this.jwtService.signAsync(payload, {

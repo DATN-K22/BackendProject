@@ -8,42 +8,53 @@ VERSION="1.0"
 
 echo -e "\033[0;35mRunning project: $PROJECT_NAME with version $VERSION\033[0m"
 
-# List of services
-SERVICES=("iam-service" "media-service" "course-service")
+ROOT_DIR="$(pwd)"
+PYTHON="$ROOT_DIR/.conda/bin/python"
+
+# Node.js services (npm install + prisma generate)
+NODE_SERVICES=("iam-service" "media-service" "api-gateway" "course-service")
+
+# Python AI services (pip install)
+AI_SERVICES=("orchestrator-ai" "rag-ai" "recommendation-ai")
 
 case "$ACTION" in
     init)
-        echo -e "\033[0;36m--- INITIALIZING ALL SERVICES ---\033[0m"
-        for service in "${SERVICES[@]}"; do
+        echo -e "\033[0;36m--- INITIALIZING NODE SERVICES ---\033[0m"
+        for service in "${NODE_SERVICES[@]}"; do
             echo -e "\033[0;33mProcessing $service...\033[0m"
-            cd "$service" || exit
-            
+            cd "$ROOT_DIR/$service" || exit
+
             npm install
             npx prisma generate
-            
-            cd ..
         done
-        echo -e "\033[0;32mAll services initialized!\033[0m"
 
-        docker compose -f Docker-compose.yml up
+        echo -e "\033[0;36m--- INITIALIZING AI SERVICES ---\033[0m"
+        for service in "${AI_SERVICES[@]}"; do
+            echo -e "\033[0;33mProcessing $service...\033[0m"
+            cd "$ROOT_DIR/$service" || exit
+
+            "$ROOT_DIR/.conda/bin/pip" install -r requirements.txt
+        done
+
+        echo -e "\033[0;32mAll services initialized!\033[0m"
         ;;
-    
+
     run)
         echo -e "\033[0;32m--- STARTING MICROSERVICES ---\033[0m"
-        
-        # Start each service in a new terminal tab
-        for service in "${SERVICES[@]}"; do
+
+        # Start each Node service in a new Terminal tab
+        for service in "${NODE_SERVICES[@]}"; do
             echo -e "\033[0;37mLaunching $service in a new tab...\033[0m"
-            
-            # Using osascript to open new Terminal tabs on macOS
-            osascript -e "tell application \"Terminal\" to do script \"cd $(pwd)/$service && npm run start:dev\""
+            osascript -e "tell application \"Terminal\" to do script \"cd $ROOT_DIR/$service && npm run start:dev\""
         done
-        
-        # Wait a moment for services to start, then run docker compose
-        sleep 2
-        docker compose -f Docker-compose.yml up
+
+        # Start each AI service in a new Terminal tab
+        for service in "${AI_SERVICES[@]}"; do
+            echo -e "\033[0;37mLaunching $service in a new tab...\033[0m"
+            osascript -e "tell application \"Terminal\" to do script \"cd $ROOT_DIR/$service && $PYTHON main.py\""
+        done
         ;;
-    
+
     *)
         echo -e "\033[0;31mUnknown action: $ACTION. Use 'init' or 'run'.\033[0m"
         exit 1

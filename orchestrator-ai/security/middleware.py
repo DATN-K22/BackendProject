@@ -12,7 +12,7 @@ from starlette import status
 
 
 
-REQUIRED_GATEWAY_HEADERS = ("x-user-id", "x-user-roles", "x-tenant-id")
+REQUIRED_GATEWAY_HEADERS = ("x-user-id", "x-user-role", "x-tenant-id")
 # Marker header that the API gateway stamps on every forwarded request.
 # Direct clients that bypass the gateway
 # won't have this.
@@ -28,12 +28,12 @@ FORWARDED_IDENTITY_HEADERS: ContextVar[dict[str, str] | None] = ContextVar(
 @dataclass
 class SecurityContext:
     user_id: str
-    roles: List[str]
+    role: str
     tenant_id: str
     raw_headers: dict = field(default_factory=dict)
 
     def has_role(self, *roles: str) -> bool:
-        return any(r in self.roles for r in roles)
+        return any(self.role)
 
     def require_role(self, *roles: str) -> None:
         if not self.has_role(*roles):
@@ -55,7 +55,7 @@ class GatewaySecurityMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable):
         # --- 0. Skip security for public paths ---
-        if request.url.path in PUBLIC_PATHS or request.url.path.startswith("/.well-known"):
+        if request.url.path in PUBLIC_PATHS:
             return await call_next(request)
 
         # --- 1. Verify the request came through the gateway ---
@@ -74,10 +74,9 @@ class GatewaySecurityMiddleware(BaseHTTPMiddleware):
             )
 
         # --- 3. Extract identity from headers and populate request state ---
-        roles_raw = request.headers.get("x-user-roles", "")
         request.state.security = SecurityContext(
             user_id=request.headers["x-user-id"],
-            roles=[r.strip() for r in roles_raw.split(",") if r.strip()],
+            role=request.headers.get("x-user-role", ""),
             tenant_id=request.headers["x-tenant-id"],
             raw_headers=dict(request.headers),
         )
@@ -86,7 +85,7 @@ class GatewaySecurityMiddleware(BaseHTTPMiddleware):
 
         forwarded_headers = {
             "x-user-id": request.headers["x-user-id"],
-            "x-user-roles": roles_raw,
+            "x-user-role": request.headers.get("x-user-role", ""),
             "x-tenant-id": request.headers["x-tenant-id"],
         }
         if request.headers.get(GATEWAY_STAMP_HEADER):

@@ -49,11 +49,11 @@ class UserScopedMCPTool(MCPTool):
         state = getattr(tool_context, "state", None)
         if state:
             tenant_id = state.get("tenant_id")
-            roles = state.get("roles")
+            roles = state.get("role")
             if tenant_id:
                 headers["x-tenant-id"] = str(tenant_id)
             if roles:
-                headers["x-user-roles"] = ",".join(roles) if isinstance(roles, list) else str(roles)
+                headers["x-user-role"] = str(roles)
 
         return headers
 

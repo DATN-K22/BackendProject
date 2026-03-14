@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from langchain_openai import OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
+from qdrant_client import models
 
 from config.settings import Settings
 from retrieval.stores.qdrant_store import build_qdrant_client
+from security.middleware import FORWARDED_IDENTITY_HEADERS
+
+logger = logging.getLogger(__name__)
 
 
 def build_retrieval_tool(settings: Settings):
@@ -39,6 +44,7 @@ def build_retrieval_tool(settings: Settings):
                     client=client,
                     collection_name=settings.qdrant_collection,
                     embedding=embeddings,
+                    content_payload_key="text",
                 )
             except Exception as exc:
                 init_error = str(exc)
@@ -55,7 +61,29 @@ def build_retrieval_tool(settings: Settings):
             safe_top_k = max(1, min(int(top_k), 10))
         except (TypeError, ValueError):
             safe_top_k = 5
-        search_filter = {"namespace": tenant_id} if tenant_id else None
+
+        search_filter = (
+            models.Filter(
+                must=[models.FieldCondition(key="namespace", match=models.MatchValue(value=tenant_id))]
+            )
+            if tenant_id
+            else None
+        )
+
+        # If no tenant_id was passed by the LLM, fall back to the identity
+        # injected by the gateway middleware for this request.
+        if search_filter is None:
+            headers = FORWARDED_IDENTITY_HEADERS.get()
+            if headers and headers.get("x-tenant-id"):
+                fallback_tenant = headers["x-tenant-id"]
+                search_filter = models.Filter(
+                    must=[models.FieldCondition(key="namespace", match=models.MatchValue(value=fallback_tenant))]
+                )
+
+        logger.info(
+            "retrieve_context called: query=%r top_k=%s tenant_id=%r contextvar_headers=%r filter=%s",
+            query, safe_top_k, tenant_id, FORWARDED_IDENTITY_HEADERS.get(), search_filter,
+        )
 
         try:
             docs = vectorstore.similarity_search(

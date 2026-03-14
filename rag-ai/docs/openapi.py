@@ -15,10 +15,10 @@ GATEWAY_HEADER_PARAMETERS: list[dict] = [
     },
     {
         "in": "header",
-        "name": "x-user-roles",
+        "name": "x-user-role",
         "required": True,
-        "schema": {"type": "string", "example": "student,member"},
-        "description": "Comma-separated roles injected by gateway.",
+        "schema": {"type": "string", "example": "student"},
+        "description": "User role injected by gateway.",
     },
     {
         "in": "header",
@@ -61,7 +61,7 @@ OPENAPI_SPEC: dict = {
                 "name": "x-forwarded-by-gateway",
                 "description": (
                     "Gateway marker header. Requests also require `x-user-id`, "
-                    "`x-user-roles`, and `x-tenant-id`."
+                    "`x-user-role`, and `x-tenant-id`."
                 ),
             }
         },

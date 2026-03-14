@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from qdrant_client import QdrantClient, models
+from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import FieldCondition, Filter, MatchValue, PointStruct
 
 from ingestion.interfaces.vector_store import VectorStore
@@ -27,7 +28,9 @@ class QdrantVectorStore(VectorStore):
         self.connect()
 
     def connect(self) -> None:
-        if not self._client.has_collection(self._collection_name):
+        try:
+            self._client.get_collection(self._collection_name)
+        except UnexpectedResponse:
             self._client.create_collection(
                 collection_name=self._collection_name,
                 vectors_config=models.VectorParams(
@@ -36,7 +39,7 @@ class QdrantVectorStore(VectorStore):
                 ),
             )
 
-    def upsert(self, points: list[VectorPoint], namespace: str | None = None) -> None:
+    def upsert(self, points: list[VectorPoint], namespace: str | None = None, batch_size: int = 100) -> None:
         qdrant_points: list[PointStruct] = []
         for point in points:
             payload = dict(point.payload)
@@ -53,11 +56,13 @@ class QdrantVectorStore(VectorStore):
         if not qdrant_points:
             return
 
-        self._client.upsert(
-            collection_name=self._collection_name,
-            points=qdrant_points,
-            wait=True,
-        )
+        for i in range(0, len(qdrant_points), batch_size):
+            batch = qdrant_points[i : i + batch_size]
+            self._client.upsert(
+                collection_name=self._collection_name,
+                points=batch,
+                wait=True,
+            )
 
     def delete_document(self, document_id: str, namespace: str | None = None) -> None:
         must_conditions = [

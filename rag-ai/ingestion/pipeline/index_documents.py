@@ -10,15 +10,22 @@ from ingestion.events.event_schema import DocumentUploadEvent
 from ingestion.file_loader import FileLoader
 from ingestion.pipeline.orchestrator import IngestionOrchestrator
 from ingestion.sources.presigned_url_source import HttpPresignedUrlSource
+from ingestion.sources.local_file_storage import LocalFileSource
 from ingestion.vector_stores.qdrant_store import QdrantVectorStore
 from retrieval.stores.qdrant_store import build_qdrant_client
+from ingestion.interfaces.source_connector import SourceConnector
 
+
+def make_connector(source_uri: str) -> SourceConnector:
+    if source_uri.startswith(("http://", "https://")):
+        return HttpPresignedUrlSource()
+    return LocalFileSource()
 
 def main() -> None:
     if len(sys.argv) != 2:
         print(
             "Usage: python -m ingestion.pipeline.index_documents "
-            '\'{"document_id":"doc-1","presigned_url":"https://...","version":"1"}\''
+            '\'{"document_id":"doc-1","source_uri":"https://...","version":"1"}\''
         )
         return
 
@@ -27,7 +34,7 @@ def main() -> None:
     settings = load_settings()
 
     orchestrator = IngestionOrchestrator(
-        source_connector=HttpPresignedUrlSource(),
+        source_connector=make_connector(event.source_uri),
         data_loader=FileLoader(),
         chunker=FixedWindowChunker(),
         embedder=OpenAIEmbedder(settings.embedding_model),

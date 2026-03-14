@@ -49,13 +49,13 @@ export class ScheduleTool {
         name: "get-events",
         description: "Fetch events in the schedule of user in the limit of event happened within today and end date with the default value for endate is 90 days from today",
         parameters: z.object({
-            userId: z.string(),
             today: z.string(),
             endDate: z.string().optional(),
             timeZone: z.string().default("Asia/Ho_Chi_Minh")
         }),
     })
-    async getEvents({userId, today, endDate, timeZone}){
+    async getEvents({today, endDate, timeZone}, context: any, req: any){
+        const userId = req.user?.id ?? req.headers["x-user-id"];
         const events = await this.scheduleService.getMySchedule(userId);
         const markDate = new Date(today);
         const upperBound = endDate != null
@@ -77,12 +77,12 @@ export class ScheduleTool {
         name: "get-events-by-name-or-id",
         description: "Get event in the schedule of user by its name or id, ensure one and only one out of 2 field (eventName or eventId) is provided",
         parameters: z.object({
-            userId: z.string(),
             eventName: z.string().optional(),
             eventId: z.string().optional()
         }),
     })
-    async getEvent({userId, eventName, eventId}){
+    async getEvent({eventName, eventId}, context: any, req: any){
+        const userId = req.user?.id ?? req.headers["x-user-id"];
         let event: any;
         if (eventId != null) {
             event = this.scheduleService.getEventById(eventId, userId);
@@ -120,7 +120,8 @@ export class ScheduleTool {
             original_event_id: z.string().optional().describe("Parent event ID for exception instances"),
         }),
     })
-    async createEvent({ userId, original_event_id, ...dto }) {
+    async createEvent({original_event_id, ...dto }, context: any, req: any) {
+        const userId = req.user?.id ?? req.headers["x-user-id"];
         const event = await this.scheduleService.createEvent(
             {
                 ...dto,
@@ -150,7 +151,8 @@ export class ScheduleTool {
             recurrence_id: z.string().optional(),
         }),
     })
-    async updateEvent({ userId, eventId, ...dto }) {
+    async updateEvent({eventId, ...dto }, context: any, req: any) {
+        const userId = req.user?.id ?? req.headers["x-user-id"];
         const result = await this.scheduleService.updateEvent(dto, userId, BigInt(eventId));
         return {
             content: [{ type: 'text', text: stringify(result) }],
@@ -165,7 +167,8 @@ export class ScheduleTool {
             eventId: z.string().describe("The numeric ID of the event to delete"),
         }),
     })
-    async deleteEvent({ userId, eventId }) {
+    async deleteEvent({eventId }, context: any, req: any) {
+        const userId = req.user?.id ?? req.headers["x-user-id"];
         const result = await this.scheduleService.deleteEvent(BigInt(eventId), userId);
         return {
             content: [{ type: 'text', text: result.message }],
@@ -182,7 +185,8 @@ export class ScheduleTool {
             reason: z.string().optional().describe("Optional reason for skipping this occurrence"),
         }),
     })
-    async addExDate({ userId, eventId, exception_date, reason }) {
+    async addExDate({eventId, exception_date, reason }, context: any, req: any) {
+        const userId = req.user?.id ?? req.headers["x-user-id"];
         const result = await this.scheduleService.addExDate(
             { event_id: BigInt(eventId), exception_date, reason },
             userId
@@ -209,7 +213,8 @@ export class ScheduleTool {
             rrule_string: z.string().optional(),
         }),
     })
-    async modifyThisAndFollowing({ userId, eventId, recurrence_id, ...updates }) {
+    async modifyThisAndFollowing({eventId, recurrence_id, ...updates }, context: any, req: any) {
+        const userId = req.user?.id ?? req.headers["x-user-id"];
         const result = await this.scheduleService.modifyThisAndFollow(
             BigInt(eventId),
             new Date(recurrence_id),
@@ -231,7 +236,8 @@ export class ScheduleTool {
             timeEnd: z.string().describe("Daily window end in HH:mm format, e.g. '18:00'")
         })
     })
-    async get_free_time({ userId, today, timeStart, timeEnd }) {
+    async get_free_time({today, timeStart, timeEnd }, context: any, req: any) {
+        const userId = req.user?.id ?? req.headers["x-user-id"];
         const rangeStart = new Date(today);
         const rangeEnd = new Date(rangeStart.getTime() + 90 * 24 * 60 * 60 * 1000);
 

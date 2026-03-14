@@ -2,12 +2,10 @@
 
 from security.middleware import (
     GatewaySecurityMiddleware,
-    SecurityContext,
-    get_security_context,
+    SecurityContext
 )
 
 __all__ = [
     "GatewaySecurityMiddleware",
-    "SecurityContext",
-    "get_security_context",
+    "SecurityContext"
 ]

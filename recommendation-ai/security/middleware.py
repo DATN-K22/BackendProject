@@ -1,17 +1,6 @@
-"""
-security/middleware.py
-
-Post-API-gateway security layer.
-The API gateway already validates JWTs and injects the decoded claims
-as trusted headers (X-User-Id, X-User-Roles, X-Tenant-Id).
-This middleware:
-  1. Ensures those headers are present (guards against direct access bypassing gateway)
-  2. Builds a SecurityContext that flows through the request
-  3. Enforces role-based access at the agent / tool level
-"""
-
 from __future__ import annotations
 
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
@@ -21,25 +10,30 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette import status
 
-REQUIRED_GATEWAY_HEADERS = ("x-user-id", "x-user-roles", "x-tenant-id")
 
+
+REQUIRED_GATEWAY_HEADERS = ("x-user-id", "x-user-role", "x-tenant-id")
 # Marker header that the API gateway stamps on every forwarded request.
-# Direct clients that bypass the gateway won't have this.
+# Direct clients that bypass the gateway
+# won't have this.
 GATEWAY_STAMP_HEADER = "x-forwarded-by-gateway"
-
 # Paths that bypass gateway security entirely (health probes, docs, etc.)
 PUBLIC_PATHS = {"/health", "/ready", "/docs", "/openapi.json"}
+FORWARDED_IDENTITY_HEADERS: ContextVar[dict[str, str] | None] = ContextVar(
+    "forwarded_identity_headers",
+    default=None,
+)
 
 
 @dataclass
 class SecurityContext:
     user_id: str
-    roles: List[str]
+    role: str
     tenant_id: str
     raw_headers: dict = field(default_factory=dict)
 
     def has_role(self, *roles: str) -> bool:
-        return any(r in self.roles for r in roles)
+        return any(self.role)
 
     def require_role(self, *roles: str) -> None:
         if not self.has_role(*roles):
@@ -48,8 +42,7 @@ class SecurityContext:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"User '{self.user_id}' lacks required role(s): {roles}"
             )
-
-
+            
 class GatewaySecurityMiddleware(BaseHTTPMiddleware):
     """
     Validates that the request arrived via the API gateway and extracts
@@ -72,7 +65,7 @@ class GatewaySecurityMiddleware(BaseHTTPMiddleware):
         #         content={"detail": "Requests must be routed through the API gateway."},
         #     )
 
-        # --- 2. Ensure identity headers are present ---
+        # --- 2. Verify required identity headers are present ---
         missing = [h for h in REQUIRED_GATEWAY_HEADERS if not request.headers.get(h)]
         if missing:
             return JSONResponse(
@@ -80,35 +73,30 @@ class GatewaySecurityMiddleware(BaseHTTPMiddleware):
                 content={"detail": f"Missing gateway identity headers: {missing}"},
             )
 
-        # --- 3. Build SecurityContext and attach to request.state ---
-        roles_raw = request.headers.get("x-user-roles", "")
+        # --- 3. Extract identity from headers and populate request state ---
         request.state.security = SecurityContext(
             user_id=request.headers["x-user-id"],
-            roles=[r.strip() for r in roles_raw.split(",") if r.strip()],
+            role=request.headers.get("x-user-role", ""),
             tenant_id=request.headers["x-tenant-id"],
             raw_headers=dict(request.headers),
         )
-        # Bridge gateway identity into Starlette auth scope so A2A/ADK can pick up
-        # call_context.user.user_name from request.user via DefaultCallContextBuilder.
         request.scope["user"] = SimpleUser(request.state.security.user_id)
         request.scope["auth"] = AuthCredentials(["authenticated"])
 
-        response = await call_next(request)
-        return response
+        forwarded_headers = {
+            "x-user-id": request.headers["x-user-id"],
+            "x-user-role": request.headers.get("x-user-role", ""),
+            "x-tenant-id": request.headers["x-tenant-id"],
+        }
+        if request.headers.get(GATEWAY_STAMP_HEADER):
+            forwarded_headers[GATEWAY_STAMP_HEADER] = request.headers[GATEWAY_STAMP_HEADER]
+
+        token = FORWARDED_IDENTITY_HEADERS.set(forwarded_headers)
+        try:
+            return await call_next(request)
+        finally:
+            FORWARDED_IDENTITY_HEADERS.reset(token)
 
 
-
-
-# ---------------------------------------------------------------------------
-# Dependency helpers for route handlers
-# ---------------------------------------------------------------------------
-
-def get_security_context(request: Request) -> SecurityContext:
-    from starlette.exceptions import HTTPException
-    ctx: Optional[SecurityContext] = getattr(request.state, "security", None)
-    if ctx is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Security context not initialised.",
-        )
-    return ctx
+def get_forwarded_identity_headers() -> dict[str, str]:
+    return dict(FORWARDED_IDENTITY_HEADERS.get() or {})

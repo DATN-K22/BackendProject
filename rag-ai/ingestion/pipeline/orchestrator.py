@@ -27,7 +27,7 @@ class IngestionOrchestrator:
 
     def ingest(self, event: DocumentUploadEvent) -> int:
         blob = self.source_connector.fetch(
-            event.presigned_url,
+            event.source_uri,
             document_id=event.document_id,
             metadata={**event.metadata, "version": event.version},
         )

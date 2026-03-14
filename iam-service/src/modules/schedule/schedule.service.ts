@@ -33,33 +33,10 @@ export class ScheduleService {
         return 'RRULE:' + rruleParts.join(';');
     }
 
-    async getMySchedule(user_id: string): Promise<EventWithRelationsDto[]> {
-        try {
-            const events = await this.prisma.event.findMany({
-                where: {
-                    user_id: user_id
-                },
-                include: {
-                    exception_dates: true,
-                    exceptions: true
-                },
-                orderBy: {
-                    time_start: 'asc'
-                }
-            });
-
-            return events as EventWithRelationsDto[];
-        } catch (error) {
-            console.error('Error fetching user schedule:', error);
-            throw error;
-        }
-    }
-
-    async createEvent(createEventDto: CreateEventDto, user_id: string): Promise<EventWithRelationsDto> {
-        try {
+    private async createNewEvent(createEventDto: CreateEventDto, user_id: string): Promise<Event> {
             const timeStart = new Date(createEventDto.time_start);
             const timeEnd = new Date(createEventDto.time_end);
-            this.validateTimeRange(timeStart, timeEnd);
+            await this.validateTimeRange(timeStart, timeEnd);
 
             if (createEventDto.original_event_id) {
                 const originalEvent = await this.prisma.event.findUnique({
@@ -103,7 +80,35 @@ export class ScheduleService {
                     exceptions: true
                 }
             });
-            return event as EventWithRelationsDto;
+            return event
+    }
+
+    async getMySchedule(user_id: string): Promise<EventWithRelationsDto[]> {
+        try {
+            const events = await this.prisma.event.findMany({
+                where: {
+                    user_id: user_id
+                },
+                include: {
+                    exception_dates: true,
+                    exceptions: true
+                },
+                orderBy: {
+                    time_start: 'asc'
+                }
+            });
+
+            return events as EventWithRelationsDto[];
+        } catch (error) {
+            console.error('Error fetching user schedule:', error);
+            throw error;
+        }
+    }
+
+    async createEvent(createEventDto: CreateEventDto, user_id: string): Promise<EventWithRelationsDto> {
+        try {
+            const event = await this.createNewEvent(createEventDto, user_id);
+            return event as unknown as EventWithRelationsDto;
         } catch (error) {
             console.error('Error creating event:', error);
             if (error instanceof BadRequestException || error instanceof NotFoundException 
@@ -120,25 +125,25 @@ export class ScheduleService {
         }
     }
 
-    async updateEvent (updateEventDto: UpdateEventDto, user_id: string): Promise <unknown>{
+    async updateEvent (updateEventDto: UpdateEventDto, user_id: string, event_id: bigint): Promise <unknown>{
         try {
             const existingEvent = await this.prisma.event.findUnique({
-                where: { id: updateEventDto.id }
+                where: { id: event_id }
             });
 
-            this.AuthorizeEvent(existingEvent, user_id);
+            await this.AuthorizeEvent(existingEvent, user_id);
 
             const timeStart = updateEventDto.time_start ? new Date(updateEventDto.time_start) : existingEvent.time_start;
             const timeEnd = updateEventDto.time_end ? new Date(updateEventDto.time_end) : existingEvent.time_end;  
 
-            this.validateTimeRange(timeStart, timeEnd);
+            await this.validateTimeRange(timeStart, timeEnd);
 
             // Validate RRULE format if provided
             if (updateEventDto.rrule_string && !updateEventDto.rrule_string.startsWith('RRULE:')) {
                 throw new BadRequestException('Invalid RRULE format: must start with "RRULE:"');
             }
 
-            const { id, ...updateFields } = updateEventDto;
+            const updateFields  = updateEventDto;
             const updateData: any = {};
 
             for (const [key, value] of Object.entries(updateFields)) {
@@ -155,7 +160,7 @@ export class ScheduleService {
 
             const event = await this.prisma.event.update({
                 where: {
-                    id: updateEventDto.id
+                    id: event_id
                 },
                 data: {
                     ...updateData,

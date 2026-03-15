@@ -80,7 +80,53 @@ pip install -r rag-ai/requirements.txt
 pip install -r recommendation-ai/requirements.txt
 ```
 
-## 4. Environment variables
+```ps
+python3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+pip install -r orchestrator-ai/requirement.txt
+pip install -r rag-ai/requirements.txt
+pip install -r recommendation-ai/requirements.txt
+```
+
+
+## 4. To add mock data to qdrant
+```bash
+# change working direction to rag-ai
+cd rag-ai
+
+# run pipeline to adding mock data to qdrant
+i=1                                                         
+for f in ingestion/mock_file/course_21/*.pdf; do
+  python -m ingestion.pipeline.index_documents \
+    "{\"document_id\":\"course21-doc-$i\",\"source_uri\":\"$f\",\"version\":\"1\",\"tenant_id\":\"course_21\"}"
+  i=$((i+1))
+done
+```
+
+PowerShell equivalent:
+
+```ps1
+# change working directory to rag-ai
+cd rag-ai
+
+# run pipeline to add mock data to qdrant
+$i = 1
+Get-ChildItem -Path "ingestion/mock_file/course_21" -Filter *.pdf | ForEach-Object {
+  $payload = @{
+    document_id = "course21-doc-$i"
+    source_uri  = $_.FullName
+    version     = "1"
+    tenant_id   = "course_21"
+  } | ConvertTo-Json -Compress
+
+  python -m ingestion.pipeline.index_documents $payload
+  $i++
+}
+```
+
+
+## 5. Environment variables
 
 Create `.env` files in each AI service folder.
 

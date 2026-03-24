@@ -39,6 +39,21 @@ export class ScheduleService {
             .replace(/UNTIL=[^;]*;?/i, '');
     }
 
+    private getUntilDateFromRRule(rrule: string): Date | null {
+        const match = rrule.match(/UNTIL=([^;]+)/i);
+        if (match) {
+            const untilStr = match[1];
+            const year = parseInt(untilStr.slice(0, 4), 10);
+            const month = parseInt(untilStr.slice(4, 6), 10) - 1;
+            const day = parseInt(untilStr.slice(6, 8), 10);
+            const hour = parseInt(untilStr.slice(9, 11), 10);
+            const minute = parseInt(untilStr.slice(11, 13), 10);
+            const second = parseInt(untilStr.slice(13, 15), 10);
+            return new Date(Date.UTC(year, month, day, hour, minute, second));
+        }
+        return null;
+    }
+
     private async createNewEvent(createEventDto: CreateEventDto, user_id: string): Promise<Event> {
             const timeStart = new Date(createEventDto.time_start);
             const timeEnd = new Date(createEventDto.time_end);
@@ -312,31 +327,36 @@ export class ScheduleService {
      */
     async deleteEvent(event_id: bigint, user_id: string): Promise<{ message: string }> {
         try {
-            const event = await this.prisma.event.findUnique({
-                where: { id: event_id }
-            });
-
-            await this.AuthorizeEvent(event, user_id);
-
-            // If this is a child/modified instance, find the parent to delete the entire series
-            const eventToDelete = event.original_event_id || event_id;
-
-            // If we're deleting a different event (parent), authorize it too
-            if (event.original_event_id) {
-                const parentEvent = await this.prisma.event.findUnique({
-                    where: { id: event.original_event_id }
+            return await this.prisma.$transaction(async (tx) => {
+                const event = await tx.event.findUnique({
+                    where: { id: event_id }
                 });
-                await this.AuthorizeEvent(parentEvent, user_id);
-            }
 
-            // Delete the parent event - Prisma cascades to all children
-            await this.prisma.event.delete({
-                where: { id: eventToDelete }
+                await this.AuthorizeEvent(event, user_id);
+
+                // If this is a child/modified instance, find the parent to delete the entire series
+                const eventToDelete = event.original_event_id || event_id;
+
+                // If we're deleting a different event (parent), authorize it too
+                if (event.original_event_id) {
+                    const parentEvent = await tx.event.findUnique({
+                        where: { id: event.original_event_id }
+                    });
+                    await this.AuthorizeEvent(parentEvent, user_id);
+                }
+
+                // Delete the parent event and its children (via cascade on original_event_id foreign key)
+                await tx.event.deleteMany({
+                    where: {original_event_id: eventToDelete }
+                });
+                await tx.event.delete({
+                    where: { id: eventToDelete }
+                });
+
+                return {
+                    message: 'Event deleted successfully'
+                };
             });
-
-            return {
-                message: 'Event deleted successfully'
-            };
         } catch (error) {
             console.error('Error deleting event:', error);
             if (error instanceof NotFoundException || 
@@ -373,6 +393,11 @@ export class ScheduleService {
                 // Fix 4 — null check
                 if (!parentEvent) throw new NotFoundException('Parent event not found');
                 if (!parentEvent.rrule_string) throw new BadRequestException('Cannot split non-recurring event');
+
+                const existingUntil = this.getUntilDateFromRRule(parentEvent.rrule_string);
+                if (existingUntil && existingUntil < recurrence_id) {
+                    throw new BadRequestException('Recurrence ID is after the existing UNTIL date of the series');
+                }
 
                 const splitDate = new Date(recurrence_id);
 
@@ -427,6 +452,7 @@ export class ScheduleService {
                     );
 
                 await this.validateTimeRange(timeStart, timeEnd);
+                let newRrule = this.removeUntilFromRRule(parentEvent.rrule_string);
 
                 // Fix 3 & 5 — strip UNTIL khỏi rrule mới, reset sequence
                 return await tx.event.create({
@@ -439,7 +465,7 @@ export class ScheduleService {
                         time_start: timeStart,
                         time_end: timeEnd,
                         timezone: updateEventDto.timezone ?? parentEvent.timezone,
-                        rrule_string: this.removeUntilFromRRule(parentEvent.rrule_string),
+                        rrule_string: this.addUntilToRRule(newRrule, existingUntil && existingUntil > splitDate ? existingUntil : timeEnd),
                         sequence: 0,
                     },
                     include: { exception_dates: true, exceptions: true }

@@ -5,7 +5,7 @@ import { UpdateUserDto } from './dto/update-user.dto'
 import { ApiResponse } from '../../utils/dto/ApiResponse'
 import { ApiBearerAuth } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
-import { MessagePattern, Payload } from '@nestjs/microservices'
+
 
 @Controller('user')
 export class UserController {

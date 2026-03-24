@@ -33,6 +33,12 @@ export class ScheduleService {
         return 'RRULE:' + rruleParts.join(';');
     }
 
+    private removeUntilFromRRule(rrule: string): string {
+        return rrule
+            .replace(/;UNTIL=[^;]*/i, '')
+            .replace(/UNTIL=[^;]*;?/i, '');
+    }
+
     private async createNewEvent(createEventDto: CreateEventDto, user_id: string): Promise<Event> {
             const timeStart = new Date(createEventDto.time_start);
             const timeEnd = new Date(createEventDto.time_end);
@@ -67,10 +73,10 @@ export class ScheduleService {
                     time_start: timeStart,
                     time_end: timeEnd,
                     timezone: createEventDto.timezone ?? 'UTC',
-                    rrule_string: createEventDto.rrule_string,
+                    rrule_string: createEventDto.original_event_id ? null : createEventDto.rrule_string,
                     recurrence_id: createEventDto.recurrence_id ? new Date(createEventDto.recurrence_id) : null,
                     ...(createEventDto.original_event_id && {
-                        event: {
+                        original_event: {
                             connect: { id: createEventDto.original_event_id }
                         }
                     })
@@ -349,7 +355,12 @@ export class ScheduleService {
      * The original series is capped with an UNTIL rule, future modified instances and exception dates are cleared,
      * and a new event series starting at `recurrence_id` is created with the updated fields.
      */
-    async modifyThisAndFollow( event_id: bigint, recurrence_id: Date, updateEventDto: UpdateEventDto, user_id: string): Promise<EventWithRelationsDto> {
+    async modifyThisAndFollow(
+        event_id: bigint,
+        recurrence_id: Date,
+        updateEventDto: UpdateEventDto,
+        user_id: string
+    ): Promise<EventWithRelationsDto> {
         try {
             return await this.prisma.$transaction(async (tx) => {
                 const currentEvent = await tx.event.findUnique({ where: { id: event_id } });
@@ -358,34 +369,66 @@ export class ScheduleService {
 
                 const parentEventId = currentEvent.original_event_id || currentEvent.id;
                 const parentEvent = await tx.event.findUnique({ where: { id: parentEventId } });
-                if (!parentEvent.rrule_string) {
-                    throw new BadRequestException('Cannot split non-recurring event');
-                }
+                
+                // Fix 4 — null check
+                if (!parentEvent) throw new NotFoundException('Parent event not found');
+                if (!parentEvent.rrule_string) throw new BadRequestException('Cannot split non-recurring event');
 
                 const splitDate = new Date(recurrence_id);
+
+                // Fix 1 — untilDate đúng là end of day trước splitDate
                 const untilDate = new Date(splitDate);
                 untilDate.setDate(untilDate.getDate() - 1);
-                
+                untilDate.setUTCHours(23, 59, 59, 999);
+
+                // Cắt chuỗi cũ tại untilDate
                 await tx.event.update({
                     where: { id: parentEventId },
-                    data: { 
+                    data: {
                         rrule_string: this.addUntilToRRule(parentEvent.rrule_string, untilDate),
                         sequence: { increment: 1 },
-                        updated_at: new Date()
+                        updated_at: new Date(),
                     }
                 });
+
+                // Xóa overrides và exceptions từ splitDate trở đi
                 await tx.event.deleteMany({
-                    where: { original_event_id: parentEventId, recurrence_id: { gte: splitDate } }
+                    where: {
+                        original_event_id: parentEventId,
+                        recurrence_id: { gte: splitDate },
+                    }
                 });
                 await tx.eventExceptionDate.deleteMany({
-                    where: { event_id: parentEventId, exception_date: { gte: splitDate } }
+                    where: {
+                        event_id: parentEventId,
+                        exception_date: { gte: splitDate },
+                    }
                 });
 
-                const timeStart = updateEventDto.time_start ? new Date(updateEventDto.time_start) : splitDate;
-                const timeEnd = updateEventDto.time_end ? new Date(updateEventDto.time_end) : 
-                    new Date(splitDate.getTime() + (parentEvent.time_end.getTime() - parentEvent.time_start.getTime()));
+                // Fix 2 — giữ nguyên giờ từ parent nếu user không đổi
+                const timeStart = updateEventDto.time_start
+                    ? new Date(updateEventDto.time_start)
+                    : new Date(
+                        Date.UTC(
+                            splitDate.getUTCFullYear(),
+                            splitDate.getUTCMonth(),
+                            splitDate.getUTCDate(),
+                            parentEvent.time_start.getUTCHours(),
+                            parentEvent.time_start.getUTCMinutes(),
+                            parentEvent.time_start.getUTCSeconds(),
+                        )
+                    );
+
+                const timeEnd = updateEventDto.time_end
+                    ? new Date(updateEventDto.time_end)
+                    : new Date(
+                        timeStart.getTime() +
+                        (parentEvent.time_end.getTime() - parentEvent.time_start.getTime())
+                    );
+
                 await this.validateTimeRange(timeStart, timeEnd);
 
+                // Fix 3 & 5 — strip UNTIL khỏi rrule mới, reset sequence
                 return await tx.event.create({
                     data: {
                         user: { connect: { id: user_id } },
@@ -396,16 +439,19 @@ export class ScheduleService {
                         time_start: timeStart,
                         time_end: timeEnd,
                         timezone: updateEventDto.timezone ?? parentEvent.timezone,
-                        rrule_string: parentEvent.rrule_string,
+                        rrule_string: this.removeUntilFromRRule(parentEvent.rrule_string),
+                        sequence: 0,
                     },
                     include: { exception_dates: true, exceptions: true }
                 }) as EventWithRelationsDto;
             });
         } catch (error) {
             console.error('Error modifying this and future events:', error);
-            if (error instanceof BadRequestException || 
-                error instanceof NotFoundException || 
-                error instanceof ForbiddenException) {
+            if (
+                error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ForbiddenException
+            ) {
                 throw error;
             }
             if (error.code === 'P2025') {
@@ -414,5 +460,6 @@ export class ScheduleService {
             throw new BadRequestException('Failed to modify this and future events');
         }
     }
+
 
 }

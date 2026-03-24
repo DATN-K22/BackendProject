@@ -3,6 +3,7 @@ import { ScheduleService } from './schedule.service';
 import { CreateEventDto, CreateEventExceptionDto, UpdateEventDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
+import { ApiResponse } from '../../utils/dto/ApiResponse';
 
 @Controller('schedule')
 @UseGuards(JwtAuthGuard)
@@ -11,7 +12,8 @@ export class ScheduleController {
 
     @Get()
     async getMySchedule(@GetUser('id') userId: string) {
-        return this.scheduleService.getMySchedule(userId);
+        const data = await this.scheduleService.getMySchedule(userId);
+        return ApiResponse.OkResponse(data, 'Schedule retrieved successfully');
     }
 
     @Get('events/search')
@@ -19,7 +21,8 @@ export class ScheduleController {
         @Query('title') title: string,
         @GetUser('id') userId: string
     ) {
-        return this.scheduleService.getEventsByName(title, userId);
+        const data = await this.scheduleService.getEventsByName(title, userId);
+        return ApiResponse.OkResponse(data, 'Events retrieved successfully');
     }
 
     @Get('events/:id')
@@ -27,7 +30,8 @@ export class ScheduleController {
         @Param('id') eventId: string,
         @GetUser('id') userId: string
     ) {
-        return this.scheduleService.getEventById(BigInt(eventId), userId);
+        const data = await this.scheduleService.getEventById(BigInt(eventId), userId);
+        return ApiResponse.OkResponse(data, 'Event retrieved successfully');
     }
 
     @Post('events')
@@ -35,7 +39,8 @@ export class ScheduleController {
         @Body() createEventDto: CreateEventDto,
         @GetUser('id') userId: string
     ) {
-        return this.scheduleService.createEvent(createEventDto, userId);
+        const data = await this.scheduleService.createEvent(createEventDto, userId);
+        return ApiResponse.OkCreateResponse(data, 'Event created successfully');
     }
 
     @Put('events/:id')
@@ -44,7 +49,8 @@ export class ScheduleController {
         @Param('id') eventId: string,
         @GetUser('id') userId: string
     ) {
-        return this.scheduleService.updateEvent(updateEventDto, userId, BigInt(eventId));
+        const data = await this.scheduleService.updateEvent(updateEventDto, userId, BigInt(eventId));
+        return ApiResponse.OkResponse(data, 'Event updated successfully');
     }
 
     @Delete('events/:id')
@@ -52,7 +58,8 @@ export class ScheduleController {
         @Param('id') eventId: string,
         @GetUser('id') userId: string
     ) {
-        return this.scheduleService.deleteEvent(BigInt(eventId), userId);
+        const data = await this.scheduleService.deleteEvent(BigInt(eventId), userId);
+        return ApiResponse.OkResponse(data, 'Event deleted successfully');
     }
 
     @Post('events/:id/exceptions')
@@ -63,7 +70,8 @@ export class ScheduleController {
     ) {
         // Ensure the event_id in body matches the param
         dto.event_id = BigInt(eventId);
-        return this.scheduleService.addExDate(dto, userId);
+        const data = await this.scheduleService.addExDate(dto, userId);
+        return ApiResponse.OkCreateResponse(data, 'Exception date added successfully');
     }
 
     @Post('events/:id/split')
@@ -72,11 +80,12 @@ export class ScheduleController {
         @Body() body: { recurrence_id: string; updates: UpdateEventDto },
         @GetUser('id') userId: string
     ) {
-        return this.scheduleService.modifyThisAndFollow(
+        const data = await this.scheduleService.modifyThisAndFollow(
             BigInt(eventId),
             new Date(body.recurrence_id),
             body.updates,
             userId
         );
+        return ApiResponse.OkResponse(data, 'Recurring event updated successfully');
     }
 }

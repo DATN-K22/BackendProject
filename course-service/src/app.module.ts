@@ -10,12 +10,17 @@ import { ForumModule } from './modules/forum/forum.module'
 import { MessageModule } from './modules/message/message.module'
 import { IamModule } from './modules/iam-service/iam.module'
 import { MediaModule } from './modules/media-service/media.module'
+import { McpModule } from '@rekog/mcp-nest'
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env'
+    }),
+    McpModule.forRoot({
+      name: "course-mcp",
+      version:'1.0.0'
     }),
     PrismaModule,
     CourseModule,

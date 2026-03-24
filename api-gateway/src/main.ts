@@ -67,7 +67,12 @@ async function bootstrap() {
       req.path.startsWith('/api/docs') ||
       req.path === '/api/users/auth/signin' ||
       req.path === '/api/users/auth/signup' ||
-      req.path === '/api/users/auth/refresh'
+      req.path === '/api/users/auth/refresh' ||
+      req.path.startsWith('/api/orchestrator/health') ||
+      req.path.startsWith('/api/orchestrator/ready') ||
+      req.path.startsWith('/api/orchestrator/docs') ||
+      req.path.startsWith('/api/orchestrator/openapi.json') ||
+      req.path.startsWith('/api/courses/mcp')
     ) {
       return next();
     }
@@ -101,6 +106,9 @@ async function bootstrap() {
       req.headers['x-user-role'] = decoded.role;
       req.headers['x-user-jti'] = decoded.jti;
       req.headers['x-user-token-exp'] = decoded.exp;
+      req.headers['x-tenant-id'] =
+        decoded.tenantId ?? req.headers['x-tenant-id'] ?? 'default';
+      req.headers['x-forwarded-by-gateway'] = 'true';
 
       next();
     } catch {
@@ -154,6 +162,16 @@ async function bootstrap() {
       target: configService.get<string>('MEDIA_SERVICE_URL'),
       changeOrigin: true,
       pathRewrite: { '^/api/media': '' },
+    }),
+  );
+
+  // Orchestrator AI
+  server.use(
+    '/api/orchestrator',
+    createProxyMiddleware({
+      target: configService.get<string>('ORCHESTRATOR_AI_URL'),
+      changeOrigin: true,
+      pathRewrite: { '^/api/orchestrator': '' },
     }),
   );
 

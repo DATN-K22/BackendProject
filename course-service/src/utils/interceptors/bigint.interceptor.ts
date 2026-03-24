@@ -5,12 +5,16 @@ import { map } from 'rxjs/operators'
 @Injectable()
 export class BigIntInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    if (context.getType() !== 'http') {
+      return next.handle()
+    }
     return next
       .handle()
       .pipe(
-        map((data) =>
-          JSON.parse(JSON.stringify(data, (_, value) => (typeof value === 'bigint' ? value.toString() : value)))
-        )
+        map((data) => {
+          if (data === undefined || data === null) return data
+          return JSON.parse(JSON.stringify(data, (_, value) => (typeof value === 'bigint' ? value.toString() : value)))
+        })
       )
   }
 }

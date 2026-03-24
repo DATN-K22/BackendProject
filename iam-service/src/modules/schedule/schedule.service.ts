@@ -454,7 +454,6 @@ export class ScheduleService {
                 await this.validateTimeRange(timeStart, timeEnd);
                 let newRrule = this.removeUntilFromRRule(parentEvent.rrule_string);
 
-                // Fix 3 & 5 — strip UNTIL khỏi rrule mới, reset sequence
                 return await tx.event.create({
                     data: {
                         user: { connect: { id: user_id } },
@@ -465,7 +464,9 @@ export class ScheduleService {
                         time_start: timeStart,
                         time_end: timeEnd,
                         timezone: updateEventDto.timezone ?? parentEvent.timezone,
-                        rrule_string: this.addUntilToRRule(newRrule, existingUntil && existingUntil > splitDate ? existingUntil : timeEnd),
+                        rrule_string: existingUntil && existingUntil > splitDate
+                            ? this.addUntilToRRule(newRrule, existingUntil)
+                            : newRrule,
                         sequence: 0,
                     },
                     include: { exception_dates: true, exceptions: true }

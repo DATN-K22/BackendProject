@@ -99,4 +99,28 @@ export class CourseService {
       throw new Error('Failed to fetch creator info')
     }
   }
+
+  async getEnrolledCourses(userId: string, offset: number, limit: number) {
+    const { data: courses, totalItems } = await this.courseRepository.getEnrolledCourses(userId, offset, limit)
+
+    const creatorInfoMap = await this.getCreatorIds(courses)
+
+    const totalPages = Math.ceil(totalItems / limit)
+    const currentPage = Math.floor(offset / limit) + 1
+
+    const data = courses.map((course) => ({
+      ...course,
+      user: creatorInfoMap.get(course.owner_id)
+    }))
+
+    return {
+      data,
+      meta: {
+        totalItems,
+        totalPages,
+        itemsPerPage: limit,
+        currentPage
+      }
+    }
+  }
 }

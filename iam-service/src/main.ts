@@ -19,14 +19,6 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService)
 
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.TCP,
-    options: {
-      host: 'localhost',
-      port: configService.get<number>('TCP_PORT', 4001)
-    }
-  })
-
   await app.startAllMicroservices()
 
   const swaggerConfig = new DocumentBuilder()

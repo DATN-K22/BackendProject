@@ -16,27 +16,24 @@ CREATE TABLE "iam_service"."Users" (
     "last_name" TEXT,
     "avt_url" TEXT,
     "role" "iam_service"."UserRole" NOT NULL DEFAULT 'user',
-    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "owned_course_ids" BIGINT[] DEFAULT ARRAY[]::BIGINT[],
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "enroll_course" BIGINT[] DEFAULT ARRAY[]::BIGINT[],
 
     CONSTRAINT "Users_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "iam_service"."Skill" (
+CREATE TABLE "iam_service"."RefreshToken" (
     "id" BIGSERIAL NOT NULL,
-    "name" VARCHAR(100) NOT NULL,
-
-    CONSTRAINT "Skill_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "iam_service"."UserSkill" (
     "user_id" UUID NOT NULL,
-    "skill_id" BIGINT NOT NULL,
+    "jti" TEXT NOT NULL,
+    "token_hash" TEXT NOT NULL,
+    "expires_at" TIMESTAMP(3) NOT NULL,
+    "revoked" BOOLEAN NOT NULL DEFAULT false,
+    "replaced_by" TEXT,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "UserSkill_pkey" PRIMARY KEY ("user_id","skill_id")
+    CONSTRAINT "RefreshToken_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -48,14 +45,14 @@ CREATE TABLE "iam_service"."Event" (
     "description" TEXT,
     "location" VARCHAR(255),
     "status" "iam_service"."EventStatus" NOT NULL DEFAULT 'CONFIRMED',
-    "time_start" TIMESTAMPTZ NOT NULL,
-    "time_end" TIMESTAMPTZ NOT NULL,
+    "time_start" TIMESTAMPTZ(6) NOT NULL,
+    "time_end" TIMESTAMPTZ(6) NOT NULL,
     "timezone" VARCHAR(50) DEFAULT 'UTC',
     "rrule_string" TEXT,
     "sequence" INTEGER NOT NULL DEFAULT 0,
-    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMPTZ NOT NULL,
-    "recurrence_id" TIMESTAMPTZ,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "recurrence_id" TIMESTAMPTZ(6),
     "original_event_id" BIGINT,
 
     CONSTRAINT "Event_pkey" PRIMARY KEY ("id")
@@ -75,22 +72,20 @@ CREATE TABLE "iam_service"."EventExceptionDate" (
 CREATE UNIQUE INDEX "Users_email_key" ON "iam_service"."Users"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Skill_name_key" ON "iam_service"."Skill"("name");
+CREATE UNIQUE INDEX "RefreshToken_jti_key" ON "iam_service"."RefreshToken"("jti");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Event_uid_key" ON "iam_service"."Event"("uid");
 
 -- AddForeignKey
-ALTER TABLE "iam_service"."UserSkill" ADD CONSTRAINT "UserSkill_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "iam_service"."Users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "iam_service"."UserSkill" ADD CONSTRAINT "UserSkill_skill_id_fkey" FOREIGN KEY ("skill_id") REFERENCES "iam_service"."Skill"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "iam_service"."Event" ADD CONSTRAINT "Event_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "iam_service"."Users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "iam_service"."RefreshToken" ADD CONSTRAINT "RefreshToken_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "iam_service"."Users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "iam_service"."Event" ADD CONSTRAINT "Event_original_event_id_fkey" FOREIGN KEY ("original_event_id") REFERENCES "iam_service"."Event"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "iam_service"."Event" ADD CONSTRAINT "Event_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "iam_service"."Users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "iam_service"."EventExceptionDate" ADD CONSTRAINT "EventExceptionDate_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "iam_service"."Event"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

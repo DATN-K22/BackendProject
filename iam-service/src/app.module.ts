@@ -6,6 +6,7 @@ import { AuthModule } from './modules/auth/auth.module'
 import { ConfigModule } from '@nestjs/config/dist/config.module'
 import { ScheduleModule } from './modules/schedule/schedule.module'
 import { UserModule } from './modules/user/user.module'
+import { RedisModule } from './modules/redis/redis.module'
 
 @Module({
   imports: [
@@ -16,7 +17,8 @@ import { UserModule } from './modules/user/user.module'
     PrismaModule,
     AuthModule,
     ScheduleModule,
-    UserModule
+    UserModule,
+    RedisModule
   ],
   controllers: [AppController],
   providers: [AppService]

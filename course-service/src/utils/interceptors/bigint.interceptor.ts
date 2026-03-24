@@ -8,13 +8,11 @@ export class BigIntInterceptor implements NestInterceptor {
     if (context.getType() !== 'http') {
       return next.handle()
     }
-    return next
-      .handle()
-      .pipe(
-        map((data) => {
-          if (data === undefined || data === null) return data
-          return JSON.parse(JSON.stringify(data, (_, value) => (typeof value === 'bigint' ? value.toString() : value)))
-        })
-      )
+    return next.handle().pipe(
+      map((data) => {
+        if (data === undefined || data === null) return data
+        return JSON.parse(JSON.stringify(data, (_, value) => (typeof value === 'bigint' ? value.toString() : value)))
+      })
+    )
   }
 }

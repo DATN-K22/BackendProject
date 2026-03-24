@@ -19,8 +19,8 @@ import { McpModule } from '@rekog/mcp-nest'
       envFilePath: '.env'
     }),
     McpModule.forRoot({
-      name: "course-mcp",
-      version:'1.0.0'
+      name: 'course-mcp',
+      version: '1.0.0'
     }),
     PrismaModule,
     CourseModule,

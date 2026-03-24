@@ -11,6 +11,6 @@ import { McpModule } from '@rekog/mcp-nest'
 @Module({
   imports: [IamModule, ChapterModule, LessonModule, McpModule.forFeature([CourseTool], 'course-mcp')],
   controllers: [CourseController],
-  providers: [CourseService, CourseRepositoy, CourseTool],
+  providers: [CourseService, CourseRepositoy, CourseTool]
 })
 export class CourseModule {}

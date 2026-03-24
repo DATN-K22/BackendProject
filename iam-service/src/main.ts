@@ -5,6 +5,13 @@ import { ConfigService } from '@nestjs/config'
 import { Transport, MicroserviceOptions } from '@nestjs/microservices'
 import * as cookieParser from 'cookie-parser'
 import { Logger } from '@nestjs/common'
+import { NestFactory } from '@nestjs/core'
+import { AppModule } from './app.module'
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
+import { ConfigService } from '@nestjs/config'
+import { Transport, MicroserviceOptions } from '@nestjs/microservices'
+import * as cookieParser from 'cookie-parser'
+import { Logger } from '@nestjs/common'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)

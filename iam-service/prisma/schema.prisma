@@ -2,22 +2,15 @@ generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["multiSchema"]
   engineType      = "binary"
-  provider        = "prisma-client-js"
-  previewFeatures = ["multiSchema"]
-  engineType      = "binary"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
   schemas  = ["iam_service"]
-  schemas  = ["iam_service"]
 }
 
 model Users {
-  id            String         @id @default(uuid(7)) @db.Uuid
-  email         String         @unique
-  model Users {
   id            String         @id @default(uuid(7)) @db.Uuid
   email         String         @unique
   password_hash String

@@ -1,4 +1,10 @@
-import { ForbiddenException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common'
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException
+} from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import * as argon from 'argon2'
@@ -8,6 +14,8 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { AuthSignInDto, AuthSignUpDto } from './dto/auth.dto'
 import { Users } from '@prisma/client'
 import { RedisBlacklistService } from '../redis/redis-blacklist.service'
+import { IMessageBroker } from '../message_broker/message-broker.interface'
+import { MESSAGE_BROKER } from '../message_broker/message-broker.token'
 
 @Injectable()
 export class AuthService {
@@ -15,7 +23,10 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
-    private blacklist: RedisBlacklistService
+    private blacklist: RedisBlacklistService,
+
+    @Inject(MESSAGE_BROKER)
+    private readonly messageBroker: IMessageBroker
   ) {}
 
   private hashToken(raw: string): string {
@@ -33,7 +44,7 @@ export class AuthService {
   async signup(dto: AuthSignUpDto) {
     const hash = await argon.hash(dto.password)
     try {
-      const user = await this.prisma.users.create({
+      await this.prisma.users.create({
         data: {
           email: dto.email,
           password_hash: hash,
@@ -43,10 +54,7 @@ export class AuthService {
         }
       })
 
-      return {
-        tokens: await this.createTokensForUser(user),
-        user: this.formatUser(user)
-      }
+      await this.messageBroker.sendMail(dto.email)
     } catch (error) {
       if (error?.code === 'P2002') throw new ForbiddenException('Email already exists')
       throw new InternalServerErrorException('Signup failed')

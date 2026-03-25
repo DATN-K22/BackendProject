@@ -166,14 +166,14 @@ async function bootstrap() {
   );
 
   // Orchestrator AI
-  server.use(
-    '/api/orchestrator',
-    createProxyMiddleware({
-      target: configService.get<string>('ORCHESTRATOR_AI_URL'),
-      changeOrigin: true,
-      pathRewrite: { '^/api/orchestrator': '' },
-    }),
-  );
+  // server.use(
+  //   '/api/orchestrator',
+  //   createProxyMiddleware({
+  //     target: configService.get<string>('ORCHESTRATOR_AI_URL'),
+  //     changeOrigin: true,
+  //     pathRewrite: { '^/api/orchestrator': '' },
+  //   }),
+  // );
 
   await app.listen(configService.get<number>('PORT') || 3000);
 }

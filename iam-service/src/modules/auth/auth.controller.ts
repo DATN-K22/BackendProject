@@ -33,12 +33,7 @@ export class AuthController {
 
   @Post('signup')
   async signup(@Body() dto: AuthSignUpDto, @Res({ passthrough: true }) res: Response) {
-    const { tokens, user } = await this.authService.signup(dto)
-
-    return ApiResponse.OkResponse({
-      tokens: tokens,
-      user: user
-    })
+    return ApiResponse.OkResponse(await this.authService.signup(dto), 'Signup successfully')
   }
 
   @HttpCode(HttpStatus.OK)

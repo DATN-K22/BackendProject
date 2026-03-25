@@ -22,8 +22,6 @@ switch ($Action) {
     "init" {
         Write-Host "--- INITIALIZING NODE SERVICES ---" -ForegroundColor Cyan
         foreach ($service in $nodeServices) {
-        Write-Host "--- INITIALIZING NODE SERVICES ---" -ForegroundColor Cyan
-        foreach ($service in $nodeServices) {
             Write-Host "Processing $service..." -ForegroundColor Yellow
             $servicePath = Join-Path $rootDir $service
             Push-Location $servicePath
@@ -55,9 +53,6 @@ switch ($Action) {
 
     "run" {
         Write-Host "--- STARTING MICROSERVICES ---" -ForegroundColor Green
-
-        foreach ($service in $nodeServices) {
-
         foreach ($service in $nodeServices) {
             Write-Host "Launching $service in a new window..." -ForegroundColor Gray
             $servicePath = Join-Path $rootDir $service

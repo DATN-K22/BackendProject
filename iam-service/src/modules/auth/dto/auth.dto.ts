@@ -43,7 +43,7 @@ export class AuthRefeshTokenDto {
   @IsString()
   @IsNotEmpty()
   @ApiProperty({ example: 'refresh_token_here' })
-  refreshToken: string
+  refresh_token: string
 }
 
 export class JtiDto {

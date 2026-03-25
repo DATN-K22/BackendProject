@@ -60,14 +60,12 @@ model Course {
 }
 
 model Chapter {
-  id                BigInt        @id @default(autoincrement())
-  course_id         BigInt?
-  resource_id       BigInt?
-  title             String        @db.VarChar(255)
-  short_description String?       @db.Text // could be removed
-  long_description  String?       @db.Text // could be removed
-  status            ContentStatus @default(draft)
-  sort_order        Int?
+  id          BigInt        @id @default(autoincrement())
+  course_id   BigInt?
+  resource_id BigInt?
+  title       String        @db.VarChar(255)
+  status      ContentStatus @default(draft)
+  sort_order  Int?
 
   // Relations
   course  Course?  @relation(fields: [course_id], references: [id], onDelete: Cascade)

@@ -8,14 +8,12 @@ import {
 } from '@nestjs/common'
 import { CreateLessonDto } from './dto/create-lesson.dto'
 import { UpdateLessonDto } from './dto/update-lesson.dto'
-import { PrismaService } from '../prisma/prisma.service'
 import { MediaClient } from '../media-service/MediaClient'
 import { LessonRepository } from './lesson.repository'
 
 @Injectable()
 export class LessonService {
   constructor(
-    private readonly prisma: PrismaService,
     private readonly lessonRepository: LessonRepository,
 
     @Inject('MediaClient')

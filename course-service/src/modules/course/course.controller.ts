@@ -129,6 +129,19 @@ export class CourseController {
     )
   }
 
+  @Get('/me/enrolled')
+  @ApiOperation({ summary: 'Get courses that user has enrolled in' })
+  async getEnrolledCourses(
+    @Headers('x-user-id') userId: string,
+    @Query('offset') offset: string = '0',
+    @Query('limit') limit: string = '10'
+  ) {
+    return ApiResponse.OkResponse(
+      await this.courseService.getEnrolledCourses(userId, +offset, +limit),
+      'Get enrolled courses successfully'
+    )
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.courseService.remove(+id)

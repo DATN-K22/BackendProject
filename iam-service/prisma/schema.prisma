@@ -29,14 +29,17 @@ model Users {
 model RefreshToken {
   id          BigInt   @id @default(autoincrement())
   user_id     String   @db.Uuid
-  jti         String   @unique
-  token_hash  String
+  token_hash  String   @unique
   expires_at  DateTime
+  used        Boolean  @default(false)
   revoked     Boolean  @default(false)
-  replaced_by String?
+  device_info String?
   created_at  DateTime @default(now()) @db.Timestamptz(6)
-  user        Users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
+  user Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id]) // revoke all tokens của 1 user
+  @@index([expires_at]) // cleanup job
   @@schema("iam_service")
 }
 
@@ -68,7 +71,7 @@ model Event {
 model EventExceptionDate {
   id             BigInt   @id @default(autoincrement())
   event_id       BigInt
-  exception_date DateTime @db.Date
+  exception_date DateTime @db.Timestamptz(6)
   reason         String?  @db.VarChar(255)
   event          Event    @relation(fields: [event_id], references: [id], onDelete: Cascade)
 

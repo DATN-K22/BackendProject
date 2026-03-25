@@ -8,7 +8,8 @@ import {
   ValidationPipe,
   HttpCode,
   HttpStatus,
-  UnauthorizedException
+  UnauthorizedException,
+  Headers
 } from '@nestjs/common'
 import { AuthService } from './auth.service'
 import { AuthRefeshTokenDto, AuthSignInDto, AuthSignUpDto, JtiDto } from './dto/auth.dto'
@@ -34,15 +35,8 @@ export class AuthController {
   async signup(@Body() dto: AuthSignUpDto, @Res({ passthrough: true }) res: Response) {
     const { tokens, user } = await this.authService.signup(dto)
 
-    res.cookie('refreshToken', tokens.refresh_token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/auth/refresh',
-      maxAge: 1000 * 60 * 60 * 24 * 30
-    })
-
     return ApiResponse.OkResponse({
-      accessToken: tokens.access_token,
+      tokens: tokens,
       user: user
     })
   }
@@ -52,52 +46,32 @@ export class AuthController {
   async signin(@Body() dto: AuthSignInDto, @Res({ passthrough: true }) res: Response) {
     const { tokens, user } = await this.authService.signin(dto)
 
-    res.cookie('refreshToken', tokens.refresh_token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/auth/refresh',
-      maxAge: 1000 * 60 * 60 * 24 * 30
-    })
-
     return ApiResponse.OkResponse({
-      accessToken: tokens.access_token,
+      tokens: tokens,
       user: user
     })
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
-  async refreshToken(
-    @Body() refreshToken: AuthRefeshTokenDto,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response
-  ) {
-    const token = refreshToken.refreshToken
-    console.log('Received refresh token from cookie:', token) // Debug log
+  async refreshToken(@Body() refreshToken: AuthRefeshTokenDto) {
+    const token = refreshToken.refresh_token
     if (!token) throw new UnauthorizedException('No refresh token provided')
 
     const tokens = await this.authService.refreshToken(token)
 
-    res.cookie('refreshToken', tokens.refresh_token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/auth/refresh',
-      maxAge: 1000 * 60 * 60 * 24 * 30
+    return ApiResponse.OkResponse({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token
     })
-
-    return { access_token: tokens.access_token, refresh_token: tokens.refresh_token }
   }
 
   @Post('logout')
-  async logout(@Body() jti: JtiDto, @Res({ passthrough: true }) res: Response) {
-    if (jti) {
-      const result = await this.authService.logout(jti.jti)
-      if (result == true) {
-        res.clearCookie('refreshToken', { path: '/auth/refresh' })
-        return { ok: true }
-      }
-    } else {
-      throw new UnauthorizedException('No jti provided')
-    }
+  async logout(
+    @Headers('x-user-id') userId: string,
+    @Headers('x-user-jti') jti: string,
+    @Headers('x-user-token-exp') tokenExp: number
+  ) {
+    return ApiResponse.OkResponse(await this.authService.logout(userId, jti, tokenExp))
   }
 }

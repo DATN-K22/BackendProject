@@ -33,6 +33,27 @@ export class ScheduleService {
         return 'RRULE:' + rruleParts.join(';');
     }
 
+    private removeUntilFromRRule(rrule: string): string {
+        return rrule
+            .replace(/;UNTIL=[^;]*/i, '')
+            .replace(/UNTIL=[^;]*;?/i, '');
+    }
+
+    private getUntilDateFromRRule(rrule: string): Date | null {
+        const match = rrule.match(/UNTIL=([^;]+)/i);
+        if (match) {
+            const untilStr = match[1];
+            const year = parseInt(untilStr.slice(0, 4), 10);
+            const month = parseInt(untilStr.slice(4, 6), 10) - 1;
+            const day = parseInt(untilStr.slice(6, 8), 10);
+            const hour = parseInt(untilStr.slice(9, 11), 10);
+            const minute = parseInt(untilStr.slice(11, 13), 10);
+            const second = parseInt(untilStr.slice(13, 15), 10);
+            return new Date(Date.UTC(year, month, day, hour, minute, second));
+        }
+        return null;
+    }
+
     private async createNewEvent(createEventDto: CreateEventDto, user_id: string): Promise<Event> {
             const timeStart = new Date(createEventDto.time_start);
             const timeEnd = new Date(createEventDto.time_end);
@@ -67,10 +88,10 @@ export class ScheduleService {
                     time_start: timeStart,
                     time_end: timeEnd,
                     timezone: createEventDto.timezone ?? 'UTC',
-                    rrule_string: createEventDto.rrule_string,
+                    rrule_string: createEventDto.original_event_id ? null : createEventDto.rrule_string,
                     recurrence_id: createEventDto.recurrence_id ? new Date(createEventDto.recurrence_id) : null,
                     ...(createEventDto.original_event_id && {
-                        event: {
+                        original_event: {
                             connect: { id: createEventDto.original_event_id }
                         }
                     })
@@ -83,6 +104,39 @@ export class ScheduleService {
             return event
     }
 
+
+
+    /**
+     * Retrieves a single event by its ID, validates ownership.
+     */
+    async getEventById(event_id: bigint, user_id: string): Promise<EventWithRelationsDto> {
+        const event = await this.prisma.event.findUnique({
+            where: { id: event_id },
+            include: { exception_dates: true, exceptions: true }
+        });
+        await this.AuthorizeEvent(event, user_id);
+        return event as EventWithRelationsDto;
+    }
+
+    /**
+     * Searches events by title (case-insensitive partial match) for a given user.
+     */
+    async getEventsByName(title: string, user_id: string): Promise<EventWithRelationsDto[]> {
+        const events = await this.prisma.event.findMany({
+            where: {
+                user_id,
+                title: { contains: title, mode: 'insensitive' }
+            },
+            include: { exception_dates: true, exceptions: true },
+            orderBy: { time_start: 'asc' }
+        });
+        return events as EventWithRelationsDto[];
+    }
+
+    /**
+     * Retrieves all events belonging to a user, ordered by start time ascending.
+     * Use this to fetch the full raw schedule before applying date-range filters.
+     */
     async getMySchedule(user_id: string): Promise<EventWithRelationsDto[]> {
         try {
             const events = await this.prisma.event.findMany({
@@ -104,7 +158,11 @@ export class ScheduleService {
             throw error;
         }
     }
-
+    /**
+     * Creates a new calendar event for the given user.
+     * Supports both one-time and recurring events (via `rrule_string`).
+     * If `original_event_id` is provided, creates a modified exception instance of a recurring series.
+     */
     async createEvent(createEventDto: CreateEventDto, user_id: string): Promise<EventWithRelationsDto> {
         try {
             const event = await this.createNewEvent(createEventDto, user_id);
@@ -124,7 +182,11 @@ export class ScheduleService {
             throw new BadRequestException('Failed to create event');
         }
     }
-
+    
+    /**
+     * Updates fields on an existing event. Only provided fields are changed (partial update).
+     * Validates ownership and time range. Increments the sequence number on each update.
+     */
     async updateEvent (updateEventDto: UpdateEventDto, user_id: string, event_id: bigint): Promise <unknown>{
         try {
             const existingEvent = await this.prisma.event.findUnique({
@@ -193,7 +255,11 @@ export class ScheduleService {
 
     }
 
-
+    /**
+     * Adds an exception date (EXDATE) to a recurring event, effectively skipping that occurrence.
+     * If a modified instance already exists for that recurrence date, it is deleted first.
+     * Only applicable to recurring events with an `rrule_string`.
+     */
     async addExDate(dto: CreateEventExceptionDto, user_id: string): Promise<EventExceptionResponseDto> {
         try {
             const originalEvent = await this.prisma.event.findUnique({
@@ -254,33 +320,43 @@ export class ScheduleService {
     }
     
 
+    /**
+     * Deletes an event and its entire recurrence series (cascades to all child exceptions).
+     * If a modified instance is passed, the parent series is deleted instead.
+     * Validates ownership before deletion.
+     */
     async deleteEvent(event_id: bigint, user_id: string): Promise<{ message: string }> {
         try {
-            const event = await this.prisma.event.findUnique({
-                where: { id: event_id }
-            });
-
-            await this.AuthorizeEvent(event, user_id);
-
-            // If this is a child/modified instance, find the parent to delete the entire series
-            const eventToDelete = event.original_event_id || event_id;
-
-            // If we're deleting a different event (parent), authorize it too
-            if (event.original_event_id) {
-                const parentEvent = await this.prisma.event.findUnique({
-                    where: { id: event.original_event_id }
+            return await this.prisma.$transaction(async (tx) => {
+                const event = await tx.event.findUnique({
+                    where: { id: event_id }
                 });
-                await this.AuthorizeEvent(parentEvent, user_id);
-            }
 
-            // Delete the parent event - Prisma cascades to all children
-            await this.prisma.event.delete({
-                where: { id: eventToDelete }
+                await this.AuthorizeEvent(event, user_id);
+
+                // If this is a child/modified instance, find the parent to delete the entire series
+                const eventToDelete = event.original_event_id || event_id;
+
+                // If we're deleting a different event (parent), authorize it too
+                if (event.original_event_id) {
+                    const parentEvent = await tx.event.findUnique({
+                        where: { id: event.original_event_id }
+                    });
+                    await this.AuthorizeEvent(parentEvent, user_id);
+                }
+
+                // Delete the parent event and its children (via cascade on original_event_id foreign key)
+                await tx.event.deleteMany({
+                    where: {original_event_id: eventToDelete }
+                });
+                await tx.event.delete({
+                    where: { id: eventToDelete }
+                });
+
+                return {
+                    message: 'Event deleted successfully'
+                };
             });
-
-            return {
-                message: 'Event deleted successfully'
-            };
         } catch (error) {
             console.error('Error deleting event:', error);
             if (error instanceof NotFoundException || 
@@ -294,7 +370,17 @@ export class ScheduleService {
         }
     }
 
-    async modifyThisAndFollow( event_id: bigint, recurrence_id: Date, updateEventDto: UpdateEventDto, user_id: string): Promise<EventWithRelationsDto> {
+    /**
+     * Splits a recurring series at `recurrence_id` and applies updates to all occurrences from that point forward.
+     * The original series is capped with an UNTIL rule, future modified instances and exception dates are cleared,
+     * and a new event series starting at `recurrence_id` is created with the updated fields.
+     */
+    async modifyThisAndFollow(
+        event_id: bigint,
+        recurrence_id: Date,
+        updateEventDto: UpdateEventDto,
+        user_id: string
+    ): Promise<EventWithRelationsDto> {
         try {
             return await this.prisma.$transaction(async (tx) => {
                 const currentEvent = await tx.event.findUnique({ where: { id: event_id } });
@@ -303,33 +389,70 @@ export class ScheduleService {
 
                 const parentEventId = currentEvent.original_event_id || currentEvent.id;
                 const parentEvent = await tx.event.findUnique({ where: { id: parentEventId } });
-                if (!parentEvent.rrule_string) {
-                    throw new BadRequestException('Cannot split non-recurring event');
+                
+                // Fix 4 — null check
+                if (!parentEvent) throw new NotFoundException('Parent event not found');
+                if (!parentEvent.rrule_string) throw new BadRequestException('Cannot split non-recurring event');
+
+                const existingUntil = this.getUntilDateFromRRule(parentEvent.rrule_string);
+                if (existingUntil && existingUntil < recurrence_id) {
+                    throw new BadRequestException('Recurrence ID is after the existing UNTIL date of the series');
                 }
 
                 const splitDate = new Date(recurrence_id);
+
+                // Fix 1 — untilDate đúng là end of day trước splitDate
                 const untilDate = new Date(splitDate);
                 untilDate.setDate(untilDate.getDate() - 1);
-                
+                untilDate.setUTCHours(23, 59, 59, 999);
+
+                // Cắt chuỗi cũ tại untilDate
                 await tx.event.update({
                     where: { id: parentEventId },
-                    data: { 
+                    data: {
                         rrule_string: this.addUntilToRRule(parentEvent.rrule_string, untilDate),
                         sequence: { increment: 1 },
-                        updated_at: new Date()
+                        updated_at: new Date(),
                     }
                 });
+
+                // Xóa overrides và exceptions từ splitDate trở đi
                 await tx.event.deleteMany({
-                    where: { original_event_id: parentEventId, recurrence_id: { gte: splitDate } }
+                    where: {
+                        original_event_id: parentEventId,
+                        recurrence_id: { gte: splitDate },
+                    }
                 });
                 await tx.eventExceptionDate.deleteMany({
-                    where: { event_id: parentEventId, exception_date: { gte: splitDate } }
+                    where: {
+                        event_id: parentEventId,
+                        exception_date: { gte: splitDate },
+                    }
                 });
 
-                const timeStart = updateEventDto.time_start ? new Date(updateEventDto.time_start) : splitDate;
-                const timeEnd = updateEventDto.time_end ? new Date(updateEventDto.time_end) : 
-                    new Date(splitDate.getTime() + (parentEvent.time_end.getTime() - parentEvent.time_start.getTime()));
+                // Fix 2 — giữ nguyên giờ từ parent nếu user không đổi
+                const timeStart = updateEventDto.time_start
+                    ? new Date(updateEventDto.time_start)
+                    : new Date(
+                        Date.UTC(
+                            splitDate.getUTCFullYear(),
+                            splitDate.getUTCMonth(),
+                            splitDate.getUTCDate(),
+                            parentEvent.time_start.getUTCHours(),
+                            parentEvent.time_start.getUTCMinutes(),
+                            parentEvent.time_start.getUTCSeconds(),
+                        )
+                    );
+
+                const timeEnd = updateEventDto.time_end
+                    ? new Date(updateEventDto.time_end)
+                    : new Date(
+                        timeStart.getTime() +
+                        (parentEvent.time_end.getTime() - parentEvent.time_start.getTime())
+                    );
+
                 await this.validateTimeRange(timeStart, timeEnd);
+                let newRrule = this.removeUntilFromRRule(parentEvent.rrule_string);
 
                 return await tx.event.create({
                     data: {
@@ -341,16 +464,21 @@ export class ScheduleService {
                         time_start: timeStart,
                         time_end: timeEnd,
                         timezone: updateEventDto.timezone ?? parentEvent.timezone,
-                        rrule_string: parentEvent.rrule_string,
+                        rrule_string: existingUntil && existingUntil > splitDate
+                            ? this.addUntilToRRule(newRrule, existingUntil)
+                            : newRrule,
+                        sequence: 0,
                     },
                     include: { exception_dates: true, exceptions: true }
                 }) as EventWithRelationsDto;
             });
         } catch (error) {
             console.error('Error modifying this and future events:', error);
-            if (error instanceof BadRequestException || 
-                error instanceof NotFoundException || 
-                error instanceof ForbiddenException) {
+            if (
+                error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ForbiddenException
+            ) {
                 throw error;
             }
             if (error.code === 'P2025') {
@@ -359,5 +487,6 @@ export class ScheduleService {
             throw new BadRequestException('Failed to modify this and future events');
         }
     }
+
 
 }

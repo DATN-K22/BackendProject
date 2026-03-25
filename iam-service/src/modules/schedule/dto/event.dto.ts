@@ -1,75 +1,75 @@
-import { EventStatus } from '@prisma/client'
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString, Matches } from 'class-validator'
+import { EventStatus } from "@prisma/client";
+import { IsDateString, IsEnum, IsInt, IsOptional, IsString, Matches} from "class-validator";
 
 export class CreateEventDto {
-  @IsString()
-  title: string
+    @IsString()
+    title: string;
 
-  @IsOptional()
-  @IsString()
-  description?: string
+    @IsOptional()
+    @IsString()
+    description?: string;
 
-  @IsOptional()
-  @IsString()
-  location?: string
+    @IsOptional()
+    @IsString()
+    location?: string;
 
-  @IsEnum(EventStatus)
-  @IsOptional()
-  status?: EventStatus
+    @IsEnum(EventStatus)
+    @IsOptional()
+    status?: EventStatus;
 
-  @IsDateString()
-  @Matches(/Z$|[+-]\d{2}:\d{2}$/, { message: 'time_start must include a UTC offset (e.g. Z or +07:00)' })
-  time_start: string
+    @IsDateString()
+    @Matches(/Z$|[+-]\d{2}:\d{2}$/, { message: 'time_start must include a UTC offset (e.g. Z or +07:00)' })
+    time_start: string;
 
-  @IsDateString()
-  @Matches(/Z$|[+-]\d{2}:\d{2}$/, { message: 'time_end must include a UTC offset (e.g. Z or +07:00)' })
-  time_end: string
+    @IsDateString()
+    @Matches(/Z$|[+-]\d{2}:\d{2}$/, { message: 'time_end must include a UTC offset (e.g. Z or +07:00)' })
+    time_end: string;
 
-  @IsOptional()
-  @IsString()
-  timezone?: string
+    @IsOptional()
+    @IsString()
+    timezone?: string;
 
-  @IsOptional()
-  @IsString()
-  rrule_string?: string
+    @IsOptional()
+    @IsString()
+    rrule_string?: string;
 
-  @IsOptional()
-  @IsDateString()
-  @Matches(/Z$|[+-]\d{2}:\d{2}$/, { message: 'recurrence_id must include a UTC offset (e.g. Z or +07:00)' })
-  recurrence_id?: string
+    @IsOptional()
+    @IsDateString()
+    @Matches(/Z$|[+-]\d{2}:\d{2}$/, { message: 'recurrence_id must include a UTC offset (e.g. Z or +07:00)' })
+    recurrence_id?: string;
 
-  @IsOptional()
-  @IsInt()
-  original_event_id?: bigint
+    @IsOptional()
+    @IsInt()
+    original_event_id?: bigint;
 }
 
 export class EventResponseDto {
-  id: bigint
-  user_id: string
-  uid: string
-  title: string
-  description?: string
-  location?: string
-  status: EventStatus
-  time_start: Date
-  time_end: Date
-  timezone?: string
-  rrule_string?: string
-  sequence: number
-  created_at: Date
-  updated_at: Date
-  recurrence_id?: Date
-  original_event_id?: bigint
+    id: bigint;
+    user_id: string;
+    uid: string;
+    title: string;
+    description?: string;
+    location?: string;
+    status: EventStatus;
+    time_start: Date;
+    time_end: Date;
+    timezone?: string;
+    rrule_string?: string;
+    sequence: number;
+    created_at: Date;
+    updated_at: Date;
+    recurrence_id?: Date;
+    original_event_id?: bigint;
 }
 
 export class EventExceptionResponseDto {
-  id: bigint
-  event_id: bigint
-  exception_date: Date
-  reason?: string
+    id: bigint;
+    event_id: bigint;
+    exception_date: Date;
+    reason?: string;
 }
 
 export class EventWithRelationsDto extends EventResponseDto {
-  exception_dates?: EventExceptionResponseDto[]
-  exceptions?: EventResponseDto[]
+    exception_dates?: EventExceptionResponseDto[];
+    exceptions?: EventResponseDto[];
 }

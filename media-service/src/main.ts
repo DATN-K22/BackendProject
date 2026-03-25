@@ -5,11 +5,14 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppValidationPipe } from 'src/utils/pipe/validation.pipe';
 import { ConfigService } from '@nestjs/config';
 import { GlobalExceptionFilter } from './utils/excreption/GlobalExceptionHandler';
+import { BigIntInterceptor } from './utils/interceptors/bigint.interceptor';
+import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.useGlobalInterceptors(new BigIntInterceptor());
   app.useGlobalPipes(AppValidationPipe);
-  app.useGlobalFilters(new GlobalExceptionFilter())
+  app.useGlobalFilters(new GlobalExceptionFilter());
   const configService = app.get(ConfigService);
 
   const swaggerConfig = new DocumentBuilder()
@@ -23,9 +26,10 @@ async function bootstrap() {
   if (configService.get('NODE_ENV') !== 'production') {
     SwaggerModule.setup('api/docs', app, document);
   }
-
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
+  const logger = new Logger('Bootstrap');
+  logger.log(`=== Media Service running ===`);
 }
 
 bootstrap();

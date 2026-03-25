@@ -15,7 +15,7 @@ export class AuthService {
   ) {}
 
   private getAccessTokenPayload(user: any) {
-    return { sub: user.id, email: user.email }
+    return { sub: user.id, role: user.role }
   }
 
   async signup(dto: AuthSignUpDto) {

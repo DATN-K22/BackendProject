@@ -1,76 +1,66 @@
-import { Injectable } from '@nestjs/common'
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException
+} from '@nestjs/common'
 import { CreateLessonDto } from './dto/create-lesson.dto'
 import { UpdateLessonDto } from './dto/update-lesson.dto'
 import { PrismaService } from '../prisma/prisma.service'
+import { MediaClient } from '../media-service/MediaClient'
+import { LessonRepository } from './lesson.repository'
 
 @Injectable()
 export class LessonService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly lessonRepository: LessonRepository,
+
+    @Inject('MediaClient')
+    private readonly mediaClient: MediaClient
+  ) {}
 
   create(dto: CreateLessonDto) {
-    return this.prisma.lesson.create({
-      data: {
-        ...dto,
-        chapter_id: BigInt(dto.chapter_id),
-        resources: dto.resources ? dto.resources.map((r) => BigInt(r)) : []
-      }
-    })
+    return this.lessonRepository.create(dto)
   }
 
   findAll(params: { skip?: number; take?: number; chapterId?: bigint }) {
-    const { skip, take, chapterId } = params
-    return this.prisma.lesson.findMany({
-      skip,
-      take,
-      where: chapterId ? { chapter_id: chapterId } : undefined,
-      orderBy: [{ sort_order: 'asc' }, { id: 'asc' }],
-      include: {
-        chapter: {
-          select: {
-            id: true,
-            title: true,
-            course_id: true
-          }
-        }
-      }
-    })
+    return this.lessonRepository.findAll(params)
   }
 
-  findOne(id: string) {
-    return this.prisma.lesson.findUnique({
-      where: { id: BigInt(id) },
-      include: {
-        chapter: {
-          select: {
-            id: true,
-            title: true,
-            course_id: true
-          }
-        }
+  async getLessonByIdWithValidateUserEnrollment(id: string, userId: string) {
+    try {
+      const [lesson, resourcesResponse] = await Promise.all([
+        this.lessonRepository.getLessonByIdWithValidateUserEnrollment(id, userId),
+        this.mediaClient.getResorcesByLessonId(id)
+      ])
+
+      if (!lesson) {
+        throw new ForbiddenException('User not enrolled')
       }
-    })
+      return {
+        ...lesson,
+        resources: resourcesResponse?.data ?? []
+      }
+    } catch (err) {
+      Logger.error(err)
+      throw new InternalServerErrorException('Fail to get lesson by id')
+    }
   }
 
   update(id: string, dto: UpdateLessonDto) {
-    const data: any = { ...dto }
-
-    if (dto.chapter_id) {
-      data.chapter_id = BigInt(dto.chapter_id)
-    }
-
-    if (dto.resources) {
-      data.resources = dto.resources.map((r) => BigInt(r))
-    }
-
-    return this.prisma.lesson.update({
-      where: { id: BigInt(id) },
-      data
-    })
+    return this.lessonRepository.update(id, dto)
   }
 
   remove(id: string) {
-    return this.prisma.lesson.delete({
-      where: { id: BigInt(id) }
-    })
+    return this.lessonRepository.remove(id)
+  }
+
+  async markLearnedLesson(userId: string, lessonId: string, courseId: string) {
+    if (await this.lessonRepository.isEnrolled(courseId, userId))
+      return this.lessonRepository.markLearnedLesson(userId, lessonId)
+    else throw new ForbiddenException("User hasn't enrolled into this course")
   }
 }

@@ -11,9 +11,16 @@ export class UserService {
 
   constructor(private readonly userRepository: UserRespository) {}
 
-  async getMe(req: any) {
-    const user = await this.userRepository.findById(req.user.id)
-    return user
+  async findByIds(users_ids: string[]) {
+    const users = await this.userRepository.findByIds(users_ids)
+    const response = users.map((user) => {
+      return {
+        id: user.id,
+        name: user.first_name + ' ' + user.last_name,
+        avt_url: user.avt_url
+      }
+    })
+    return response
   }
 
   create(createUserDto: CreateUserDto) {

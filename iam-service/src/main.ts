@@ -21,17 +21,6 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService)
 
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.RMQ,
-    options: {
-      urls: [configService.get('MESSAGE_BROKER_URL', 'amqp://guest:guest@localhost:5672')] as string[],
-      queue: 'mail_queue',
-      queueOptions: { durable: true }
-    }
-  })
-
-  await app.startAllMicroservices()
-
   const swaggerConfig = new DocumentBuilder()
     .setTitle('My API')
     .setDescription('API documentation')

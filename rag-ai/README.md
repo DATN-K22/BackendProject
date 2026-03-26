@@ -73,6 +73,9 @@ Key points:
 - `QDRANT_URL` points to external Qdrant
 - `QDRANT_COLLECTION` should be environment-scoped (for example `edu_rag_dev`)
 - Redis is optional for session persistence (fallback to memory if unavailable)
+- If Redis requires authentication, set `REDIS_PASSWORD`.
+  - You can either keep credentials in `REDIS_URL` (e.g. `redis://:password@host:6379/1`)
+  - Or set `REDIS_URL` without auth and provide `REDIS_PASSWORD`
 
 ## Run
 

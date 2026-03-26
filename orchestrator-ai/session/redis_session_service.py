@@ -19,13 +19,18 @@ logger = logging.getLogger(__name__)
 
 
 class RedisSessionService(BaseSessionService):
-    def __init__(self, redis_url: str, ttl: timedelta = DEFAULT_TTL):
+    def __init__(self, redis_url: str, redis_password: str | None = None, ttl: timedelta = DEFAULT_TTL):
         self._redis_url = redis_url
+        self._redis_password = redis_password
         self._ttl = ttl
         self._client: Optional[aioredis.Redis] = None
 
     async def connect(self) -> None:
-        self._client = await aioredis.from_url(self._redis_url, decode_responses=True)
+        self._client = await aioredis.from_url(
+            self._redis_url,
+            password=self._redis_password,
+            decode_responses=True,
+        )
 
     async def close(self) -> None:
         if self._client:

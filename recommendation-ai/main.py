@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 # ---------------------------------------------------------------------------
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8080"))
 APP_NAME = "edu-assistant"
@@ -114,7 +115,10 @@ async def build_app() -> Starlette:
     """
 
     # 1. Redis session service with in-memory fallback
-    session_service = RedisSessionService(redis_url=REDIS_URL)
+    session_service = RedisSessionService(
+        redis_url=REDIS_URL,
+        redis_password=REDIS_PASSWORD,
+    )
     session_backend = "redis"
     try:
         await session_service.connect()

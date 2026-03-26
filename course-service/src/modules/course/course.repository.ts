@@ -144,4 +144,30 @@ export class CourseRepositoy {
       }
     })
   }
+  async getEnrolledCourses(userId: string, offset: number, limit: number) {
+    const [data, totalItems] = await Promise.all([
+      this.prismaService.course.findMany({
+        where: {
+          enrollments: {
+            some: {
+              user_id: userId
+            }
+          }
+        },
+        skip: offset,
+        take: limit
+      }),
+      this.prismaService.course.count({
+        where: {
+          enrollments: {
+            some: {
+              user_id: userId
+            }
+          }
+        }
+      })
+    ])
+    Logger.log(`Total enrolled courses for user ${userId}: ${totalItems}`)
+    return { data, totalItems }
+  }
 }

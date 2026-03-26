@@ -1,5 +1,5 @@
 import { EventStatus } from "@prisma/client";
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString} from "class-validator";
+import { IsDateString, IsEnum, IsInt, IsOptional, IsString, Matches} from "class-validator";
 
 export class CreateEventDto {
     @IsString()
@@ -18,9 +18,11 @@ export class CreateEventDto {
     status?: EventStatus;
 
     @IsDateString()
+    @Matches(/Z$|[+-]\d{2}:\d{2}$/, { message: 'time_start must include a UTC offset (e.g. Z or +07:00)' })
     time_start: string;
 
     @IsDateString()
+    @Matches(/Z$|[+-]\d{2}:\d{2}$/, { message: 'time_end must include a UTC offset (e.g. Z or +07:00)' })
     time_end: string;
 
     @IsOptional()
@@ -33,6 +35,7 @@ export class CreateEventDto {
 
     @IsOptional()
     @IsDateString()
+    @Matches(/Z$|[+-]\d{2}:\d{2}$/, { message: 'recurrence_id must include a UTC offset (e.g. Z or +07:00)' })
     recurrence_id?: string;
 
     @IsOptional()

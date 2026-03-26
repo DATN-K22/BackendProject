@@ -2,14 +2,16 @@ import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { ConfigService } from '@nestjs/config'
-import { Transport, MicroserviceOptions } from '@nestjs/microservices'
+import { BigIntInterceptor } from './utils/interceptors/bigint.interceptor'
 import * as cookieParser from 'cookie-parser'
 import { Logger } from '@nestjs/common'
+
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
 
   app.use(cookieParser())
+  app.useGlobalInterceptors(new BigIntInterceptor())
 
   app.enableCors({
     origin: true,
@@ -18,14 +20,6 @@ async function bootstrap() {
   })
 
   const configService = app.get(ConfigService)
-
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.TCP,
-    options: {
-      host: 'localhost',
-      port: configService.get<number>('TCP_PORT', 4001)
-    }
-  })
 
   await app.startAllMicroservices()
 

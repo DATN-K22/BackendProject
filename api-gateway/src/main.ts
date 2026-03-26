@@ -5,11 +5,18 @@ import * as jwt from 'jsonwebtoken';
 import * as swaggerUi from 'swagger-ui-express';
 import { ConfigService } from '@nestjs/config';
 import { getMergedSwagger } from './config/swagger-aggregator';
+import Redis from 'ioredis';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
   const server = app.getHttpAdapter().getInstance();
+  const redis = new Redis({
+    host: configService.get('REDIS_HOST'),
+    port: configService.get<number>('REDIS_PORT'),
+    password: configService.get('REDIS_PASSWORD'),
+    retryStrategy: (times) => Math.min(times * 50, 2000),
+  });
 
   app.enableCors({
     origin: true,
@@ -54,12 +61,18 @@ async function bootstrap() {
    */
   const jwtSecret = configService.get<string>('JWT_ACCESS_TOKEN_SECRET');
 
-  server.use((req, res, next) => {
+  server.use(async (req, res, next) => {
     // Public routes
     if (
       req.path.startsWith('/api/docs') ||
       req.path === '/api/users/auth/signin' ||
-      req.path === '/api/users/auth/signup'
+      req.path === '/api/users/auth/signup' ||
+      req.path === '/api/users/auth/refresh' ||
+      req.path.startsWith('/api/orchestrator/health') ||
+      req.path.startsWith('/api/orchestrator/ready') ||
+      req.path.startsWith('/api/orchestrator/docs') ||
+      req.path.startsWith('/api/orchestrator/openapi.json') ||
+      req.path.startsWith('/api/courses/mcp')
     ) {
       return next();
     }
@@ -79,9 +92,23 @@ async function bootstrap() {
     try {
       const decoded: any = jwt.verify(token, jwtSecret!);
 
+      const isBlacklisted = await redis.get(`iam:blacklist:${decoded.jti}`);
+      if (isBlacklisted) {
+        return res.status(401).json({
+          success: false,
+          code: '4003',
+          message: 'Token has been revoked',
+        });
+      }
+
       // Forward user info xuống service
       req.headers['x-user-id'] = decoded.sub;
       req.headers['x-user-role'] = decoded.role;
+      req.headers['x-user-jti'] = decoded.jti;
+      req.headers['x-user-token-exp'] = decoded.exp;
+      req.headers['x-tenant-id'] =
+        decoded.tenantId ?? req.headers['x-tenant-id'] ?? 'default';
+      req.headers['x-forwarded-by-gateway'] = 'true';
 
       next();
     } catch {
@@ -135,6 +162,16 @@ async function bootstrap() {
       target: configService.get<string>('MEDIA_SERVICE_URL'),
       changeOrigin: true,
       pathRewrite: { '^/api/media': '' },
+    }),
+  );
+
+  // Orchestrator AI
+  server.use(
+    '/api/orchestrator',
+    createProxyMiddleware({
+      target: configService.get<string>('ORCHESTRATOR_AI_URL'),
+      changeOrigin: true,
+      pathRewrite: { '^/api/orchestrator': '' },
     }),
   );
 

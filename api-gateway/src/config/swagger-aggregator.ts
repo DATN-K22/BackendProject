@@ -16,6 +16,10 @@ export async function getMergedSwagger(configService: ConfigService) {
       name: 'courses',
       url: `${configService.get<string>('COURSE_SERVICE_URL')}/api/docs-json`,
     },
+    {
+      name: 'orchestrator',
+      url: `${configService.get<string>('ORCHESTRATOR_AI_URL')}/openapi.json`,
+    },
   ];
 
   const specs: Parameters<typeof merge>[0] = [];

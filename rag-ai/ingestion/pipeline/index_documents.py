@@ -22,14 +22,18 @@ def make_connector(source_uri: str) -> SourceConnector:
     return LocalFileSource()
 
 def main() -> None:
-    if len(sys.argv) != 2:
+    if len(sys.argv) == 2:
+        raw = sys.argv[1]
+    elif not sys.stdin.isatty():
+        raw = sys.stdin.read()
+    else:
         print(
             "Usage: python -m ingestion.pipeline.index_documents "
             '\'{"document_id":"doc-1","source_uri":"https://...","version":"1"}\''
         )
         return
 
-    payload = json.loads(sys.argv[1])
+    payload = json.loads(raw)
     event = DocumentUploadEvent.from_dict(payload)
     settings = load_settings()
 

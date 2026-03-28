@@ -231,14 +231,12 @@ cd rag-ai
 # run pipeline to add mock data to qdrant
 $i = 1
 Get-ChildItem -Path "ingestion/mock_file/course_21" -Filter *.pdf | ForEach-Object {
-  $payload = @{
+  @{
     document_id = "course21-doc-$i"
-    source_uri  = $_.FullName
+    source_uri  = $_.FullName -replace '\\', '/'
     version     = "1"
     tenant_id   = "course_21"
-  } | ConvertTo-Json -Compress
-
-  python -m ingestion.pipeline.index_documents $payload
+  } | ConvertTo-Json -Compress | python -m ingestion.pipeline.index_documents
   $i++
 }
 ```

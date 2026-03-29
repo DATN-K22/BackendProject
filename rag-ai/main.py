@@ -55,7 +55,10 @@ async def readiness_check(request: Request) -> JSONResponse:
 
 
 async def build_app() -> Starlette:
-    session_service = RedisSessionService(redis_url=settings.redis_url)
+    session_service = RedisSessionService(
+        redis_url=settings.redis_url,
+        redis_password=settings.redis_password,
+    )
     session_backend = "redis"
     try:
         await session_service.connect()

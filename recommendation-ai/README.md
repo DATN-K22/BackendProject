@@ -32,6 +32,7 @@ This service acts as the AI orchestrator for the educational platform:
 ```bash
 GOOGLE_API_KEY=your-gemini-api-key-here
 REDIS_URL=redis://localhost:6379/0
+REDIS_PASSWORD=your-redis-password
 COURSE_MCP_URL=http://localhost:8001/sse
 SCHEDULE_MCP_URL=http://localhost:8002/sse
 GATEWAY_SHARED_SECRET=your-gateway-secret

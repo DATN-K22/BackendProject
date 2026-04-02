@@ -29,11 +29,11 @@ export class LessonController {
     })
   }
 
-  @Patch(':courseId/:lessonId/status')
+  @Patch(':id/:courseId/:lessonId/status')
   async markLearnedLesson(
     @Param('courseId') courseId: string,
     @Param('lessonId') lessonId: string,
-    @Headers('x-user-id') userId: string
+    @Param('id') userId: string
   ) {
     return ApiSwaggerResponse.OkResponse(await this.lessonService.markLearnedLesson(userId, lessonId, courseId))
   }
@@ -56,7 +56,7 @@ export class LessonController {
   @ApiOperation({ summary: 'Lấy thông tin lesson theo ID' })
   @ApiResponse({ status: 200, description: 'Thông tin lesson' })
   @ApiResponse({ status: 404, description: 'Không tìm thấy lesson' })
-  async findOne(@Headers('x-user-id') userId: string, @Param('id') id: string) {
+  async findOne(@Param('id') id: string, @Param('userId') userId: string) {
     return ApiSwaggerResponse.OkResponse(await this.lessonService.getLessonByIdWithValidateUserEnrollment(id, userId))
   }
 }

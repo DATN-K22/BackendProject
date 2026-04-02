@@ -6,6 +6,8 @@ import * as swaggerUi from 'swagger-ui-express';
 import { ConfigService } from '@nestjs/config';
 import { getMergedSwagger } from './config/swagger-aggregator';
 import Redis from 'ioredis';
+import { Logger } from '@nestjs/common';
+import { roleRoutes } from './config/role-routes';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -62,12 +64,15 @@ async function bootstrap() {
   const jwtSecret = configService.get<string>('JWT_ACCESS_TOKEN_SECRET');
 
   server.use(async (req, res, next) => {
+    Logger.debug(
+      `Incoming request: ${req.method} ${req.originalUrl} from ${req.path}`,
+    );
+
     // Public routes
     if (
       req.path.startsWith('/api/docs') ||
-      req.path === '/api/users/auth/signin' ||
-      req.path === '/api/users/auth/signup' ||
-      req.path === '/api/users/auth/refresh' ||
+      (req.path.startsWith('/api/users/auth') &&
+        !req.path.endsWith('/logout')) ||
       req.path.startsWith('/api/orchestrator/health') ||
       req.path.startsWith('/api/orchestrator/ready') ||
       req.path.startsWith('/api/orchestrator/docs') ||
@@ -78,7 +83,6 @@ async function bootstrap() {
     }
 
     const authHeader = req.headers.authorization;
-
     if (!authHeader) {
       return res.status(401).json({
         success: false,
@@ -104,7 +108,23 @@ async function bootstrap() {
       // Forward user info xuống service
       req.headers['x-user-id'] = decoded.sub;
       req.headers['x-user-role'] = decoded.role;
+
+      const matchedRoute = roleRoutes.find(
+        (r) =>
+          r.path.test(req.path) &&
+          (r.method === '*' || r.method === req.method),
+      );
+
+      if (matchedRoute && !matchedRoute.roles.includes(decoded.role)) {
+        return res.status(403).json({
+          success: false,
+          code: '4031',
+          message: `Forbidden: required roles [${matchedRoute.roles.join(', ')}]`,
+        });
+      }
+
       req.headers['x-user-jti'] = decoded.jti;
+      req.headers['x-user-email'] = decoded.email;
       req.headers['x-user-token-exp'] = decoded.exp;
       req.headers['x-tenant-id'] =
         decoded.tenantId ?? req.headers['x-tenant-id'] ?? 'default';

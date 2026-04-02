@@ -1,0 +1,2 @@
+CREATE TYPE "iam_service"."UserStatus" AS ENUM ('pending', 'active', 'temporary_banned', 'inactive', 'banned');
+ALTER TABLE "iam_service"."Users" ADD COLUMN "status" "iam_service"."UserStatus" NOT NULL DEFAULT 'active';

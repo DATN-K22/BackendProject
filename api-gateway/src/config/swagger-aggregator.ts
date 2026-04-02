@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 export async function getMergedSwagger(configService: ConfigService) {
   const services = [
     {
-      name: 'media-service',
+      name: 'media',
       url: `${configService.get<string>('MEDIA_SERVICE_URL')}/api/docs-json`,
     },
     {

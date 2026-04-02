@@ -11,7 +11,7 @@ import { RabbitMQService } from './providers/rabbitmq.servce'
     {
       provide: MESSAGE_BROKER,
       useFactory: (configService: ConfigService): IMessageBroker => {
-        const provider = configService.get<string>('MESSAGE_BROKER_PROVIDER', 'console')
+        const provider = configService.get<string>('MESSAGE_BROKER_PROVIDER', 'rabbitmq')
 
         switch (provider) {
           case 'rabbitmq':

@@ -89,6 +89,7 @@ enum UserRole {
 enum UserStatus {
   pending // waiting for email confirmation
   active
+  temporary_banned // temporarily banned, can be reactivated after certain time or by admin
   inactive // temporarily deactivated by user, can be reactivated by logging in
   banned // temporarily or permanently banned by admin, cannot log in
 

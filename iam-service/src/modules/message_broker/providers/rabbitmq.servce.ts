@@ -1,8 +1,9 @@
 // providers/rabbitmq.service.ts
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { ClientProxy, ClientProxyFactory, Transport } from '@nestjs/microservices'
 import { IMessageBroker } from '../message-broker.interface'
+import { firstValueFrom } from 'rxjs'
 
 @Injectable()
 export class RabbitMQService implements IMessageBroker {
@@ -22,6 +23,12 @@ export class RabbitMQService implements IMessageBroker {
   }
 
   async sendMail(to: string): Promise<any> {
-    return this.client.emit('send_mail', { to })
+    Logger.log(`Sending mail to ${to} via RabbitMQ`, 'RabbitMQService')
+    try {
+      return await firstValueFrom(this.client.emit('send_mail', { to }))
+    } catch (error) {
+      Logger.error(`sendMail error: ${JSON.stringify(error)}`, 'RabbitMQService')
+      throw error
+    }
   }
 }

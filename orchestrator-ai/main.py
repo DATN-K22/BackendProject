@@ -17,6 +17,7 @@ from google.adk.a2a.utils.agent_to_a2a import to_a2a
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+from google.adk.sessions.database_session_service import DatabaseSessionService
 
 
 
@@ -46,6 +47,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8080"))
 APP_NAME = "edu-assistant"
@@ -96,6 +98,9 @@ async def readiness_check(request: Request) -> JSONResponse:
             {"status": "not ready", "error": str(e)},
             status_code=503
         )
+        
+async def chat_history(request: Request) -> JSONResponse:
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -114,20 +119,26 @@ async def build_app() -> Starlette:
       5. Add health check routes
     """
 
+
+    session_service = DatabaseSessionService(DATABASE_URL, connect_args={
+        "server_settings": {
+            "search_path": "ai_service"   # your schema name
+        },
+        "ssl": True 
+    })
     # 1. Redis session service with in-memory fallback
-    session_service = RedisSessionService(
-        redis_url=REDIS_URL,
-        redis_password=REDIS_PASSWORD,
-    )
-    session_backend = "redis"
-    try:
-        await session_service.connect()
-        logger.info("Redis session service connected at %s", REDIS_URL)
-    except Exception as e:
-        logger.error(f"Failed to connect to Redis at {REDIS_URL}: {e}")
-        logger.warning("Falling back to in-memory session service; sessions won't persist across restarts.")
-        session_service = InMemorySessionService()
-        session_backend = "in-memory"
+    # session_service = RedisSessionService(
+    #     redis_url=REDIS_URL,
+    #     redis_password=REDIS_PASSWORD,
+    # )
+    session_backend = "postgres"  # Update this if you switch to Redis or another backend
+    # try:
+    #     logger.info("Redis session service connected at %s", REDIS_URL)
+    # except Exception as e:
+    #     logger.error(f"Failed to connect to Redis at {REDIS_URL}: {e}")
+    #     logger.warning("Falling back to in-memory session service; sessions won't persist across restarts.")
+    #     session_service = InMemorySessionService()
+    #     session_backend = "in-memory"
 
 
     root_agent = create_root_agent()

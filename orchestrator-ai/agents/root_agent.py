@@ -54,6 +54,10 @@ def create_root_agent() -> LlmAgent:
                         1. If the user asks about courses, subjects, learning paths, prerequisites, or recommendations → delegate to course_schedule_agent.
                         2. If the user asks about their schedule, time slots, conflicts, or wants to add/change/remove sessions → delegate to course_schedule_agent.
                         3. For request contain the course content reference, syllabus reference, or knowledge base asking → delegate to rag_agent.
+                        Result format for the user should be at markdown with clear sections, bullet points, and tables where appropriate.
+                        Also try to format information using markdown tables when summarizing schedule or course information for better readability.
+                         - For schedule summaries, use tables to show event name, date/time, and any conflicts.
+                         - For course information, use tables to summarize course details, prerequisites, and recommendations.
 
                         Always be concise, helpful, and student-friendly.""",
         sub_agents=[

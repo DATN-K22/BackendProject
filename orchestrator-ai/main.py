@@ -27,8 +27,12 @@ from agents.remote_http_client import close_remote_agent_http_client
 from docs.openapi import DOCS_ROUTES
 from security.middleware import GatewaySecurityMiddleware
 from session.redis_session_service import RedisSessionService
+from models.chat_model import ChatHistoryResponse, PendingApproval, get_chat_history
 
-
+# Pass the warning filter to the entire module to suppress warnings from pydantic and google.adk
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+warnings.filterwarnings("ignore", category=UserWarning, module="google.adk")
 
 # ---------------------------------------------------------------------------
 # Logging Configuration
@@ -100,7 +104,55 @@ async def readiness_check(request: Request) -> JSONResponse:
         )
         
 async def chat_history(request: Request) -> JSONResponse:
-    pass
+    """Endpoint to retrieve chat history for a session."""
+    try:
+        session_id = request.query_params.get("session_id")
+        app_name = APP_NAME
+        user_id = request.headers.get("x-user-id", "anonymous")  # Assuming user ID is passed in headers; adjust as needed
+        if not session_id or not app_name or not user_id:
+            return JSONResponse({"error": "Missing required query parameters"}, status_code=400)
+
+        session_service = getattr(request.app.state, "session_service", None)
+        if not session_service:
+            return JSONResponse({"error": "Session service not available"}, status_code=503)
+
+        chat_history = await get_chat_history(
+            session_id=session_id,
+            app_name=app_name,
+            user_id=user_id,
+            service=session_service
+        )
+
+        return JSONResponse({
+            "session_id": session_id,
+            "chat_history": [e.model_dump(mode="json") for e in chat_history.messages]
+        })
+    except Exception as e:
+        logger.error(f"Failed to retrieve chat history: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+    
+    
+async def get_list_of_sessions(request: Request) -> JSONResponse:
+    """Endpoint to retrieve list of sessions for a user."""
+    try:
+        app_name = APP_NAME
+        user_id = request.headers.get("x-user-id", "anonymous")  # Assuming user ID is passed in headers; adjust as needed
+        if not app_name or not user_id:
+            return JSONResponse({"error": "Missing required parameters"}, status_code=400)
+
+        session_service = getattr(request.app.state, "session_service", None)
+        if not session_service:
+            return JSONResponse({"error": "Session service not available"}, status_code=503)
+
+        sessions = await session_service.list_sessions(app_name=app_name, user_id=user_id)
+        
+        return JSONResponse({
+            "user_id": user_id,
+            "sessions": sessions.model_dump(mode="json")["sessions"]
+        })
+    except Exception as e:
+        logger.error(f"Failed to retrieve sessions: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 # ---------------------------------------------------------------------------
@@ -165,10 +217,12 @@ async def build_app() -> Starlette:
 
     a2a_app.routes.insert(0, Route("/health", health_check, methods=["GET"]))
     a2a_app.routes.insert(1, Route("/ready", readiness_check, methods=["GET"]))
+    a2a_app.routes.insert(2, Route("/chat_history", chat_history, methods=["GET"]))
+    a2a_app.routes.insert(3, Route("/sessions", get_list_of_sessions, methods=["GET"]))
     for i, route in enumerate(DOCS_ROUTES):
         a2a_app.routes.insert(2 + i, route)
 
-    logger.info("Health check endpoints added at /health and /ready")
+    logger.info("Health check endpoints added at /health, /ready, /chat_history, and /sessions")
     logger.info("API docs available at /docs")
 
 

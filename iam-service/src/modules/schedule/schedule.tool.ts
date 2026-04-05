@@ -41,7 +41,8 @@ function expandOccurrences(
         .map(start => ({ id: event.id,
                          title: event.title, 
                          start, 
-                         end: new Date(start.getTime() + duration) 
+                         end: new Date(start.getTime() + duration) ,
+                         rrule: event.rrule_string
                       
         }));
 }
@@ -53,14 +54,14 @@ export class ScheduleTool {
 
     private requireMutationApproval(approvalStatus: string | undefined): string | null {
         if (!approvalStatus || approvalStatus.toLowerCase() !== "approved") {
-            return "Missing approval_status=approved. Call request/resolve approval before modifying schedule.";
+            return "APPROVAL REQUIRED: Call 'request_schedule_approval' first, present the changes to the user, wait for their reply, then call 'resolve_schedule_approval' with decision='approved'. Only then call this tool with approval_status='approved'.";
         }
         return null;
     }
 
     @Tool({
         name: "get-events",
-        description: "Fetch events in the schedule of user in the limit of event happened within today and end date with the default value for endate is 90 days from today",
+        description: "Fetch events in the schedule of user in the limit of event happened within today and end date with the default value for endate is 90 days from today, if the user asking for a speific date, set the 'end date' to that date",
         parameters: z.object({
             today: z.string(),
             endDate: z.string().optional(),
@@ -98,10 +99,10 @@ export class ScheduleTool {
         const userId = req.user?.id ?? req.headers["x-user-id"];
         let event: any;
         if (eventId != null) {
-            event = this.scheduleService.getEventById(eventId, userId);
+            event = await this.scheduleService.getEventById(eventId, userId);
         } 
         else if (eventName != null) {
-            event = this.scheduleService.getEventsByName(eventName, userId)
+            event = await this.scheduleService.getEventsByName(eventName, userId)
         }
         else {
             event = "No eventName or eventId provided"
@@ -118,11 +119,11 @@ export class ScheduleTool {
 
     @Tool({
         name: "create-event",
-        description: "Create a new calendar event for a user. Supports one-time and recurring events via rrule_string.",
+        description: "Create a new calendar event. Only call this after 'resolve_schedule_approval' returned status='approved'. Supports one-time and recurring events via rrule_string.",
         parameters: z.object({
             userId: z.string(),
-            approval_status: z.literal("approved").describe("Must be exactly 'approved' after user confirms schedule changes"),
-            approval_id: z.string().optional().describe("Approval id from request/resolve flow for audit"),
+            approval_status: z.literal("approved").describe("Set to 'approved' only after 'resolve_schedule_approval' returned status='approved'. Follow the request_schedule_approval → resolve_schedule_approval flow first."),
+            approval_id: z.string().optional().describe("The approval_id from 'request_schedule_approval', passed through 'resolve_schedule_approval'"),
             title: z.string(),
             time_start: z.string().describe("ISO 8601 datetime, e.g. '2026-03-09T09:00:00+07:00'"),
             time_end: z.string().describe("ISO 8601 datetime, e.g. '2026-03-09T10:00:00+07:00'"),
@@ -157,11 +158,11 @@ export class ScheduleTool {
 
     @Tool({
         name: "update-event",
-        description: "Update fields of an existing event. Only provided fields are changed.",
+        description: "Update fields of an existing event. Only call this after 'resolve_schedule_approval' returned status='approved'. Only provided fields are changed.",
         parameters: z.object({
             userId: z.string(),
-            approval_status: z.literal("approved").describe("Must be exactly 'approved' after user confirms schedule changes"),
-            approval_id: z.string().optional().describe("Approval id from request/resolve flow for audit"),
+            approval_status: z.literal("approved").describe("Set to 'approved' only after 'resolve_schedule_approval' returned status='approved'. Follow the request_schedule_approval → resolve_schedule_approval flow first."),
+            approval_id: z.string().optional().describe("The approval_id from 'request_schedule_approval', passed through 'resolve_schedule_approval'"),
             eventId: z.string().describe("The numeric ID of the event to update"),
             title: z.string().optional(),
             time_start: z.string().optional().describe("ISO 8601 datetime"),
@@ -190,11 +191,11 @@ export class ScheduleTool {
 
     @Tool({
         name: "delete-event",
-        description: "Delete an event and its entire recurrence series. If a child instance ID is given, the whole parent series is deleted.",
+        description: "Delete an event and its entire recurrence series. Only call this after 'resolve_schedule_approval' returned status='approved'. If a child instance ID is given, the whole parent series is deleted.",
         parameters: z.object({
             userId: z.string(),
-            approval_status: z.literal("approved").describe("Must be exactly 'approved' after user confirms schedule changes"),
-            approval_id: z.string().optional().describe("Approval id from request/resolve flow for audit"),
+            approval_status: z.literal("approved").describe("Set to 'approved' only after 'resolve_schedule_approval' returned status='approved'. Follow the request_schedule_approval → resolve_schedule_approval flow first."),
+            approval_id: z.string().optional().describe("The approval_id from 'request_schedule_approval', passed through 'resolve_schedule_approval'"),
             eventId: z.string().describe("The numeric ID of the event to delete"),
         }),
     })
@@ -214,11 +215,11 @@ export class ScheduleTool {
 
     @Tool({
         name: "add-exception-date",
-        description: "Skip a specific occurrence of a recurring event by adding an exception date (EXDATE). The occurrence on that date will no longer appear in the schedule.",
+        description: "Skip a specific occurrence of a recurring event by adding an exception date (EXDATE). Only call this after 'resolve_schedule_approval' returned status='approved'. The occurrence on that date will no longer appear in the schedule.",
         parameters: z.object({
             userId: z.string(),
-            approval_status: z.literal("approved").describe("Must be exactly 'approved' after user confirms schedule changes"),
-            approval_id: z.string().optional().describe("Approval id from request/resolve flow for audit"),
+            approval_status: z.literal("approved").describe("Set to 'approved' only after 'resolve_schedule_approval' returned status='approved'. Follow the request_schedule_approval → resolve_schedule_approval flow first."),
+            approval_id: z.string().optional().describe("The approval_id from 'request_schedule_approval', passed through 'resolve_schedule_approval'"),
             eventId: z.string().describe("The numeric ID of the recurring event"),
             exception_date: z.string().describe("ISO 8601 date of the occurrence to skip, e.g. '2026-03-17T09:00:00+07:00'"),
             reason: z.string().optional().describe("Optional reason for skipping this occurrence"),
@@ -242,10 +243,10 @@ export class ScheduleTool {
     }
     @Tool({
         name: "modify-this-only",
-        description: "Edit a single occurrence of a recurring event without affecting past or future occurrences. Creates a standalone exception event linked to the parent series with the provided changes.",
+        description: "Edit a single occurrence of a recurring event without affecting past or future occurrences. Only call this after 'resolve_schedule_approval' returned status='approved'. Creates a standalone exception event linked to the parent series with the provided changes.",
         parameters: z.object({
-            approval_status: z.literal("approved").describe("Must be exactly 'approved' after user confirms schedule changes"),
-            approval_id: z.string().optional().describe("Approval id from request/resolve flow for audit"),
+            approval_status: z.literal("approved").describe("Set to 'approved' only after 'resolve_schedule_approval' returned status='approved'. Follow the request_schedule_approval → resolve_schedule_approval flow first."),
+            approval_id: z.string().optional().describe("The approval_id from 'request_schedule_approval', passed through 'resolve_schedule_approval'"),
             eventId: z.string().describe("The numeric ID of the parent recurring event"),
             recurrence_id: z.string().describe("ISO 8601 datetime of the specific occurrence to modify, e.g. '2026-04-07T09:00:00+07:00'"),
             title: z.string().optional(),
@@ -271,13 +272,19 @@ export class ScheduleTool {
         }
         const parentId = BigInt(eventId);
 
-        // Fetch parent to inherit unmodified fields
-        const parent = await this.scheduleService.getEventById(eventId, userId);
+        // Fetch parent to inherit unmodified fields — pass BigInt so the service lookup matches the DB key type
+        const parent = await this.scheduleService.getEventById(parentId as any, userId);
         if (!parent) {
             return {
                 content: [{ type: 'text', text: 'Parent event not found or access denied.' }],
             };
         }
+
+        // Suppress the original occurrence so it doesn't appear alongside the exception event
+        await this.scheduleService.addExDate(
+            { event_id: parentId, exception_date: recurrence_id },
+            userId
+        );
 
         const exceptionEvent = await this.scheduleService.createEvent(
             {
@@ -307,11 +314,11 @@ export class ScheduleTool {
 
     @Tool({
         name: "modify-this-and-following",
-        description: "Split a recurring series at a given date and apply updates to all occurrences from that point forward.",
+        description: "Split a recurring series at a given date and apply updates to all occurrences from that point forward. Only call this after 'resolve_schedule_approval' returned status='approved'.",
         parameters: z.object({
             userId: z.string(),
-            approval_status: z.literal("approved").describe("Must be exactly 'approved' after user confirms schedule changes"),
-            approval_id: z.string().optional().describe("Approval id from request/resolve flow for audit"),
+            approval_status: z.literal("approved").describe("Set to 'approved' only after 'resolve_schedule_approval' returned status='approved'. Follow the request_schedule_approval → resolve_schedule_approval flow first."),
+            approval_id: z.string().optional().describe("The approval_id from 'request_schedule_approval', passed through 'resolve_schedule_approval'"),
             eventId: z.string().describe("The numeric ID of the recurring event"),
             recurrence_id: z.string().describe("ISO 8601 date of the occurrence to split from"),
             title: z.string().optional(),

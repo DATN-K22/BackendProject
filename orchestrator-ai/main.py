@@ -15,6 +15,8 @@ from starlette.routing import Route
 #ADK core
 from google.adk.a2a.utils.agent_to_a2a import to_a2a
 from google.adk.artifacts import InMemoryArtifactService
+from google.adk.events.event import Event
+from google.adk.events.event_actions import EventActions
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.sessions.database_session_service import DatabaseSessionService
@@ -153,6 +155,56 @@ async def get_list_of_sessions(request: Request) -> JSONResponse:
     except Exception as e:
         logger.error(f"Failed to retrieve sessions: {e}")
         return JSONResponse({"error": str(e)}, status_code=500)
+async def session_state_update(request: Request) -> JSONResponse:
+    """Endpoint to update session state with conversation title, timezone and course id."""
+    try:
+        data = await request.json()
+        session_id = data.get("session_id")
+        conversation_title = data.get("conversation_title")
+        timezone = data.get("timezone")
+        course_id = data.get("course_id")
+        user_id = request.headers.get("x-user-id", "anonymous")
+
+        if not session_id:
+            return JSONResponse({"error": "Missing session_id"}, status_code=400)
+
+        session_service = getattr(request.app.state, "session_service", None)
+        if not session_service:
+            return JSONResponse({"error": "Session service not available"}, status_code=503)
+
+        session = await session_service.get_session(
+            app_name=APP_NAME,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        if not session:
+            return JSONResponse({"error": "Session not found"}, status_code=404)
+
+        state_delta = {}
+        if conversation_title is not None:
+            state_delta["conversation_title"] = conversation_title
+        if timezone is not None:
+            state_delta["timezone"] = timezone
+        if course_id is not None:
+            state_delta["course_id"] = course_id
+
+        if not state_delta:
+            return JSONResponse(
+                {"error": "No state fields to update"}, status_code=400
+            )
+
+        await session_service.append_event(
+            session,
+            Event(
+                author="system",
+                actions=EventActions(state_delta=state_delta),
+            ),
+        )
+
+        return JSONResponse({"status": "success", "state_delta": state_delta})
+    except Exception as e:
+        logger.error(f"Failed to update session state: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +271,7 @@ async def build_app() -> Starlette:
     a2a_app.routes.insert(1, Route("/ready", readiness_check, methods=["GET"]))
     a2a_app.routes.insert(2, Route("/chat_history", chat_history, methods=["GET"]))
     a2a_app.routes.insert(3, Route("/sessions", get_list_of_sessions, methods=["GET"]))
+    a2a_app.routes.insert(4, Route("/session_state", session_state_update, methods=["POST"]))
     for i, route in enumerate(DOCS_ROUTES):
         a2a_app.routes.insert(2 + i, route)
 
@@ -228,6 +281,7 @@ async def build_app() -> Starlette:
 
     a2a_app.state.session_service = session_service
     a2a_app.state.session_backend = session_backend
+    a2a_app.state.runner = runner
     a2a_app.add_event_handler("shutdown", close_remote_agent_http_client)
 
     return a2a_app

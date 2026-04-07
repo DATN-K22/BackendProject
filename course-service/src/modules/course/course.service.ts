@@ -35,13 +35,14 @@ export class CourseService {
     const incompleteCourse = await this.courseRepository.getLatestIncompleteCourseForUser(userId, offset, limit)
     // get creator of each course and return with creator info
     const creatorInfoMap = await this.getCreatorIds(incompleteCourse)
-    return incompleteCourse.map((course) => {
+    return incompleteCourse.map((course: any) => {
+      const user = creatorInfoMap.get(course.owner_id)
       return {
         id: course.id,
         thumbnail_url: course.thumbnail_url,
         title: course.title,
         progress: course.progress,
-        user: creatorInfoMap.get(course.owner_id)
+        user: user || { name: '', avt_url: '' }
       }
     })
   }
@@ -49,7 +50,7 @@ export class CourseService {
   async getRecommendationCourses(offset: number, limit: number) {
     const courses = await this.courseRepository.getRecommendationCourses(offset, limit)
     const creatorInfoMap = await this.getCreatorIds(courses)
-    return courses.map((course) => {
+    return courses.map((course: any) => {
       return {
         ...course,
         user: creatorInfoMap.get(course.owner_id)
@@ -78,12 +79,12 @@ export class CourseService {
     }
   }
 
-  update(id: number, updateCourseDto: UpdateCourseDto) {
+  async update(id: number, updateCourseDto: UpdateCourseDto) {
     return this.courseRepository.update(updateCourseDto, id)
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} course`
+  async remove(id: number) {
+    return await this.courseRepository.delete(id)
   }
 
   private async getCreatorIds(courses: any[]): Promise<Map<string, { id: string; name: string; avt_url: string }>> {
@@ -91,7 +92,7 @@ export class CourseService {
     try {
       const creatorInfo = await this.iamClient.findUserById(creatorIds)
       const creatorInfoMap: Map<string, { id: string; name: string; avt_url: string }> = new Map(
-        creatorInfo.map((creator) => [creator.id, creator])
+        creatorInfo.map((creator: { id: string; name: string; avt_url: string }) => [creator.id, creator])
       )
       return creatorInfoMap
     } catch (error) {
@@ -108,7 +109,7 @@ export class CourseService {
     const totalPages = Math.ceil(totalItems / limit)
     const currentPage = Math.floor(offset / limit) + 1
 
-    const data = courses.map((course) => ({
+    const data = courses.map((course: any) => ({
       ...course,
       user: creatorInfoMap.get(course.owner_id)
     }))

@@ -31,28 +31,34 @@ async function bootstrap() {
    */
   const mergedDoc = await getMergedSwagger(configService);
 
-  // Inject bearerAuth vào merged spec
-  mergedDoc.components = mergedDoc.components || {};
-  mergedDoc.components.securitySchemes = {
-    ...(mergedDoc.components.securitySchemes || {}),
-    bearerAuth: {
-      type: 'http',
-      scheme: 'bearer',
-      bearerFormat: 'JWT',
-    },
-  };
-
-  mergedDoc.security = [{ bearerAuth: [] }];
-
-  server.use(
-    '/api/docs',
-    swaggerUi.serve,
-    swaggerUi.setup(mergedDoc, {
-      swaggerOptions: {
-        persistAuthorization: true,
+  if (mergedDoc) {
+    // Inject bearerAuth vào merged spec
+    mergedDoc.components = mergedDoc.components || {};
+    mergedDoc.components.securitySchemes = {
+      ...(mergedDoc.components.securitySchemes || {}),
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
       },
-    }),
-  );
+    };
+
+    mergedDoc.security = [{ bearerAuth: [] }];
+
+    server.use(
+      '/api/docs',
+      swaggerUi.serve,
+      swaggerUi.setup(mergedDoc, {
+        swaggerOptions: {
+          persistAuthorization: true,
+        },
+      }),
+    );
+  } else {
+    console.warn(
+      'Swagger documentation is not available because merging failed.',
+    );
+  }
 
   /**
    * =========================

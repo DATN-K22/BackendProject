@@ -46,5 +46,5 @@ export async function getMergedSwagger(configService: ConfigService) {
   }
 
   console.error(result);
-  throw new Error('Failed to merge OpenAPI specs');
+  // throw new Error('Failed to merge OpenAPI specs');
 }

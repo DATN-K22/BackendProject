@@ -1,8 +1,9 @@
+// Duplicate method removed. Only keep the method inside the class.
+// Duplicate method removed. Only keep the method inside the class.
 import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateCourseDto } from './dto/request/create-course.dto'
 import { UpdateCourseDto } from './dto/request/update-course.dto'
-import { Course, Prisma } from '@prisma/client'
 
 @Injectable()
 export class CourseRepositoy {
@@ -80,6 +81,14 @@ export class CourseRepositoy {
         limit: limit
       }
     }
+  }
+
+  async delete(id: number) {
+    await this.prismaService.course.delete({
+      where: {
+        id: id
+      }
+    })
   }
 
   async getLatestIncompleteCourseForUser(userId: string, offset: number, limit: number) {

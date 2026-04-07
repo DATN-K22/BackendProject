@@ -33,6 +33,7 @@ def main() -> None:
         )
         return
 
+    raw = raw.strip().lstrip("\ufeff")
     payload = json.loads(raw)
     event = DocumentUploadEvent.from_dict(payload)
     settings = load_settings()

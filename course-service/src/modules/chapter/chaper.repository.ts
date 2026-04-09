@@ -8,11 +8,12 @@ import { UpdateChapterDto } from './dto/update-chapter.dto'
 export class ChapterRepository {
   constructor(private readonly prismaService: PrismaService) {}
   create(dto: CreateChapterDto) {
+    const { course_id, resource_id, ...rest } = dto
     return this.prismaService.chapter.create({
       data: {
-        ...dto,
-        course_id: dto.course_id ? BigInt(dto.course_id) : null,
-        resource_id: dto.resource_id ? BigInt(dto.resource_id) : null
+        ...rest,
+        course: course_id ? { connect: { id: BigInt(course_id) } } : undefined,
+        resource_id: resource_id ? BigInt(resource_id) : null
       }
     })
   }

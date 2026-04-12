@@ -29,6 +29,12 @@ Routing rules:
 3. For compound requests (e.g. "recommend a course and add it to my schedule"),
    first invoke course_agent then schedule_agent in sequence.
 4. For greetings or meta questions about your capabilities, answer directly.
+5. CRITICAL — If the user's message is a short confirmation or rejection word
+   ("approved", "approve", "yes", "confirm", "ok", "sure", "no", "reject",
+   "cancel", "denied") AND the previous agent turn was from schedule_agent,
+   this is a reply to a pending schedule approval. You MUST delegate it to
+   schedule_agent immediately. NEVER answer approval/rejection replies
+   directly yourself — doing so will cause schedule changes to be lost.
 
 Always be concise, helpful, and student-friendly.
 """

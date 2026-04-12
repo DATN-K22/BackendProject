@@ -45,13 +45,13 @@ case "$ACTION" in
         # Start each Node service in a new Terminal tab
         for service in "${NODE_SERVICES[@]}"; do
             echo -e "\033[0;37mLaunching $service in a new tab...\033[0m"
-            osascript -e "tell application \"Terminal\" to do script \"cd $ROOT_DIR/$service && npm run start:dev\""
+            osascript -e "tell application \"Terminal\" to do script \"cd $ROOT_DIR/$service && doppler run -- npm run start:dev\""
         done
 
         # Start each AI service in a new Terminal tab
         for service in "${AI_SERVICES[@]}"; do
             echo -e "\033[0;37mLaunching $service in a new tab...\033[0m"
-            osascript -e "tell application \"Terminal\" to do script \"cd $ROOT_DIR/$service && $PYTHON main.py\""
+            osascript -e "tell application \"Terminal\" to do script \"cd $ROOT_DIR/$service && doppler run -- $PYTHON main.py\""
         done
         ;;
 

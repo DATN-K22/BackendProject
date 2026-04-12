@@ -28,14 +28,21 @@ function expandOccurrences(
         (event.exception_dates ?? []).map((e: any) => new Date(e.exception_date).toISOString())
     );
 
-    const rule = RRule.fromString(event.rrule_string);
+    // Ensure recurrence expansion anchors to the event's stored start time.
+    // RRule.fromString without DTSTART may default to "now", which shifts times.
+    const parsed = RRule.parseString(event.rrule_string);
+    const rule = new RRule({
+        ...parsed,
+        dtstart: new Date(event.time_start),
+    });
     return rule
         .between(windowStart, windowEnd, true)
         .filter(start => !exDates.has(start.toISOString()))
         .map(start => ({ id: event.id,
                          title: event.title, 
                          start, 
-                         end: new Date(start.getTime() + duration) 
+                         end: new Date(start.getTime() + duration) ,
+                         rrule: event.rrule_string
                       
         }));
 }
@@ -45,9 +52,16 @@ function expandOccurrences(
 export class ScheduleTool {
     constructor(private readonly scheduleService: ScheduleService){}
 
+    private requireMutationApproval(approvalStatus: string | undefined): string | null {
+        if (!approvalStatus || approvalStatus.toLowerCase() !== "approved") {
+            return "APPROVAL REQUIRED: Call 'request_schedule_approval' first, present the changes to the user, wait for their reply, then call 'resolve_schedule_approval' with decision='approved'. Only then call this tool with approval_status='approved'.";
+        }
+        return null;
+    }
+
     @Tool({
         name: "get-events",
-        description: "Fetch events in the schedule of user in the limit of event happened within today and end date with the default value for endate is 90 days from today",
+        description: "Fetch events in the schedule of user in the limit of event happened within today and end date with the default value for endate is 90 days from today, if the user asking for a speific date, set the 'end date' to that date",
         parameters: z.object({
             today: z.string(),
             endDate: z.string().optional(),
@@ -85,10 +99,10 @@ export class ScheduleTool {
         const userId = req.user?.id ?? req.headers["x-user-id"];
         let event: any;
         if (eventId != null) {
-            event = this.scheduleService.getEventById(eventId, userId);
+            event = await this.scheduleService.getEventById(eventId, userId);
         } 
         else if (eventName != null) {
-            event = this.scheduleService.getEventsByName(eventName, userId)
+            event = await this.scheduleService.getEventsByName(eventName, userId)
         }
         else {
             event = "No eventName or eventId provided"
@@ -105,9 +119,11 @@ export class ScheduleTool {
 
     @Tool({
         name: "create-event",
-        description: "Create a new calendar event for a user. Supports one-time and recurring events via rrule_string.",
+        description: "Create a new calendar event. Only call this after 'resolve_schedule_approval' returned status='approved'. Supports one-time and recurring events via rrule_string.",
         parameters: z.object({
             userId: z.string(),
+            approval_status: z.literal("approved").describe("Set to 'approved' only after 'resolve_schedule_approval' returned status='approved'. Follow the request_schedule_approval → resolve_schedule_approval flow first."),
+            approval_id: z.string().optional().describe("The approval_id from 'request_schedule_approval', passed through 'resolve_schedule_approval'"),
             title: z.string(),
             time_start: z.string().describe("ISO 8601 datetime, e.g. '2026-03-09T09:00:00+07:00'"),
             time_end: z.string().describe("ISO 8601 datetime, e.g. '2026-03-09T10:00:00+07:00'"),
@@ -120,8 +136,14 @@ export class ScheduleTool {
             original_event_id: z.string().optional().describe("Parent event ID for exception instances"),
         }),
     })
-    async createEvent({original_event_id, ...dto }, context: any, req: any) {
+    async createEvent({approval_status, original_event_id, ...dto }, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
+        const approvalError = this.requireMutationApproval(approval_status);
+        if (approvalError) {
+            return {
+                content: [{ type: 'text', text: approvalError }],
+            };
+        }
         const event = await this.scheduleService.createEvent(
             {
                 ...dto,
@@ -136,9 +158,11 @@ export class ScheduleTool {
 
     @Tool({
         name: "update-event",
-        description: "Update fields of an existing event. Only provided fields are changed.",
+        description: "Update fields of an existing event. Only call this after 'resolve_schedule_approval' returned status='approved'. Only provided fields are changed.",
         parameters: z.object({
             userId: z.string(),
+            approval_status: z.literal("approved").describe("Set to 'approved' only after 'resolve_schedule_approval' returned status='approved'. Follow the request_schedule_approval → resolve_schedule_approval flow first."),
+            approval_id: z.string().optional().describe("The approval_id from 'request_schedule_approval', passed through 'resolve_schedule_approval'"),
             eventId: z.string().describe("The numeric ID of the event to update"),
             title: z.string().optional(),
             time_start: z.string().optional().describe("ISO 8601 datetime"),
@@ -151,8 +175,14 @@ export class ScheduleTool {
             recurrence_id: z.string().optional(),
         }),
     })
-    async updateEvent({eventId, ...dto }, context: any, req: any) {
+    async updateEvent({approval_status, eventId, ...dto }, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
+        const approvalError = this.requireMutationApproval(approval_status);
+        if (approvalError) {
+            return {
+                content: [{ type: 'text', text: approvalError }],
+            };
+        }
         const result = await this.scheduleService.updateEvent(dto, userId, BigInt(eventId));
         return {
             content: [{ type: 'text', text: stringify(result) }],
@@ -161,14 +191,22 @@ export class ScheduleTool {
 
     @Tool({
         name: "delete-event",
-        description: "Delete an event and its entire recurrence series. If a child instance ID is given, the whole parent series is deleted.",
+        description: "Delete an event and its entire recurrence series. Only call this after 'resolve_schedule_approval' returned status='approved'. If a child instance ID is given, the whole parent series is deleted.",
         parameters: z.object({
             userId: z.string(),
+            approval_status: z.literal("approved").describe("Set to 'approved' only after 'resolve_schedule_approval' returned status='approved'. Follow the request_schedule_approval → resolve_schedule_approval flow first."),
+            approval_id: z.string().optional().describe("The approval_id from 'request_schedule_approval', passed through 'resolve_schedule_approval'"),
             eventId: z.string().describe("The numeric ID of the event to delete"),
         }),
     })
-    async deleteEvent({eventId }, context: any, req: any) {
+    async deleteEvent({approval_status, eventId }, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
+        const approvalError = this.requireMutationApproval(approval_status);
+        if (approvalError) {
+            return {
+                content: [{ type: 'text', text: approvalError }],
+            };
+        }
         const result = await this.scheduleService.deleteEvent(BigInt(eventId), userId);
         return {
             content: [{ type: 'text', text: result.message }],
@@ -177,16 +215,24 @@ export class ScheduleTool {
 
     @Tool({
         name: "add-exception-date",
-        description: "Skip a specific occurrence of a recurring event by adding an exception date (EXDATE). The occurrence on that date will no longer appear in the schedule.",
+        description: "Skip a specific occurrence of a recurring event by adding an exception date (EXDATE). Only call this after 'resolve_schedule_approval' returned status='approved'. The occurrence on that date will no longer appear in the schedule.",
         parameters: z.object({
             userId: z.string(),
+            approval_status: z.literal("approved").describe("Set to 'approved' only after 'resolve_schedule_approval' returned status='approved'. Follow the request_schedule_approval → resolve_schedule_approval flow first."),
+            approval_id: z.string().optional().describe("The approval_id from 'request_schedule_approval', passed through 'resolve_schedule_approval'"),
             eventId: z.string().describe("The numeric ID of the recurring event"),
             exception_date: z.string().describe("ISO 8601 date of the occurrence to skip, e.g. '2026-03-17T09:00:00+07:00'"),
             reason: z.string().optional().describe("Optional reason for skipping this occurrence"),
         }),
     })
-    async addExDate({eventId, exception_date, reason }, context: any, req: any) {
+    async addExDate({approval_status, eventId, exception_date, reason }, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
+        const approvalError = this.requireMutationApproval(approval_status);
+        if (approvalError) {
+            return {
+                content: [{ type: 'text', text: approvalError }],
+            };
+        }
         const result = await this.scheduleService.addExDate(
             { event_id: BigInt(eventId), exception_date, reason },
             userId
@@ -195,12 +241,84 @@ export class ScheduleTool {
             content: [{ type: 'text', text: stringify(result) }],
         };
     }
+    @Tool({
+        name: "modify-this-only",
+        description: "Edit a single occurrence of a recurring event without affecting past or future occurrences. Only call this after 'resolve_schedule_approval' returned status='approved'. Creates a standalone exception event linked to the parent series with the provided changes.",
+        parameters: z.object({
+            approval_status: z.literal("approved").describe("Set to 'approved' only after 'resolve_schedule_approval' returned status='approved'. Follow the request_schedule_approval → resolve_schedule_approval flow first."),
+            approval_id: z.string().optional().describe("The approval_id from 'request_schedule_approval', passed through 'resolve_schedule_approval'"),
+            eventId: z.string().describe("The numeric ID of the parent recurring event"),
+            recurrence_id: z.string().describe("ISO 8601 datetime of the specific occurrence to modify, e.g. '2026-04-07T09:00:00+07:00'"),
+            title: z.string().optional(),
+            time_start: z.string().optional().describe("ISO 8601 datetime for the new start of this occurrence"),
+            time_end: z.string().optional().describe("ISO 8601 datetime for the new end of this occurrence"),
+            description: z.string().optional(),
+            location: z.string().optional(),
+            status: z.enum(["CONFIRMED", "TENTATIVE", "CANCELLED"]).optional(),
+            timezone: z.string().optional().default("Asia/Ho_Chi_Minh"),
+        }),
+    })
+    async modifyThisOnly(
+        { approval_status, eventId, recurrence_id, ...updates }: any,
+        context: any,
+        req: any
+    ) {
+        const userId = req.user?.id ?? req.headers["x-user-id"];
+        const approvalError = this.requireMutationApproval(approval_status);
+        if (approvalError) {
+            return {
+                content: [{ type: 'text', text: approvalError }],
+            };
+        }
+        const parentId = BigInt(eventId);
+
+        // Fetch parent to inherit unmodified fields — pass BigInt so the service lookup matches the DB key type
+        const parent = await this.scheduleService.getEventById(parentId as any, userId);
+        if (!parent) {
+            return {
+                content: [{ type: 'text', text: 'Parent event not found or access denied.' }],
+            };
+        }
+
+        // Suppress the original occurrence so it doesn't appear alongside the exception event
+        await this.scheduleService.addExDate(
+            { event_id: parentId, exception_date: recurrence_id },
+            userId
+        );
+
+        const exceptionEvent = await this.scheduleService.createEvent(
+            {
+                title:        updates.title       ?? parent.title,
+                time_start:   updates.time_start  ?? recurrence_id,
+                time_end:     updates.time_end     ?? this.shiftEnd(parent, recurrence_id),
+                description:  updates.description ?? parent.description,
+                location:     updates.location    ?? parent.location,
+                status:       updates.status      ?? parent.status,
+                timezone:     updates.timezone    ?? parent.timezone,
+                recurrence_id,
+                original_event_id: parentId,
+            } as any,
+            userId
+        );
+
+        return {
+            content: [{ type: 'text', text: stringify(exceptionEvent) }],
+        };
+    }
+
+    private shiftEnd(parent: any, newStart: string): string {
+        const duration =
+            new Date(parent.time_end).getTime() - new Date(parent.time_start).getTime();
+        return new Date(new Date(newStart).getTime() + duration).toISOString();
+    }
 
     @Tool({
         name: "modify-this-and-following",
-        description: "Split a recurring series at a given date and apply updates to all occurrences from that point forward.",
+        description: "Split a recurring series at a given date and apply updates to all occurrences from that point forward. Only call this after 'resolve_schedule_approval' returned status='approved'.",
         parameters: z.object({
             userId: z.string(),
+            approval_status: z.literal("approved").describe("Set to 'approved' only after 'resolve_schedule_approval' returned status='approved'. Follow the request_schedule_approval → resolve_schedule_approval flow first."),
+            approval_id: z.string().optional().describe("The approval_id from 'request_schedule_approval', passed through 'resolve_schedule_approval'"),
             eventId: z.string().describe("The numeric ID of the recurring event"),
             recurrence_id: z.string().describe("ISO 8601 date of the occurrence to split from"),
             title: z.string().optional(),
@@ -213,8 +331,14 @@ export class ScheduleTool {
             rrule_string: z.string().optional(),
         }),
     })
-    async modifyThisAndFollowing({eventId, recurrence_id, ...updates }, context: any, req: any) {
+    async modifyThisAndFollowing({approval_status, eventId, recurrence_id, ...updates }, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
+        const approvalError = this.requireMutationApproval(approval_status);
+        if (approvalError) {
+            return {
+                content: [{ type: 'text', text: approvalError }],
+            };
+        }
         const result = await this.scheduleService.modifyThisAndFollow(
             BigInt(eventId),
             new Date(recurrence_id),

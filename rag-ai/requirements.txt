@@ -8,3 +8,4 @@ python-dotenv>=1.0.0
 uvicorn>=0.29.0
 pypdf>=6.9.0
 pymupdf>=1.27.0
+celery[librabbitmq]>=5.2.0

@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 import redis.asyncio as aioredis
 from google.adk.events import Event
 from google.adk.sessions import BaseSessionService, Session
+from google.adk.sessions.database_session_service import DatabaseSessionService
 from google.adk.sessions.base_session_service import GetSessionConfig, ListSessionsResponse
 
 DEFAULT_TTL = timedelta(hours=2)

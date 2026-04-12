@@ -1,41 +1,31 @@
-import { IsString } from "@nestjs/class-validator";
-import { ApiProperty } from "@nestjs/swagger";
-import { IsEnum, IsNumber, IsOptional } from "class-validator";
+import { IsString } from '@nestjs/class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsEnum, IsNumber, IsOptional } from 'class-validator';
 
 export enum ResourceType {
   VIDEO = 'video',
   DOCUMENT = 'document',
+  IMAGE = 'image'
 }
 
-export class CreateFileDto{
+export class CreateFileDto {
+  @ApiProperty({ example: 'lesson video' })
+  @IsString()
+  title: string;
 
-    @ApiProperty({ example: 'lesson video' })
-    @IsString()
-    title: string;
+  @ApiProperty({ example: 'video' })
+  @IsEnum(ResourceType)
+  type: ResourceType;
 
-    @ApiProperty({
-        enum: ResourceType,
-        example: ResourceType.VIDEO,
-    })
-    @IsEnum(ResourceType)
-    type: ResourceType;
+  @ApiProperty({ example: 'test.mp4' })
+  @IsString()
+  filename: string;
 
-    @ApiProperty({ example: 'https://cdn.xxx/thumb.png', nullable: true})
-    @IsString()
-    @IsOptional()
-    thumb: string | null;
+  @ApiProperty({ example: '123', nullable: true })
+  @IsString()
+  lesson_id: string;
 
-    @ApiProperty({ example: 'https://cdn.xxx/video.mp4' })
-    @IsString()
-    link: string;
-
-    @ApiProperty({ example: '' , nullable: true})
-    @IsOptional()
-    @IsString()
-    manifest_url: string | null;
-
-    @ApiProperty({ example: 10})
-    @IsNumber()
-    lesson_id: number; 
+  @ApiProperty({ example: '21', nullable: true })
+  @IsString()
+  course_id: string;
 }
-

@@ -8,6 +8,7 @@ import { ScheduleModule } from './modules/schedule/schedule.module'
 import { UserModule } from './modules/user/user.module'
 import { RedisModule } from './modules/redis/redis.module'
 import { McpAuthModule, McpModule } from '@rekog/mcp-nest'
+import { MessageBrokerModule } from './modules/message_broker/message-broker.module'
 
 @Module({
   imports: [
@@ -23,7 +24,8 @@ import { McpAuthModule, McpModule } from '@rekog/mcp-nest'
     AuthModule,
     ScheduleModule,
     UserModule,
-    RedisModule
+    RedisModule,
+    MessageBrokerModule
   ],
   controllers: [AppController],
   providers: [AppService]

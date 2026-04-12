@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config'
 import { BigIntInterceptor } from './utils/interceptors/bigint.interceptor'
 import * as cookieParser from 'cookie-parser'
 import { Logger } from '@nestjs/common'
-
+import { MicroserviceOptions, Transport } from '@nestjs/microservices'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
@@ -20,8 +20,6 @@ async function bootstrap() {
   })
 
   const configService = app.get(ConfigService)
-
-  await app.startAllMicroservices()
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('My API')

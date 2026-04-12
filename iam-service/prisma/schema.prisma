@@ -22,6 +22,7 @@ model Users {
   enroll_course BigInt[]       @default([])
   events        Event[]
   refreshTokens RefreshToken[]
+  status        UserStatus     @default(active)
 
   @@schema("iam_service")
 }
@@ -81,6 +82,16 @@ model EventExceptionDate {
 enum UserRole {
   user
   admin
+
+  @@schema("iam_service")
+}
+
+enum UserStatus {
+  pending // waiting for email confirmation
+  active
+  temporary_banned // temporarily banned, can be reactivated after certain time or by admin
+  inactive // temporarily deactivated by user, can be reactivated by logging in
+  banned // temporarily or permanently banned by admin, cannot log in
 
   @@schema("iam_service")
 }

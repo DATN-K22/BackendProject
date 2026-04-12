@@ -140,7 +140,7 @@ model Forum {
 model Message {
   id                BigInt    @id @default(autoincrement())
   forum_id          BigInt
-  user_id           BigInt? // References user from iam-service
+  user_id           String? // References user from iam-service
   parent_message_id BigInt?
   content           String    @db.Text
   open_time         DateTime? @db.Timestamptz

@@ -9,13 +9,15 @@ import {
   HttpCode,
   HttpStatus,
   UnauthorizedException,
-  Headers
+  Headers,
+  Query
 } from '@nestjs/common'
 import { AuthService } from './auth.service'
 import { AuthRefeshTokenDto, AuthSignInDto, AuthSignUpDto, JtiDto } from './dto/auth.dto'
 import { Request, Response } from 'express'
 import { ApiTags } from '@nestjs/swagger'
 import { ApiResponse } from '../../utils/dto/ApiResponse'
+import { ForgotPasswordDto, OTPDto, OTPVerificationDto } from './dto/otp.dto'
 
 @Controller('auth')
 @UsePipes(
@@ -27,18 +29,37 @@ import { ApiResponse } from '../../utils/dto/ApiResponse'
   })
 )
 @ApiTags('Authentication management')
-@ApiTags('Authentication management')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
   async signup(@Body() dto: AuthSignUpDto, @Res({ passthrough: true }) res: Response) {
-    const { tokens, user } = await this.authService.signup(dto)
+    return ApiResponse.OkResponse(await this.authService.signup(dto), 'Signup successfully')
+  }
 
-    return ApiResponse.OkResponse({
-      tokens: tokens,
-      user: user
-    })
+  @HttpCode(HttpStatus.OK)
+  @Post('otp')
+  async sendOtp(@Body() dto: OTPDto) {
+    const { email } = dto
+    if (!email) throw new UnauthorizedException('No email provided')
+    return ApiResponse.OkResponse(await this.authService.sendOtp(email), 'OTP sent successfully')
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('otp-verifications')
+  async verifyOtp(@Body() dto: OTPVerificationDto, @Query('type') type?: string) {
+    const { email, otp } = dto
+    if (!email || !otp) throw new UnauthorizedException('No email or OTP provided')
+    return ApiResponse.OkResponse(await this.authService.verifyOtp(email, otp, type), 'OTP verified successfully')
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ForgotPasswordDto) {
+    return ApiResponse.OkResponse(
+      await this.authService.resetPassword(dto.email, dto.otp, dto.newPassword),
+      'Password reset successfully'
+    )
   }
 
   @HttpCode(HttpStatus.OK)
@@ -66,6 +87,7 @@ export class AuthController {
     })
   }
 
+  @HttpCode(HttpStatus.OK)
   @Post('logout')
   async logout(
     @Headers('x-user-id') userId: string,

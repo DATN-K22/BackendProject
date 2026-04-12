@@ -20,21 +20,18 @@ export class FileController {
   constructor(private readonly fileService: FileService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Save a file record after fe uploading to S3 and get public URL' })
+  @ApiOperation({ summary: 'Save a file record after fe uploading to S3' })
   @ApiBody({ type: CreateFileDto })
   @ApiSuccessResponse(CreateFileResponse)
   async create(@Body() createFileDto: CreateFileDto) {
     return ApiResponse.OkCreateResponse(await this.fileService.create(createFileDto), 'Save record successfully');
   }
 
-  // @Get()
-  // findAll() {
-  //   return this.fileService.findAll();
-  // }
-
-  @Get('presigned-url/:key')
-  @ApiOperation({ summary: 'Get Presigned URL for uploading file' })
-  @ApiParam({ name: 'key', description: 'The filename for the file in the cloud storage. Eg: test.jpeg' })
+  @Get('presigned-url/:course_id/:lesson_id/:filename')
+  @ApiOperation({ summary: 'Get Presigned URL for uploading file for video and image resources of a lesson' })
+  @ApiParam({ name: 'filename', description: 'The filename for the file in the cloud storage. Eg: test.jpeg' })
+  @ApiParam({ name: 'course_id', description: 'The ID of the course to which the file belongs' })
+  @ApiParam({ name: 'lesson_id', description: 'The ID of the lesson to which the file belongs' })
   @ApiOkResponse({
     schema: {
       example: {
@@ -46,8 +43,12 @@ export class FileController {
       }
     }
   })
-  async getPresignedUrl(@Param('key') key: string) {
-    const url = await this.fileService.getPresignedUrl(key);
+  async getPresignedUrlForS3Uploading(
+    @Param('filename') filename: string,
+    @Param('course_id') courseId: string,
+    @Param('lesson_id') lessonId: string
+  ) {
+    const url = await this.fileService.getPresignedUrlForS3Uploading(filename, courseId, lessonId);
     return ApiResponse.OkResponse(url, 'Presigned URL retrieved successfully.');
   }
 

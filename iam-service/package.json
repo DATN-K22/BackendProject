@@ -20,8 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@nestjs/axios": "^4.0.1",
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "@nestjs/axios": "^4.0.1",
     "@nestjs/class-transformer": "^0.4.0",
     "@nestjs/class-validator": "^0.13.4",
     "@nestjs/common": "^11.0.1",
@@ -29,12 +29,18 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/mapped-types": "^2.1.0",
+<<<<<<< HEAD
     "@nestjs/microservices": "^11.1.16",
+=======
+    "@nestjs/microservices": "^11.1.17",
+>>>>>>> a-lot-of-feature
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.2.5",
     "@prisma/client": "6.11.0",
     "@rekog/mcp-nest": "^1.9.6",
+    "amqp-connection-manager": "^5.0.0",
+    "amqplib": "^0.10.9",
     "argon2": "^0.44.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
@@ -56,6 +62,7 @@
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
+    "@types/amqplib": "^0.10.8",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",

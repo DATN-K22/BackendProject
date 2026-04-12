@@ -1,6 +1,6 @@
-﻿import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Headers } from '@nestjs/common'
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Headers, UseGuards } from '@nestjs/common'
 import { CourseService } from './course.service'
-import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { ApiBody, ApiOkResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiResponse } from '../../utils/dto/ApiResponse'
 import { CreateCourseDto } from './dto/request/create-course.dto'
 import { UpdateCourseDto } from './dto/request/update-course.dto'
@@ -9,6 +9,7 @@ import { CourseDetailResponse } from './dto/response/CourseDetailResponse'
 import { PaginationDto } from '../../utils/dto/PagnitionDto'
 import { ApiSuccessResponse } from '../../utils/helper/api-success-response.decorator'
 import { CoursesListResponse } from './dto/response/CourseslListResponse'
+import { OwnershipGuard } from '../../guard/ownership.guard'
 
 @Controller('course')
 @ApiTags('Course Management APIsl')
@@ -104,13 +105,15 @@ export class CourseController {
     return ApiResponse.OkResponse(await this.courseService.update(+id, updateCourseDto), 'Update course successfully')
   }
 
-  @Get('/me/latest-incomplete')
+  @Get('/me/:id/latest-incomplete')
   @ApiOperation({ summary: "Get all the latest courses that user hasn't finished yet" })
+  @ApiParam({ name: 'id', description: 'The ID of the user' })
   @ApiOkResponse({ type: [IncompleteCourse] })
+  @UseGuards(OwnershipGuard)
   async getLatestIncompleteCourseForUser(
     @Query('offset') offset: string = '0',
-    @Headers('x-user-id') userId: string,
-    @Query('limit') limit: string = '10'
+    @Query('limit') limit: string = '10',
+    @Param('id') userId: string
   ) {
     return ApiResponse.OkResponse(
       await this.courseService.getLatestIncompleteCourseForUser(userId, +offset, +limit),
@@ -127,10 +130,12 @@ export class CourseController {
     )
   }
 
-  @Get('/me/enrolled')
+  @Get('/me/:id/enrolled')
   @ApiOperation({ summary: 'Get courses that user has enrolled in' })
+  @ApiParam({ name: 'id', description: 'The ID of the user' })
+  @UseGuards(OwnershipGuard)
   async getEnrolledCourses(
-    @Headers('x-user-id') userId: string,
+    @Param('id') userId: string,
     @Query('offset') offset: string = '0',
     @Query('limit') limit: string = '10'
   ) {
@@ -156,5 +161,9 @@ export class CourseController {
   async remove(@Param('id') id: string) {
     await this.courseService.remove(+id)
     return ApiResponse.OkResponse(null, 'Delete course successfully')
+    // @UseGuards(OwnershipGuard)
+    // remove(@Param('id') id: string) {
+    //   return this.courseService.remove(+id)
+    // }
   }
 }

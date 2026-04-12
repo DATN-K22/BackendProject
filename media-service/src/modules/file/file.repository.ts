@@ -6,17 +6,16 @@ import { CreateFileDto } from './dto/request/create-file.dto';
 export class FileRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async create(createFileDto: CreateFileDto) {
+  async create(createFileDto: CreateFileDto, path: string, filename: string) {
     const record = await this.prismaService.resource.create({
       data: {
         title: createFileDto.title,
         type: createFileDto.type,
-        link: createFileDto.link,
-        manifest_url: createFileDto.manifest_url,
-        thumb: createFileDto.thumb,
+        path: path,
+        filename: filename,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        lesson_id: createFileDto.lesson_id
+        lesson_id: BigInt(createFileDto.lesson_id)
       }
     });
     return {

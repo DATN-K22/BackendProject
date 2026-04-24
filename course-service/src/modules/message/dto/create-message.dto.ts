@@ -7,10 +7,10 @@ export class CreateMessageDto {
   @IsNotEmpty()
   forum_id: number
 
-  @ApiProperty({ example: 1, description: 'ID của user', required: false })
-  @IsNumber()
+  @ApiProperty({ example: '019bfef8-084e-7ce2-aed8-c990c41d7045', description: 'ID của user', required: false })
+  @IsString()
   @IsOptional()
-  user_id?: number
+  user_id?: string
 
   @ApiProperty({
     example: 1,

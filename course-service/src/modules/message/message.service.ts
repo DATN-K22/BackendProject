@@ -12,7 +12,7 @@ export class MessageService {
       data: {
         ...createMessageDto,
         forum_id: BigInt(createMessageDto.forum_id),
-        user_id: createMessageDto.user_id ? BigInt(createMessageDto.user_id) : undefined,
+        user_id: createMessageDto.user_id,
         parent_message_id: createMessageDto.parent_message_id ? BigInt(createMessageDto.parent_message_id) : undefined
       },
       include: {
@@ -87,7 +87,7 @@ export class MessageService {
       data: {
         ...updateMessageDto,
         forum_id: updateMessageDto.forum_id ? BigInt(updateMessageDto.forum_id) : undefined,
-        user_id: updateMessageDto.user_id ? BigInt(updateMessageDto.user_id) : undefined,
+        user_id: updateMessageDto.user_id,
         parent_message_id: updateMessageDto.parent_message_id ? BigInt(updateMessageDto.parent_message_id) : undefined
       },
       include: {

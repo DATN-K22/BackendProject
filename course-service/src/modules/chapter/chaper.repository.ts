@@ -78,7 +78,6 @@ export class ChapterRepository {
     SELECT
       ch.id                AS chapter_id,
       ch.title             AS chapter_title,
-      ch.short_description AS chapter_short_description,
       ch.status            AS chapter_status,
       ch.sort_order        AS chapter_sort_order,
 

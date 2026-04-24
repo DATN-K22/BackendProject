@@ -54,7 +54,6 @@ model Course {
   // Relations
   enrollments       Enrollment[]
   chapters          Chapter[]
-  forum             Forum?
 
   @@schema("course_service")
 }
@@ -70,6 +69,7 @@ model Chapter {
   // Relations
   course  Course?  @relation(fields: [course_id], references: [id], onDelete: Cascade)
   lessons Lesson[]
+  quizzes Quiz[]
 
   @@index([course_id], name: "idx_chapter_course")
   @@schema("course_service")
@@ -123,35 +123,80 @@ model LessonStatus {
   @@schema("course_service")
 }
 
-model Forum {
-  id                BigInt  @id @default(autoincrement())
-  course_id         BigInt  @unique
-  short_description String? @db.VarChar(255)
-  long_description  String? @db.Text
-  thumbnail_url     String? @db.VarChar(255)
-
-  // Relations
-  course   Course    @relation(fields: [course_id], references: [id], onDelete: Cascade)
-  messages Message[]
+enum SkillLevel {
+  basic
+  intermediate
+  advanced
 
   @@schema("course_service")
 }
 
-model Message {
-  id                BigInt    @id @default(autoincrement())
-  forum_id          BigInt
-  user_id           BigInt? // References user from iam-service
-  parent_message_id BigInt?
-  content           String    @db.Text
-  open_time         DateTime? @db.Timestamptz
-  closed_time       DateTime? @db.Timestamptz
-  status            String    @default("active") @db.VarChar(50)
-  created_at        DateTime  @default(now()) @db.Timestamptz
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTI_CHOICE // future
+  FILL_BLANK // future
 
-  // Relations
-  forum          Forum     @relation(fields: [forum_id], references: [id], onDelete: Cascade)
-  parent_message Message?  @relation("MessageReplies", fields: [parent_message_id], references: [id], onDelete: Cascade)
-  replies        Message[] @relation("MessageReplies")
+  @@schema("course_service")
+}
 
+model Quiz {
+  id          BigInt  @id @default(autoincrement())
+  title       String  @db.VarChar(255)
+  description String? @db.Text
+  chapter_id  BigInt
+  // time_limit removed — learning model has no timer pressure
+
+  chapter        Chapter        @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
+  quiz_questions QuizQuestion[]
+  quiz_sessions  QuizSession[]
+
+  @@index([chapter_id], name: "idx_quiz_chapter")
+  @@schema("course_service")
+}
+
+model QuizQuestion {
+  id            BigInt       @id @default(autoincrement())
+  quiz_id       BigInt
+  question_text String       @db.Text
+  questionType  QuestionType @default(SINGLE_CHOICE) // NEW — extensibility hook
+
+  quiz_options QuizOption[]
+  quiz         Quiz         @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+
+  @@index([quiz_id], name: "idx_quiz_question_quiz")
+  @@schema("course_service")
+}
+
+model QuizOption {
+  id               BigInt  @id @default(autoincrement())
+  quiz_question_id BigInt
+  option_text      String  @db.Text
+  is_correct       Boolean
+  description      String  @db.Text // kept: detailed explanation for correct answer
+  reason           String  @default("") @db.Text // NEW: per-option explanation (right OR wrong)
+
+  quizQuestion QuizQuestion @relation(fields: [quiz_question_id], references: [id], onDelete: Cascade)
+
+  @@index([quiz_question_id], name: "idx_quiz_option_question")
+  @@schema("course_service")
+}
+
+model QuizSession {
+  id             BigInt     @id @default(autoincrement())
+  quiz_id        BigInt
+  user_id        String
+  started_at     DateTime   @default(now()) @db.Timestamptz
+  ended_at       DateTime?  @db.Timestamptz
+  finish         Boolean    @default(false)
+  rightQuestions Int        @default(0)
+  questionOrder  BigInt[]
+  answeredCount  Int        @default(0) // NEW — avoids scanning questionOrder in Redis
+  totalQuestions Int        @default(0) // NEW — denormalised for quick progress %
+  skillEstimate  SkillLevel @default(basic) // NEW — rolling skill estimate
+
+  quiz Quiz @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, started_at(sort: Desc)], name: "idx_quiz_session_user_started")
+  @@index([quiz_id], name: "idx_quiz_session_quiz")
   @@schema("course_service")
 }

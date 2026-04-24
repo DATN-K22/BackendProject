@@ -58,3 +58,55 @@ model WatchingProgress {
   @@id([user_id, resource_id])
   @@schema("media_service")
 }
+
+model PaymentRecord {
+  id          String        @id @default(uuid())
+  orderCode   String        @unique
+  userId      String
+  courseId    String
+  status      PaymentStatus @default(PENDING)
+  amount      Int
+  description String?
+  buyerEmail  String?
+  buyerName   String?
+  rawWebhook  Json?
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  enrollJobs EnrollJob[]
+
+  @@schema("media_service")
+}
+
+model EnrollJob {
+  id            String    @id @default(uuid())
+  paymentId     String
+  status        JobStatus @default(PENDING)
+  attemptCount  Int       @default(0)
+  lastAttemptAt DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  payment PaymentRecord @relation(fields: [paymentId], references: [id])
+
+  @@schema("media_service")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELLED
+  FAILED
+
+  @@schema("media_service")
+}
+
+enum JobStatus {
+  PENDING
+  DONE
+  DEAD
+
+  @@schema("media_service")
+}

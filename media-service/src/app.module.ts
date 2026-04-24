@@ -8,6 +8,7 @@ import { RedisModule } from './modules/redis/redis.module';
 import { EmailModule } from './modules/email/email.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { CloudStorageModule } from './modules/cloud/cloud.module';
+import { CourseModule } from './modules/course-service/course.module';
 
 @Module({
   imports: [
@@ -20,7 +21,8 @@ import { CloudStorageModule } from './modules/cloud/cloud.module';
     CloudStorageModule,
     RedisModule,
     EmailModule,
-    PaymentModule
+    PaymentModule,
+    CourseModule
   ],
   controllers: [AppController],
   providers: [AppService]

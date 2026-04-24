@@ -65,7 +65,7 @@ export class LessonRepository {
 
     if (!lesson) return null
 
-    if (!this.isEnrolled(lesson.chapter.course_id.toString(), userId)) return null
+    if (!(await this.isEnrolled(lesson.chapter.course_id.toString(), userId))) return null
 
     return {
       is: lesson.id,

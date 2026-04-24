@@ -20,6 +20,7 @@ import { RedisBlacklistService } from '../redis/redis-blacklist.service'
 import { IMessageBroker } from '../message_broker/message-broker.interface'
 import { MESSAGE_BROKER } from '../message_broker/message-broker.token'
 import { RedisCacheService } from '../redis/redis-cache.service'
+import { ISecretManagementService } from './secret-management.interface'
 
 @Injectable()
 export class AuthService {
@@ -30,7 +31,9 @@ export class AuthService {
     private blacklist: RedisBlacklistService,
     private readonly redis: RedisCacheService,
     @Inject(MESSAGE_BROKER)
-    private readonly messageBroker: IMessageBroker
+    private readonly messageBroker: IMessageBroker,
+    @Inject('SECRET_MANAGEMENT_SERVICE')
+    private readonly awsSecret: ISecretManagementService
   ) {}
 
   private hashToken(raw: string): string {
@@ -39,11 +42,20 @@ export class AuthService {
 
   private getAccessTokenPayload(user: Users) {
     return {
-      sub: user.id,
-      role: user.role,
-      email: user.email,
-      jti: uuidv4() // mỗi access token có jti riêng để blacklist
+      user: {
+        sub: user.id,
+        displayName: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email,
+        userName: user.email.split('@')[0],
+        email: user.email,
+        roles: [this.capitalize(user.role)]
+      },
+      jti: uuidv4()
     }
+  }
+
+  private capitalize(str?: string) {
+    if (!str) return str
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
   }
 
   async signup(dto: AuthSignUpDto) {
@@ -164,9 +176,12 @@ export class AuthService {
   private async createTokensForUser(user: Users) {
     const payload = this.getAccessTokenPayload(user)
 
+    const secretName = this.configService.getOrThrow<string>('JWT_SECRET_NAME')
+    const jwtSecret = await this.awsSecret.getSecret(secretName)
+
     const access_token = await this.jwtService.signAsync(payload, {
       expiresIn: this.configService.get('JWT_ACCESS_TOKEN_EXPIRATION'),
-      secret: this.configService.get('JWT_ACCESS_TOKEN_SECRET')
+      secret: jwtSecret
     })
 
     const rawToken = uuidv4()

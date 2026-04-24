@@ -6,11 +6,11 @@ import { ConfigModule } from '@nestjs/config/dist/config.module'
 import { CourseModule } from './modules/course/course.module'
 import { ChapterModule } from './modules/chapter/chapter.module'
 import { LessonModule } from './modules/lesson/lesson.module'
-import { ForumModule } from './modules/forum/forum.module'
-import { MessageModule } from './modules/message/message.module'
 import { IamModule } from './modules/iam-service/iam.module'
 import { MediaModule } from './modules/media-service/media.module'
 import { McpModule } from '@rekog/mcp-nest'
+import { QuizModule } from './modules/quiz/quiz.module'
+import { RedisModule } from './modules/redis/redis.module'
 
 @Module({
   imports: [
@@ -26,10 +26,10 @@ import { McpModule } from '@rekog/mcp-nest'
     CourseModule,
     ChapterModule,
     LessonModule,
-    ForumModule,
-    MessageModule,
     IamModule,
-    MediaModule
+    MediaModule,
+    QuizModule,
+    RedisModule
   ],
   controllers: [AppController],
   providers: [AppService]

@@ -52,7 +52,7 @@ export class LessonController {
     return this.lessonService.remove(id)
   }
 
-  @Get(':id')
+  @Get(':id/:userId')
   @ApiOperation({ summary: 'Lấy thông tin lesson theo ID' })
   @ApiResponse({ status: 200, description: 'Thông tin lesson' })
   @ApiResponse({ status: 404, description: 'Không tìm thấy lesson' })

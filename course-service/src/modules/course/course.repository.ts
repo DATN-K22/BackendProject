@@ -170,4 +170,26 @@ export class CourseRepositoy {
     Logger.log(`Total enrolled courses for user ${userId}: ${totalItems}`)
     return { data, totalItems }
   }
+
+  async findCourseById(courseId: bigint) {
+    return this.prismaService.course.findUnique({
+      where: { id: courseId },
+      select: { id: true, owner_id: true, status: true }
+    })
+  }
+
+  async findEnrollment(userId: string, courseId: bigint) {
+    return this.prismaService.enrollment.findFirst({
+      where: { user_id: userId, course_id: courseId }
+    })
+  }
+
+  async createEnrollment(userId: string, courseId: bigint) {
+    return this.prismaService.enrollment.create({
+      data: {
+        user_id: userId,
+        course_id: courseId
+      }
+    })
+  }
 }

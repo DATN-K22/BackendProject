@@ -3,3 +3,11 @@ orchestrator-ai/.env
 rag-ai/.env
 
 .venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+orchestrator-ai/error.txt

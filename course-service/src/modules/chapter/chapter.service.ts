@@ -2,15 +2,10 @@ import { Injectable } from '@nestjs/common'
 import { CreateChapterDto } from './dto/create-chapter.dto'
 import { UpdateChapterDto } from './dto/update-chapter.dto'
 import { ChapterRepository } from './chaper.repository'
-import { LessonService } from '../lesson/lesson.service'
-import { title } from 'process'
 
 @Injectable()
 export class ChapterService {
-  constructor(
-    private readonly chapterRepository: ChapterRepository,
-    private readonly lessonService: LessonService
-  ) {}
+  constructor(private readonly chapterRepository: ChapterRepository) {}
 
   create(dto: CreateChapterDto) {
     return this.chapterRepository.create(dto)

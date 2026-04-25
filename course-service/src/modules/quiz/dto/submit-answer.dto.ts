@@ -6,10 +6,10 @@ export class SubmitAnswerDto {
   @ApiProperty({ description: 'The question being answered' })
   @IsString()
   @IsNotEmpty()
-  questionId: string
+  questionId!: string
 
   @ApiProperty({ description: 'The option the user selected' })
   @IsString()
   @IsNotEmpty()
-  selectedOptionId: string
+  selectedOptionId!: string
 }

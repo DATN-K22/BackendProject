@@ -1,3 +1,3 @@
 export interface MediaClient {
-  getResorcesByLessonId(lessonId: string): Promise<any>
+  getResourcesByChapterItemId(chapterItemId: string): Promise<any>
 }

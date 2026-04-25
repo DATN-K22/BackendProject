@@ -15,7 +15,6 @@ import { QuizRepository } from './quiz.repository'
 import { RedisCacheService } from '../redis/redis-cache.service'
 import { estimateSkillLevel, SKILL_WINDOW_SIZE, SkillLevel } from './dto/skill-level.constant'
 import type { QuizSessionCache, QuestionState } from './dto/quiz-session.types'
-import { log } from 'console'
 
 @Injectable()
 export class QuizService {
@@ -28,13 +27,13 @@ export class QuizService {
 
   // ─── Private helpers ────────────────────────────────────────────────────────
 
-  private sessionKey(sessionId: string, userId: string, quizId: string): string {
-    return `quiz_session:${sessionId}:${userId}:${quizId}`
+  private sessionKey(sessionId: string, userId: string, chapterItemId: string): string {
+    return `quiz_session:${sessionId}:${userId}:${chapterItemId}`
   }
 
-  private async assertAccess(userId: string, quizId: string): Promise<void> {
-    const hasAccess = await this.quizRepository.checkUserAccessToQuiz(userId, quizId)
-    if (!hasAccess) throw new ForbiddenException('You do not have access to this quiz')
+  private async assertAccess(userId: string, chapterItemId: string): Promise<void> {
+    const enrollment = await this.quizRepository.checkUserAccessToQuiz(userId, chapterItemId)
+    if (!enrollment) throw new ForbiddenException('You do not have access to this quiz')
   }
 
   /**
@@ -75,11 +74,11 @@ export class QuizService {
    * Returns the current unanswered question + progress info.
    * Existing sessions resume from where the user left off (no penalty for breaks).
    */
-  async takeQuiz(userId: string, quizId: string) {
-    await this.assertAccess(userId, quizId)
+  async takeQuiz(userId: string, chapterItemId: string) {
+    await this.assertAccess(userId, chapterItemId)
 
-    const { quizSession, isNew } = await this.quizRepository.getOrCreateQuizSession(userId, quizId)
-    const key = this.sessionKey(quizSession.id.toString(), userId, quizId)
+    const { quizSession, isNew } = await this.quizRepository.getOrCreateQuizSession(userId, chapterItemId)
+    const key = this.sessionKey(quizSession.id.toString(), userId, chapterItemId)
 
     let cache: QuizSessionCache
 
@@ -156,8 +155,8 @@ export class QuizService {
    * Design note: returning the next question in the same response saves a round-trip
    * and matches how Pluralsight/Duolingo handle answer submission (show feedback + next question).
    */
-  async submitAnswer(userId: string, quizId: string, questionId: string, selectedOptionId: string) {
-    await this.assertAccess(userId, quizId)
+  async submitAnswer(userId: string, chapterItemId: string, questionId: string, selectedOptionId: string) {
+    await this.assertAccess(userId, chapterItemId)
 
     // Fetch full question (all options with reasons) — single DB query
     const question = await this.quizRepository.getQuestionWithOptions(BigInt(questionId))
@@ -184,7 +183,7 @@ export class QuizService {
 
     // Update Redis cache (primary update — fast path)
     // We look up the key from active session data in Redis; if evicted, we degrade gracefully
-    const activeSessionKey = await this.findActiveSessionKey(userId, quizId)
+    const activeSessionKey = await this.findActiveSessionKey(userId, chapterItemId)
     let skillEstimate: SkillLevel = 'basic'
 
     if (activeSessionKey) {
@@ -208,7 +207,7 @@ export class QuizService {
         // Persist to Redis and DB in parallel (1 Redis write + 1 DB write)
         await Promise.all([
           this.redis.set(activeSessionKey, cache),
-          this.quizRepository.persistSessionProgress(userId, quizId, {
+          this.quizRepository.persistSessionProgress(userId, chapterItemId, {
             isCorrect,
             skillEstimate
           })
@@ -243,8 +242,8 @@ export class QuizService {
     }
 
     // Fallback: cache evicted — return feedback only, client must call takeQuiz to get next
-    this.logger.warn(`Cache miss during submitAnswer: userId=${userId}, quizId=${quizId}`)
-    await this.quizRepository.persistSessionProgress(userId, quizId, {
+    this.logger.warn(`Cache miss during submitAnswer: userId=${userId}, chapterItemId=${chapterItemId}`)
+    await this.quizRepository.persistSessionProgress(userId, chapterItemId, {
       isCorrect,
       skillEstimate
     })
@@ -260,12 +259,12 @@ export class QuizService {
    * Returns quiz metadata and lightweight history.
    * No heavy analytics — just enough for the learner to see past attempts.
    */
-  async getQuizOverview(userId: string, quizId: string, limit?: number, offset?: number) {
-    await this.assertAccess(userId, quizId)
+  async getQuizOverview(userId: string, chapterItemId: string, limit?: number, offset?: number) {
+    await this.assertAccess(userId, chapterItemId)
 
     const [quiz, history] = await Promise.all([
-      this.quizRepository.getQuizMeta(quizId),
-      this.quizRepository.getQuizHistory(userId, quizId, limit, offset)
+      this.quizRepository.getQuizMeta(chapterItemId),
+      this.quizRepository.getQuizHistory(userId, chapterItemId, limit, offset)
     ])
 
     if (!quiz) throw new NotFoundException('Quiz not found')
@@ -294,18 +293,10 @@ export class QuizService {
    * Used when we need the key but don't have it in scope.
    * In a real system this could be stored in a session registry key.
    */
-  private async findActiveSessionKey(userId: string, quizId: string): Promise<string | null> {
-    // Lightweight: look up active session ID from DB (one indexed query)
-    const session = await (this as any).quizRepository.prismaService.quizSession.findFirst({
-      where: {
-        user_id: userId,
-        quiz_id: BigInt(quizId),
-        finish: false
-      },
-      select: { id: true }
-    })
-    if (!session) return null
-    return this.sessionKey(session.id.toString(), userId, quizId)
+  private async findActiveSessionKey(userId: string, chapterItemId: string): Promise<string | null> {
+    const sessionId = await this.quizRepository.getActiveSessionId(userId, chapterItemId)
+    if (!sessionId) return null
+    return this.sessionKey(sessionId, userId, chapterItemId)
   }
 
   private buildSummary(cache: QuizSessionCache, skillEstimate: SkillLevel) {

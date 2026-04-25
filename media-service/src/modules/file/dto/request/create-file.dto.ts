@@ -1,6 +1,6 @@
 import { IsString } from '@nestjs/class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNumber, IsOptional } from 'class-validator';
+import { IsEnum, IsOptional } from 'class-validator';
 
 export enum ResourceType {
   VIDEO = 'video',
@@ -22,8 +22,14 @@ export class CreateFileDto {
   filename: string;
 
   @ApiProperty({ example: '123', nullable: true })
+  @IsOptional()
   @IsString()
-  lesson_id: string;
+  chapter_item_id?: string;
+
+  @ApiProperty({ example: '123', nullable: true, deprecated: true })
+  @IsOptional()
+  @IsString()
+  lesson_id?: string;
 
   @ApiProperty({ example: '21', nullable: true })
   @IsString()

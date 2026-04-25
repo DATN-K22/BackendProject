@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { ContentStatus } from '@prisma/client'
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsInt, Min, IsArray } from 'class-validator'
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsInt, Min, IsArray, IsNumber } from 'class-validator'
 import { Type } from 'class-transformer'
 
 export class CreateLessonDto {
@@ -66,6 +66,17 @@ export class CreateLessonDto {
   @Min(0)
   @IsOptional()
   sort_order?: number
+
+  @ApiPropertyOptional({
+    description: 'Thời lượng bài học (phút)',
+    example: 30,
+    type: Number
+  })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  duration?: number
 
   @ApiPropertyOptional({
     description: 'Danh sách ID resources',

@@ -27,11 +27,12 @@ export class FileController {
     return ApiResponse.OkCreateResponse(await this.fileService.create(createFileDto), 'Save record successfully');
   }
 
+  @Get('presigned-url/:course_id/:chapter_item_id/:filename')
   @Get('presigned-url/:course_id/:lesson_id/:filename')
-  @ApiOperation({ summary: 'Get Presigned URL for uploading file for video and image resources of a lesson' })
+  @ApiOperation({ summary: 'Get Presigned URL for uploading file for video and image resources of a chapter item' })
   @ApiParam({ name: 'filename', description: 'The filename for the file in the cloud storage. Eg: test.jpeg' })
   @ApiParam({ name: 'course_id', description: 'The ID of the course to which the file belongs' })
-  @ApiParam({ name: 'lesson_id', description: 'The ID of the lesson to which the file belongs' })
+  @ApiParam({ name: 'chapter_item_id', description: 'The ID of the chapter item to which the file belongs' })
   @ApiOkResponse({
     schema: {
       example: {
@@ -46,9 +47,10 @@ export class FileController {
   async getPresignedUrlForS3Uploading(
     @Param('filename') filename: string,
     @Param('course_id') courseId: string,
+    @Param('chapter_item_id') chapterItemId: string,
     @Param('lesson_id') lessonId: string
   ) {
-    const url = await this.fileService.getPresignedUrlForS3Uploading(filename, courseId, lessonId);
+    const url = await this.fileService.getPresignedUrlForS3Uploading(filename, courseId, chapterItemId ?? lessonId);
     return ApiResponse.OkResponse(url, 'Presigned URL retrieved successfully.');
   }
 
@@ -68,6 +70,11 @@ export class FileController {
   @ApiSuccessResponse(ApiResponse<string>)
   remove(@Param('id') id: string) {
     return this.fileService.remove(+id);
+  }
+
+  @Get('/chapter-item/:id')
+  async findResourcesByChapterItemId(@Param('id') chapterItemId: string) {
+    return ApiResponse.OkResponse(await this.fileService.findResourcesByChapterItemId(chapterItemId));
   }
 
   @Get('/lesson/:id')

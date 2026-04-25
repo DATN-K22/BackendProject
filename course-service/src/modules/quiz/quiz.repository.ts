@@ -32,30 +32,55 @@ export class QuizRepository {
     return BigInt(id)
   }
 
+  private async getQuizIdFromChapterItemId(chapterItemId: string): Promise<bigint> {
+    const chapterItem = await this.prismaService.chapterItem.findFirst({
+      where: {
+        id: this.toBigInt(chapterItemId),
+        item_type: 'quiz',
+        quiz_id: { not: null }
+      },
+      select: { quiz_id: true }
+    })
+
+    if (!chapterItem?.quiz_id) {
+      throw new BadRequestException('Chapter item is not a quiz')
+    }
+
+    return chapterItem.quiz_id
+  }
+
   // ─── Access ──────────────────────────────────────────────────────────────────
 
-  async checkUserAccessToQuiz(userId: string, quizId: string): Promise<boolean> {
+  async checkUserAccessToQuiz(userId: string, chapterItemId: string) {
     const enrollment = await this.prismaService.enrollment.findFirst({
       where: {
         user_id: userId,
         course: {
           chapters: {
             some: {
-              quizzes: { some: { id: this.toBigInt(quizId) } }
+              chapterItems: {
+                some: {
+                  id: this.toBigInt(chapterItemId),
+                  item_type: 'quiz'
+                }
+              }
             }
           }
         }
       },
       select: { id: true }
     })
-    return !!enrollment
+
+    return enrollment
   }
 
   // ─── Session ─────────────────────────────────────────────────────────────────
 
-  async getOrCreateQuizSession(userId: string, quizId: string) {
+  async getOrCreateQuizSession(userId: string, chapterItemId: string) {
+    const quizId = await this.getQuizIdFromChapterItemId(chapterItemId)
+
     const existing = await this.prismaService.quizSession.findFirst({
-      where: { user_id: userId, quiz_id: this.toBigInt(quizId), finish: false },
+      where: { user_id: userId, quiz_id: quizId, finish: false },
       // Select only what the service needs to hydrate the cache
       select: {
         id: true,
@@ -67,11 +92,11 @@ export class QuizRepository {
       }
     })
 
-    if (existing) return { quizSession: existing, isNew: false }
+    if (existing) return { quizSession: existing, isNew: false, quizId: quizId.toString() }
 
     try {
       const questions = await this.prismaService.quizQuestion.findMany({
-        where: { quiz_id: this.toBigInt(quizId) },
+        where: { quiz_id: quizId },
         select: { id: true }
       })
 
@@ -82,7 +107,7 @@ export class QuizRepository {
       const newSession = await this.prismaService.quizSession.create({
         data: {
           user_id: userId,
-          quiz_id: this.toBigInt(quizId),
+          quiz_id: quizId,
           questionOrder,
           totalQuestions: questions.length // denormalised — avoids recomputing
         },
@@ -96,7 +121,7 @@ export class QuizRepository {
         }
       })
 
-      return { quizSession: newSession, isNew: true }
+      return { quizSession: newSession, isNew: true, quizId: quizId.toString() }
     } catch (error) {
       if (error instanceof BadRequestException) throw error
       this.logger.error('Failed to create quiz session', error)
@@ -111,14 +136,16 @@ export class QuizRepository {
    */
   async persistSessionProgress(
     userId: string,
-    quizId: string,
+    chapterItemId: string,
     patch: {
       isCorrect: boolean
       skillEstimate: SkillLevel
     }
   ): Promise<void> {
+    const quizId = await this.getQuizIdFromChapterItemId(chapterItemId)
+
     const { count } = await this.prismaService.quizSession.updateMany({
-      where: { user_id: userId, quiz_id: this.toBigInt(quizId), finish: false },
+      where: { user_id: userId, quiz_id: quizId, finish: false },
       data: {
         rightQuestions: { increment: patch.isCorrect ? 1 : 0 },
         answeredCount: { increment: 1 },
@@ -127,23 +154,72 @@ export class QuizRepository {
     })
 
     if (count === 0) {
-      this.logger.error(`No active quiz session: userId=${userId}, quizId=${quizId}`)
+      this.logger.error(`No active quiz session: userId=${userId}, chapterItemId=${chapterItemId}`)
       throw new BadRequestException('No active quiz session found')
     }
   }
 
+  async getActiveSessionId(userId: string, chapterItemId: string): Promise<string | null> {
+    const quizId = await this.getQuizIdFromChapterItemId(chapterItemId)
+
+    const session = await this.prismaService.quizSession.findFirst({
+      where: {
+        user_id: userId,
+        quiz_id: quizId,
+        finish: false
+      },
+      select: { id: true }
+    })
+
+    return session ? session.id.toString() : null
+  }
+
   async finishSession(sessionId: string): Promise<void> {
-    await this.prismaService.quizSession.update({
+    const session = await this.prismaService.quizSession.update({
       where: { id: this.toBigInt(sessionId) },
-      data: { finish: true, ended_at: new Date() }
+      data: { finish: true, ended_at: new Date() },
+      select: {
+        user_id: true,
+        quiz_id: true
+      }
+    })
+
+    const chapterItem = await this.prismaService.chapterItem.findUnique({
+      where: { quiz_id: session.quiz_id },
+      select: { id: true }
+    })
+
+    if (!chapterItem) {
+      return
+    }
+
+    await this.prismaService.chapterItemStatus.upsert({
+      where: {
+        uq_chapter_item_status_user_item: {
+          user_id: session.user_id,
+          chapter_item_id: chapterItem.id
+        }
+      },
+      create: {
+        user_id: session.user_id,
+        chapter_item_id: chapterItem.id,
+        completed: true,
+        updated_at: new Date()
+      },
+      update: {
+        completed: true,
+        updated_at: new Date()
+      }
     })
   }
 
   // ─── Quiz & Questions ─────────────────────────────────────────────────────────
 
-  async getQuizMeta(quizId: string) {
+  async getQuizMeta(chapterItemId: string) {
+    const quizId = await this.getQuizIdFromChapterItemId(chapterItemId)
+
     return this.prismaService.quiz.findUnique({
-      where: { id: this.toBigInt(quizId) },
+      where: { id: quizId },
       select: { id: true, title: true, description: true } // no time_limit (removed)
     })
   }
@@ -185,9 +261,11 @@ export class QuizRepository {
     return result
   }
 
-  async getQuizHistory(userId: string, quizId: string, limit?: number, offset?: number) {
+  async getQuizHistory(userId: string, chapterItemId: string, limit?: number, offset?: number) {
+    const quizId = await this.getQuizIdFromChapterItemId(chapterItemId)
+
     return this.prismaService.quizSession.findMany({
-      where: { user_id: userId, quiz_id: this.toBigInt(quizId) },
+      where: { user_id: userId, quiz_id: quizId },
       orderBy: { started_at: 'desc' },
       take: limit,
       skip: offset,

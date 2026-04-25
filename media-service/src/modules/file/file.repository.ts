@@ -7,6 +7,8 @@ export class FileRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
   async create(createFileDto: CreateFileDto, path: string, filename: string) {
+    const chapterItemId = createFileDto.chapter_item_id ?? createFileDto.lesson_id;
+
     const record = await this.prismaService.resource.create({
       data: {
         title: createFileDto.title,
@@ -15,12 +17,13 @@ export class FileRepository {
         filename: filename,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        lesson_id: BigInt(createFileDto.lesson_id)
+        lesson_id: chapterItemId ? BigInt(chapterItemId) : null
       }
     });
     return {
       ...record,
       id: record.id.toString(),
+      chapter_item_id: record.lesson_id?.toString(),
       lesson_id: record.lesson_id?.toString()
     };
   }
@@ -33,7 +36,11 @@ export class FileRepository {
     return this.prismaService.resource.delete({ where: { id } });
   }
 
+  async findResourcesByChapterItemId(chapterItemId: string) {
+    return this.prismaService.resource.findMany({ where: { lesson_id: BigInt(chapterItemId) } });
+  }
+
   async findResourcesByLessonId(lessonId: string) {
-    return this.prismaService.resource.findMany({ where: { lesson_id: BigInt(lessonId) } });
+    return this.findResourcesByChapterItemId(lessonId);
   }
 }

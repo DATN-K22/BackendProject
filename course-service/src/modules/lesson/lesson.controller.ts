@@ -30,12 +30,14 @@ export class LessonController {
   }
 
   @Patch(':id/:courseId/:lessonId/status')
-  async markLearnedLesson(
+  async markLearnedChapterItem(
     @Param('courseId') courseId: string,
-    @Param('lessonId') lessonId: string,
+    @Param('lessonId') chapterItemId: string,
     @Param('id') userId: string
   ) {
-    return ApiSwaggerResponse.OkResponse(await this.lessonService.markLearnedLesson(userId, lessonId, courseId))
+    return ApiSwaggerResponse.OkResponse(
+      await this.lessonService.markLearnedChapterItem(userId, chapterItemId, courseId)
+    )
   }
 
   // @Patch(':id')
@@ -53,10 +55,12 @@ export class LessonController {
   }
 
   @Get(':id/:userId')
-  @ApiOperation({ summary: 'Lấy thông tin lesson theo ID' })
-  @ApiResponse({ status: 200, description: 'Thông tin lesson' })
-  @ApiResponse({ status: 404, description: 'Không tìm thấy lesson' })
+  @ApiOperation({ summary: 'Lấy thông tin chapter item theo ID (lesson/lab/quiz)' })
+  @ApiResponse({ status: 200, description: 'Thông tin chapter item' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy' })
   async findOne(@Param('id') id: string, @Param('userId') userId: string) {
-    return ApiSwaggerResponse.OkResponse(await this.lessonService.getLessonByIdWithValidateUserEnrollment(id, userId))
+    return ApiSwaggerResponse.OkResponse(
+      await this.lessonService.getChapterItemByIdWithValidateUserEnrollment(id, userId)
+    )
   }
 }

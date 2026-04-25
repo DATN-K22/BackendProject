@@ -9,6 +9,7 @@ import { EmailModule } from './modules/email/email.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { CloudStorageModule } from './modules/cloud/cloud.module';
 import { CourseModule } from './modules/course-service/course.module';
+import { MessageBrokerModule } from './modules/message_broker/message-broker.module';
 
 @Module({
   imports: [
@@ -22,7 +23,8 @@ import { CourseModule } from './modules/course-service/course.module';
     RedisModule,
     EmailModule,
     PaymentModule,
-    CourseModule
+    CourseModule,
+    MessageBrokerModule
   ],
   controllers: [AppController],
   providers: [AppService]

@@ -9,6 +9,8 @@ import { FileRepository } from './file.repository';
 import { Resource } from 'generated/prisma/client';
 import { ICDNService } from '../cloud/cdn.interface';
 import { ICloudStorageService } from '../cloud/cloud-storage.interface';
+import { IMessageBroker } from '../message_broker/message-broker.interface';
+import { MESSAGE_BROKER } from '../message_broker/message-broker.token';
 
 @Injectable()
 export class FileService {
@@ -23,7 +25,10 @@ export class FileService {
     private readonly cdnService: ICDNService,
 
     private readonly configService: ConfigService,
-    private readonly fileRepository: FileRepository
+    private readonly fileRepository: FileRepository,
+
+    @Inject(MESSAGE_BROKER)
+    private readonly message_broker: IMessageBroker
   ) {
     this.bucketName = this.configService.get<string>('AWS_S3_INPUT_BUCKET', 'default-bucket');
     Logger.debug(`Initializing FileService with bucket: ${this.bucketName}`);
@@ -54,7 +59,10 @@ export class FileService {
       default:
         throw new BadRequestException('Unsupported resource type');
     }
-    const response = this.fileRepository.create(createFileDto, path, filename);
+    // create presigned-url
+    const response = await this.fileRepository.create(createFileDto, path, filename);
+    const url = await this.cloudStorageService.getPresignedUrlForAccessing(this.bucketName, path + '/' + filename);
+    await this.message_broker.sendFileUrlForAIProcessing(response.id, url, 'course_' + createFileDto.course_id);
     return response;
   }
 

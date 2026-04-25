@@ -1,0 +1,35 @@
+name='projects/105615249497/locations/us-central1/evaluationRuns/2018369097061892096' display_name='a2a-eval-e80d65c6' metadata={'pipeline_id': '1295136944895819776'} create_time=None completion_time=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=TzInfo(0)) state=<EvaluationRunState.PENDING: 'PENDING'> evaluation_set_snapshot=None error=None data_source=EvaluationRunDataSource(
+  evaluation_set='projects/105615249497/locations/us-central1/evaluationSets/6381306002867748864'
+) evaluation_run_results=None evaluation_item_results=None evaluation_config=EvaluationRunConfig(
+  metrics=[
+    EvaluationRunMetric(
+      metric='final_response_quality_v1',
+      metric_config=UnifiedMetric(
+        predefined_metric_spec=PredefinedMetricSpec(
+          metric_spec_name='final_response_quality_v1'
+        )
+      )
+    ),
+    EvaluationRunMetric(
+      metric='tool_use_quality_v1',
+      metric_config=UnifiedMetric(
+        predefined_metric_spec=PredefinedMetricSpec(
+          metric_spec_name='tool_use_quality_v1'
+        )
+      )
+    ),
+    EvaluationRunMetric(
+      metric='hallucination_v1',
+      metric_config=UnifiedMetric(
+        predefined_metric_spec=PredefinedMetricSpec(
+          metric_spec_name='hallucination_v1'
+        )
+      )
+    ),
+  ],
+  output_config=OutputConfig(
+    gcs_destination=GcsDestination(
+      output_uri_prefix='gs://datn-storage-1/vertex-evals'
+    )
+  )
+) inference_configs=None labels=None

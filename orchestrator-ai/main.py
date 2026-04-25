@@ -22,6 +22,9 @@ from google.adk.sessions import InMemorySessionService
 from google.adk.sessions.database_session_service import DatabaseSessionService
 
 
+# LangSmith
+from langsmith.integrations.google_adk import configure_google_adk
+from langsmith import Client
 
 #Local
 from agents.root_agent import create_root_agent
@@ -58,6 +61,27 @@ HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8080"))
 APP_NAME = "edu-assistant"
 
+
+
+client = Client()  # Initialize LangSmith client for tracing and monitoring
+
+dataset_name = "Example Dataset"
+
+# Filter runs to add to the dataset
+runs = client.list_runs(
+  project_name=os.getenv("LANGSMITH_PROJECT", "default"),
+  run_type="tool",
+  # We don't need to fetch inputs, outputs, and other values that # may increase the query time
+  select=["trace_id", "name", "run_type"],
+)
+
+
+[print(run.model_dump_json()) for run in runs]
+
+# dataset = client.create_dataset(dataset_name, description="An example dataset")
+
+# # Prepare inputs and outputs for bulk creation
+# examples = [{"inputs": run.inputs, "outputs": run.outputs} for run in runs]
 
 # ---------------------------------------------------------------------------
 # Health Check
@@ -222,6 +246,7 @@ async def build_app() -> Starlette:
       4. Layer GatewaySecurityMiddleware on top
       5. Add health check routes
     """
+    configure_google_adk()
 
 
     session_service = DatabaseSessionService(DATABASE_URL, connect_args={
@@ -266,6 +291,12 @@ async def build_app() -> Starlette:
         trusted_gateway_secret=os.getenv("GATEWAY_SHARED_SECRET"),
     )
     logger.info("GatewaySecurityMiddleware applied.")
+    
+    
+    
+    # a2a_app.add_middleware(TracingMiddleware)
+    # logger.info("TracingMiddleware applied to A2A app.")
+        
 
     a2a_app.routes.insert(0, Route("/health", health_check, methods=["GET"]))
     a2a_app.routes.insert(1, Route("/ready", readiness_check, methods=["GET"]))

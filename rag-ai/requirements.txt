@@ -1,4 +1,4 @@
-google-adk[a2a,extensions]>=1.26.0
+google-adk[a2a,extensions]>=1.27.0
 langchain>=0.3.0
 langchain-openai>=0.2.0
 langchain-qdrant>=0.2.0
@@ -9,3 +9,11 @@ uvicorn>=0.29.0
 pypdf>=6.9.0
 pymupdf>=1.27.0
 celery[librabbitmq]>=5.2.0
+langsmith[google-adk]
+openevals
+agentevals
+plotly>=5.0.0
+tqdm>=4.0.0
+ipython>=9.0.0
+google-cloud-aiplatform[agent_engines]>=1.111.0
+requests>=2.32.0

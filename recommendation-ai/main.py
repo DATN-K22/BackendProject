@@ -22,6 +22,11 @@ from google.adk.a2a.utils.agent_to_a2a import to_a2a
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+from langsmith.integrations.google_adk import configure_google_adk
+
+# LangSmith
+from langsmith.integrations.otel import configure
+from langsmith.middleware import TracingMiddleware
 
 # Local modules
 from agents.root_agent import create_root_agent
@@ -113,6 +118,7 @@ async def build_app() -> Starlette:
       4. Layer GatewaySecurityMiddleware on top
       5. Add health check routes
     """
+    configure_google_adk()  # Initialize Google ADK configuration
 
     # 1. Redis session service with in-memory fallback
     session_service = RedisSessionService(
@@ -145,7 +151,9 @@ async def build_app() -> Starlette:
         runner=runner,
     )
     logger.info("to_a2a() wrapped root_agent as A2A Starlette app.")
-
+    
+    a2a_app.add_middleware(TracingMiddleware)
+    logger.info("TracingMiddleware applied to A2A app.")
     a2a_app.add_middleware(
         GatewaySecurityMiddleware,
         trusted_gateway_secret=os.getenv("GATEWAY_SHARED_SECRET"),

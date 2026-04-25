@@ -11,6 +11,7 @@ from google.adk.tools.tool_context import ToolContext
 
 from mcptools.toolset_factory import SCHEDULE_MCP_CONFIG, build_toolset
 
+
 SCHEDULE_AGENT_INSTRUCTION = """
 You are the Schedule Recommendation Agent for an educational platform.
 

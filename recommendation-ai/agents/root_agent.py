@@ -15,7 +15,7 @@ from agents.course_agent import create_course_agent
 from agents.schedule_agent import create_schedule_agent
 
 ROOT_INSTRUCTION = """
-You are EduAssistant, the main AI coordinator for an educational platform.
+You are course and schedule helper, the co-ordinator for educational planning.
 
 You have two specialist sub-agents:
 - **course_agent**: handles course search, details, and personalised recommendations.
@@ -43,7 +43,7 @@ Always be concise, helpful, and student-friendly.
 def create_root_agent() -> LlmAgent:
     return LlmAgent(
         name="edu_assistant",
-        model=LiteLlm(model="openai/gpt-5-nano"),
+        model="gemini-2.5-flash",
         instruction=ROOT_INSTRUCTION,
         sub_agents=[
             create_course_agent(),

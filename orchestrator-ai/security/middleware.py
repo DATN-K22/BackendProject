@@ -98,5 +98,6 @@ class GatewaySecurityMiddleware(BaseHTTPMiddleware):
             FORWARDED_IDENTITY_HEADERS.reset(token)
 
 
+
 def get_forwarded_identity_headers() -> dict[str, str]:
     return dict(FORWARDED_IDENTITY_HEADERS.get() or {})

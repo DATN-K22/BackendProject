@@ -5,20 +5,29 @@ import sys
 
 from dotenv import load_dotenv
 import uvicorn
+
+# ADK core
 from google.adk.a2a.utils.agent_to_a2a import to_a2a
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+
+# Starlette
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
+# LangSmith
+from langsmith.integrations.otel import configure
+from langsmith.middleware import TracingMiddleware
 
+# Local modules
 from agents.root_agent import create_root_agent
 from config.settings import load_settings
 from docs.openapi import DOCS_ROUTES
 from security.middleware import GatewaySecurityMiddleware
 from session.redis_session_service import RedisSessionService
+from langsmith.integrations.google_adk import configure_google_adk
 
 load_dotenv()
 
@@ -55,6 +64,9 @@ async def readiness_check(request: Request) -> JSONResponse:
 
 
 async def build_app() -> Starlette:
+    configure_google_adk()  # Initialize Google ADK configuration
+
+     # 1. Redis session service with in-memory fallback
     session_service = RedisSessionService(
         redis_url=settings.redis_url,
         redis_password=settings.redis_password,
@@ -81,6 +93,8 @@ async def build_app() -> Starlette:
         GatewaySecurityMiddleware,
         trusted_gateway_secret=settings.gateway_shared_secret,
     )
+    a2a_app.add_middleware(TracingMiddleware)
+    logger.info("TracingMiddleware applied to A2A app.")
     a2a_app.routes.insert(0, Route("/health", health_check, methods=["GET"]))
     a2a_app.routes.insert(1, Route("/ready", readiness_check, methods=["GET"]))
     for i, route in enumerate(DOCS_ROUTES):

@@ -1,0 +1,11 @@
+{
+  "project_id": "project-ae99b314-009b-45ec-96c",
+  "location": "us-central1",
+  "eval_run_name": "a2a-eval-e80d65c6",
+  "eval_dest": "gs://datn-storage-1/vertex-evals",
+  "metrics": [
+    "FINAL_RESPONSE_QUALITY",
+    "TOOL_USE_QUALITY",
+    "HALLUCINATION"
+  ]
+}

@@ -205,7 +205,31 @@ export class ScheduleService {
                 throw new BadRequestException('Invalid RRULE format: must start with "RRULE:"');
             }
 
-            const updateFields  = updateEventDto;
+            // Only allow mutable event fields from update payload.
+            // This prevents leaking auth/tool metadata (e.g. userId/user_id) into Prisma update data.
+            const {
+                title,
+                description,
+                location,
+                status,
+                time_start,
+                time_end,
+                timezone,
+                rrule_string,
+                recurrence_id,
+            } = updateEventDto as Record<string, unknown>;
+
+            const updateFields: Record<string, unknown> = {
+                title,
+                description,
+                location,
+                status,
+                time_start,
+                time_end,
+                timezone,
+                rrule_string,
+                recurrence_id,
+            };
             const updateData: any = {};
 
             for (const [key, value] of Object.entries(updateFields)) {
@@ -401,6 +425,10 @@ export class ScheduleService {
 
                 const splitDate = new Date(recurrence_id);
 
+                if (updateEventDto.rrule_string && !updateEventDto.rrule_string.startsWith('RRULE:')) {
+                    throw new BadRequestException('Invalid RRULE format: must start with "RRULE:"');
+                }
+
                 // Fix 1 — untilDate đúng là end of day trước splitDate
                 const untilDate = new Date(splitDate);
                 untilDate.setDate(untilDate.getDate() - 1);
@@ -452,7 +480,8 @@ export class ScheduleService {
                     );
 
                 await this.validateTimeRange(timeStart, timeEnd);
-                let newRrule = this.removeUntilFromRRule(parentEvent.rrule_string);
+                const requestedRrule = updateEventDto.rrule_string ?? parentEvent.rrule_string;
+                const newRrule = this.removeUntilFromRRule(requestedRrule);
 
                 return await tx.event.create({
                     data: {

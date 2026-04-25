@@ -27,3 +27,4 @@ services:
 volumes:
   redis_data:
   rabbitmq_data:
+  rabbitmq_data:

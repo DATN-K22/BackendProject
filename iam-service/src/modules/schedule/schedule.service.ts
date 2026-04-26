@@ -63,7 +63,7 @@ export class ScheduleService {
                 const originalEvent = await this.prisma.event.findUnique({
                     where: { id: createEventDto.original_event_id }
                 });
-                this.AuthorizeEvent(originalEvent, user_id);
+                await this.AuthorizeEvent(originalEvent, user_id);
 
                 if (!originalEvent.rrule_string) {
                     throw new BadRequestException('Cannot create exception for non-recurring event');

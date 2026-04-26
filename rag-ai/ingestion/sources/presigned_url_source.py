@@ -20,24 +20,27 @@ class HttpPresignedUrlSource(SourceConnector):
         document_id: str,
         metadata: Mapping[str, Any] | None = None,
     ) -> DocumentBlob:
-        request = Request(source_uri, method="GET")
-        with urlopen(request, timeout=self.timeout_seconds) as response:
-            content = response.read(self.max_bytes + 1)
-            if len(content) > self.max_bytes:
-                raise ValueError(
-                    f"File exceeds {self.max_bytes} bytes limit from source {source_uri}"
-                )
-            content_type = response.headers.get_content_type()
-            filename = _resolve_filename(response.headers.get("Content-Disposition"), source_uri)
+        try: 
+            request = Request(source_uri, method="GET")
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                content = response.read(self.max_bytes + 1)
+                if len(content) > self.max_bytes:
+                    raise ValueError(
+                        f"File exceeds {self.max_bytes} bytes limit from source {source_uri}"
+                    )
+                content_type = response.headers.get_content_type()
+                filename = _resolve_filename(response.headers.get("Content-Disposition"), source_uri)
 
-        return DocumentBlob(
-            document_id=document_id,
-            source_uri=source_uri,
-            content=content,
-            content_type=content_type,
-            filename=filename,
-            metadata=dict(metadata or {}),
-        )
+            return DocumentBlob(
+                document_id=document_id,
+                source_uri=source_uri,
+                content=content,
+                content_type=content_type,
+                filename=filename,
+                metadata=dict(metadata or {}),
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to fetch document from {source_uri}: {str(e)}") from e
 
 
 def _resolve_filename(content_disposition: str | None, source_uri: str) -> str:

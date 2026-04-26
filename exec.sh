@@ -9,7 +9,8 @@ VERSION="1.0"
 echo -e "\033[0;35mRunning project: $PROJECT_NAME with version $VERSION\033[0m"
 
 ROOT_DIR="$(pwd)"
-PYTHON="$ROOT_DIR/.conda/bin/python"
+CONDA_PYTHON="$ROOT_DIR/.conda/bin/python"
+PIP="$ROOT_DIR/.conda/bin/pip"
 
 # Node.js services (npm install + prisma generate)
 NODE_SERVICES=("iam-service" "media-service" "api-gateway" "course-service")
@@ -33,7 +34,7 @@ case "$ACTION" in
             echo -e "\033[0;33mProcessing $service...\033[0m"
             cd "$ROOT_DIR/$service" || exit
 
-            "$ROOT_DIR/.conda/bin/pip" install -r requirements.txt
+            "$PIP" install -r requirements.txt
         done
 
         echo -e "\033[0;32mAll services initialized!\033[0m"
@@ -51,7 +52,7 @@ case "$ACTION" in
         # Start each AI service in a new Terminal tab
         for service in "${AI_SERVICES[@]}"; do
             echo -e "\033[0;37mLaunching $service in a new tab...\033[0m"
-            osascript -e "tell application \"Terminal\" to do script \"cd $ROOT_DIR/$service && doppler run -- $PYTHON main.py\""
+            osascript -e "tell application \"Terminal\" to do script \"cd '$ROOT_DIR/$service' && doppler run -- '$CONDA_PYTHON' main.py\""
         done
         ;;
 

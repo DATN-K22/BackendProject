@@ -2,15 +2,27 @@ from __future__ import annotations
 
 import logging
 import sys
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
 
 from dotenv import load_dotenv
 import uvicorn
 
 # ADK core
-from google.adk.a2a.utils.agent_to_a2a import to_a2a
+from google.adk.a2a.utils.agent_card_builder import AgentCardBuilder
+from google.adk.a2a.executor.a2a_agent_executor import A2aAgentExecutor
+from google.adk.a2a.executor.config import A2aAgentExecutorConfig
+from google.adk.a2a.converters.request_converter import (
+    AgentRunRequest,
+    convert_a2a_request_to_agent_run_request,
+)
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+from a2a.server.apps import A2AStarletteApplication
+from a2a.server.request_handlers import DefaultRequestHandler
+from a2a.server.tasks import InMemoryPushNotificationConfigStore, InMemoryTaskStore
+from a2a.server.agent_execution.context import RequestContext
 
 # Starlette
 from starlette.applications import Starlette
@@ -39,6 +51,43 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 settings = load_settings()
 
+def _convert_request_with_state_bridge(request: RequestContext, part_converter) -> AgentRunRequest:
+    run_request = convert_a2a_request_to_agent_run_request(request, part_converter)
+    metadata = request.metadata or {}
+    adk_state = metadata.get("adk_state")
+    if isinstance(adk_state, dict):
+        state_delta = {k: v for k, v in adk_state.items() if v is not None}
+        if state_delta:
+            run_request.state_delta = state_delta
+    return run_request
+
+
+@asynccontextmanager
+async def app_lifespan(app: Starlette) -> AsyncIterator[None]:
+    """Run startup/shutdown tasks for the app lifecycle."""
+    logger.info("Application startup initiated.")
+    configure_google_adk()
+    session_service = getattr(app.state, "session_service", None)
+    if isinstance(session_service, RedisSessionService):
+        try:
+            await session_service.connect()
+            logger.info("Redis session service connected at %s", settings.redis_url)
+        except Exception as exc:
+            logger.error("Failed to connect to Redis at %s: %s", settings.redis_url, exc)
+            raise
+
+    try:
+        yield
+    finally:
+        logger.info("Application shutdown initiated.")
+        session_service = getattr(app.state, "session_service", None)
+        if session_service and hasattr(session_service, "close"):
+            try:
+                await session_service.close()
+                logger.info("Session service closed successfully.")
+            except Exception as exc:
+                logger.warning("Failed to close session service: %s", exc)
+
 
 async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "healthy", "service": settings.app_name})
@@ -63,22 +112,13 @@ async def readiness_check(request: Request) -> JSONResponse:
         return JSONResponse({"status": "not ready", "error": str(exc)}, status_code=503)
 
 
-async def build_app() -> Starlette:
-    configure_google_adk()  # Initialize Google ADK configuration
-
-     # 1. Redis session service with in-memory fallback
+def build_app() -> Starlette:
+    # 1. Create Redis session service (connected in lifespan startup)
     session_service = RedisSessionService(
         redis_url=settings.redis_url,
         redis_password=settings.redis_password,
     )
     session_backend = "redis"
-    try:
-        await session_service.connect()
-        logger.info("Redis session service connected at %s", settings.redis_url)
-    except Exception as exc:
-        logger.warning("Redis unavailable (%s), using in-memory session service.", exc)
-        session_service = InMemorySessionService()
-        session_backend = "in-memory"
 
     root_agent = create_root_agent(settings.chat_model, settings=settings)
     runner = Runner(
@@ -87,8 +127,39 @@ async def build_app() -> Starlette:
         session_service=session_service,
         artifact_service=InMemoryArtifactService(),
     )
-    
-    a2a_app: Starlette = to_a2a(root_agent, port=settings.port, runner=runner,)
+
+    agent_executor = A2aAgentExecutor(
+        runner=runner,
+        config=A2aAgentExecutorConfig(
+            request_converter=_convert_request_with_state_bridge,
+        ),
+    )
+    request_handler = DefaultRequestHandler(
+        agent_executor=agent_executor,
+        task_store=InMemoryTaskStore(),
+        push_config_store=InMemoryPushNotificationConfigStore(),
+    )
+
+    async def _setup_a2a(app: Starlette) -> None:
+        card_builder = AgentCardBuilder(
+            agent=root_agent,
+            rpc_url=f"http://localhost:{settings.port}/",
+        )
+        agent_card = await card_builder.build()
+        A2AStarletteApplication(
+            agent_card=agent_card,
+            http_handler=request_handler,
+        ).add_routes_to_app(app)
+
+    @asynccontextmanager
+    async def _combined_lifespan(app: Starlette) -> AsyncIterator[None]:
+        await _setup_a2a(app)
+        async with app_lifespan(app):
+            yield
+
+    a2a_app: Starlette = Starlette(lifespan=_combined_lifespan)
+    logger.info("Custom A2A app initialized with request metadata -> state bridge.")
+
     a2a_app.add_middleware(
         GatewaySecurityMiddleware,
         trusted_gateway_secret=settings.gateway_shared_secret,
@@ -105,18 +176,18 @@ async def build_app() -> Starlette:
     return a2a_app
 
 
+def create_app() -> Starlette:
+    """Sync app factory for uvicorn --factory (supports --reload)."""
+    return build_app()
+
+
 if __name__ == "__main__":
-    import asyncio
-
-    async def main() -> None:
-        app = await build_app()
-        config = uvicorn.Config(
-            app=app,
-            host=settings.host,
-            port=settings.port,
-            log_level="info",
-        )
-        server = uvicorn.Server(config)
-        await server.serve()
-
-    asyncio.run(main())
+    app = build_app()
+    config = uvicorn.Config(
+        app=app,
+        host=settings.host,
+        port=settings.port,
+        log_level="info",
+    )
+    server = uvicorn.Server(config)
+    server.run()

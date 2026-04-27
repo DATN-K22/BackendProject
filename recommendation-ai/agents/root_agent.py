@@ -8,8 +8,10 @@ schedule_agent based on the intent of the message.
 
 from __future__ import annotations
 
+
 from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
+from google.genai import types
 
 from agents.course_agent import create_course_agent
 from agents.schedule_agent import create_schedule_agent
@@ -43,7 +45,7 @@ Always be concise, helpful, and student-friendly.
 def create_root_agent() -> LlmAgent:
     return LlmAgent(
         name="edu_assistant",
-        model="gemini-2.5-flash",
+        model=LiteLlm(model="openai/gpt-5-nano"),
         instruction=ROOT_INSTRUCTION,
         sub_agents=[
             create_course_agent(),

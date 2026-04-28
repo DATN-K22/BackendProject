@@ -20,9 +20,9 @@ model Users {
   role          UserRole       @default(user)
   created_at    DateTime       @default(now()) @db.Timestamptz(6)
   enroll_course BigInt[]       @default([])
-  status        UserStatus     @default(active)
   events        Event[]
   refreshTokens RefreshToken[]
+  status        UserStatus     @default(active)
 
   @@schema("iam_service")
 }
@@ -32,14 +32,15 @@ model RefreshToken {
   user_id     String   @db.Uuid
   token_hash  String   @unique
   expires_at  DateTime
-  revoked     Boolean  @default(false)
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
-  device_info String?
   used        Boolean  @default(false)
-  user        Users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  revoked     Boolean  @default(false)
+  device_info String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
 
-  @@index([user_id])
-  @@index([expires_at])
+  user Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id]) // revoke all tokens của 1 user
+  @@index([expires_at]) // cleanup job
   @@schema("iam_service")
 }
 
@@ -81,17 +82,16 @@ model EventExceptionDate {
 enum UserRole {
   user
   admin
-  temporary_banned
 
   @@schema("iam_service")
 }
 
 enum UserStatus {
-  pending
+  pending // waiting for email confirmation
   active
-  temporary_banned
-  inactive
-  banned
+  temporary_banned // temporarily banned, can be reactivated after certain time or by admin
+  inactive // temporarily deactivated by user, can be reactivated by logging in
+  banned // temporarily or permanently banned by admin, cannot log in
 
   @@schema("iam_service")
 }

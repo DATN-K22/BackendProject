@@ -1,7 +1,13 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
 generator client {
   provider        = "prisma-client"
-  output          = "../generated/prisma"
   previewFeatures = ["multiSchema"]
+  output          = "../generated/prisma"
 }
 
 datasource db {
@@ -10,18 +16,31 @@ datasource db {
   schemas  = ["media_service"]
 }
 
+enum ResourceType {
+  video
+  document
+  image
+
+  @@schema("media_service")
+}
+
 model Resource {
-  id                BigInt             @id @default(autoincrement())
-  title             String             @db.VarChar(255)
-  type              ResourceType
-  thumb             String?            @db.VarChar(500)
-  link              String?            @db.VarChar(500)
-  manifest_url      String?            @db.VarChar(500)
-  created_at        DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime           @updatedAt @db.Timestamptz(6)
-  lesson_id         BigInt?
-  path              String             @db.VarChar(255)
-  filename          String             @db.VarChar(255)
+  id    BigInt       @id @default(autoincrement())
+  title String       @db.VarChar(255)
+  type  ResourceType
+
+  thumb        String? @db.VarChar(500) // Can be removed
+  link         String? @db.VarChar(500) // Can be removed
+  manifest_url String? @db.VarChar(500) // Can be removed
+
+  path     String @db.VarChar(255)
+  filename String @db.VarChar(255)
+
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @updatedAt @db.Timestamptz
+  lesson_id  BigInt?
+
+  // Relations
   watching_progress WatchingProgress[]
 
   @@schema("media_service")
@@ -31,8 +50,10 @@ model WatchingProgress {
   user_id     String
   resource_id BigInt
   is_opened   Boolean   @default(false)
-  last_watch  DateTime? @db.Timestamptz(6)
-  resource    Resource  @relation(fields: [resource_id], references: [id], onDelete: Cascade)
+  last_watch  DateTime? @db.Timestamptz
+
+  // Relations
+  resource Resource @relation(fields: [resource_id], references: [id], onDelete: Cascade)
 
   @@id([user_id, resource_id])
   @@schema("media_service")
@@ -49,32 +70,26 @@ model PaymentRecord {
   buyerEmail  String?
   buyerName   String?
   rawWebhook  Json?
-  paidAt      DateTime?     @db.Timestamptz(6)
-  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
-  enrollJobs  EnrollJob[]
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  enrollJobs EnrollJob[]
 
   @@schema("media_service")
 }
 
 model EnrollJob {
-  id            String        @id @default(uuid())
+  id            String    @id @default(uuid())
   paymentId     String
-  status        JobStatus     @default(PENDING)
-  attemptCount  Int           @default(0)
-  lastAttemptAt DateTime?     @db.Timestamptz(6)
+  status        JobStatus @default(PENDING)
+  attemptCount  Int       @default(0)
+  lastAttemptAt DateTime?
   lastError     String?
-  createdAt     DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime      @updatedAt @db.Timestamptz(6)
-  payment       PaymentRecord @relation(fields: [paymentId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  @@schema("media_service")
-}
-
-enum ResourceType {
-  video
-  document
-  image
+  payment PaymentRecord @relation(fields: [paymentId], references: [id])
 
   @@schema("media_service")
 }

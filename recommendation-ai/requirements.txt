@@ -1,5 +1,5 @@
 # ADK with A2A and extensions (LiteLLM) extras
-google-adk[a2a,extensions]>=1.26.0
+google-adk[a2a,extensions]>=1.27.0
 
 # Session store
 redis>=5.0.0
@@ -18,3 +18,12 @@ pydantic>=2.7.0
 
 # MCP server SDK (for the local dev stubs)
 mcp>=1.0.0
+
+langsmith[google-adk]
+openevals
+agentevals
+plotly>=5.0.0
+tqdm>=4.0.0
+ipython>=9.0.0
+google-cloud-aiplatform[agent_engines]>=1.111.0
+requests>=2.32.0

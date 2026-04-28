@@ -7,6 +7,7 @@ import { UpdateChapterDto } from './dto/update-chapter.dto'
 @Injectable()
 export class ChapterRepository {
   constructor(private readonly prismaService: PrismaService) {}
+
   create(dto: CreateChapterDto) {
     const { course_id, resource_id, ...rest } = dto
     return this.prismaService.chapter.create({
@@ -18,9 +19,9 @@ export class ChapterRepository {
     })
   }
 
-  findAll(params: { skip?: number; take?: number; courseId?: bigint }) {
+  async findAll(params: { skip?: number; take?: number; courseId?: bigint }) {
     const { skip, take, courseId } = params
-    return this.prismaService.chapter.findMany({
+    const chapters = await this.prismaService.chapter.findMany({
       skip,
       take,
       where: courseId ? { course_id: courseId } : undefined,
@@ -32,15 +33,34 @@ export class ChapterRepository {
             title: true
           }
         },
-        lessons: {
-          orderBy: { sort_order: 'asc' }
+        chapterItems: {
+          where: {
+            item_type: 'lesson',
+            lesson_id: { not: null }
+          },
+          orderBy: [{ sort_order: 'asc' }, { id: 'asc' }],
+          include: {
+            lesson: true
+          }
         }
       }
     })
+
+    return chapters.map((chapter) => ({
+      ...chapter,
+      lessons: chapter.chapterItems
+        .filter((item) => item.lesson)
+        .map((item) => ({
+          ...item.lesson,
+          type: 'lesson',
+          sort_order: item.sort_order,
+          isFinished: false
+        }))
+    }))
   }
 
-  findOne(id: string) {
-    return this.prismaService.chapter.findUnique({
+  async findOne(id: string) {
+    const chapter = await this.prismaService.chapter.findUnique({
       where: { id: BigInt(id) },
       include: {
         course: {
@@ -49,11 +69,32 @@ export class ChapterRepository {
             title: true
           }
         },
-        lessons: {
-          orderBy: { sort_order: 'asc' }
+        chapterItems: {
+          where: {
+            item_type: 'lesson',
+            lesson_id: { not: null }
+          },
+          orderBy: [{ sort_order: 'asc' }, { id: 'asc' }],
+          include: {
+            lesson: true
+          }
         }
       }
     })
+
+    if (!chapter) return null
+
+    return {
+      ...chapter,
+      lessons: chapter.chapterItems
+        .filter((item) => item.lesson)
+        .map((item) => ({
+          ...item.lesson,
+          type: 'lesson',
+          sort_order: item.sort_order,
+          isFinished: false
+        }))
+    }
   }
 
   update(id: string, dto: UpdateChapterDto) {
@@ -74,99 +115,122 @@ export class ChapterRepository {
   }
 
   async findAllForTOC(courseId: bigint, userId: string): Promise<{ course: any; chapters: ChapterResponse[] }> {
-    const rows = await this.prismaService.$queryRawUnsafe<any[]>(
-      `
-    SELECT
-      ch.id                AS chapter_id,
-      ch.title             AS chapter_title,
-      ch.short_description AS chapter_short_description,
-      ch.status            AS chapter_status,
-      ch.sort_order        AS chapter_sort_order,
+    const course = await this.prismaService.course.findUnique({
+      where: { id: courseId },
+      select: {
+        id: true,
+        title: true,
+        owner_id: true
+      }
+    })
 
-      l.id                 AS lesson_id,
-      l.title              AS lesson_title,
-      l.status             AS lesson_status,
-      l.type               AS lesson_type,
-      l.sort_order         AS lesson_sort_order,
-
-
-      c.id                 AS course_id,
-      c.title              AS course_title,
-
-      CASE 
-        WHEN ls.id IS NOT NULL THEN true 
-        ELSE false 
-      END AS is_finished
-
-    FROM "Chapter" ch
-    JOIN "Course" c 
-      ON c.id = ch.course_id
-
-    JOIN "Lesson" l 
-      ON l.chapter_id = ch.id
-
-    LEFT JOIN "LessonStatus" ls
-      ON ls.lesson_id = l.id
-     AND ls.user_id = $1
-
-    WHERE ch.course_id = $2
-      AND (
-        c.owner_id = $1
-        OR (
-          ch.status = 'published'
-          AND l.status = 'published'
-        )
-      )
-
-    ORDER BY 
-      ch.sort_order ASC,
-      l.sort_order ASC
-    `,
-      userId,
-      courseId
-    )
-
-    if (!rows.length) {
+    if (!course) {
       return { course: null, chapters: [] }
     }
 
-    const course = {
-      id: rows[0].course_id.toString(),
-      title: rows[0].course_title
-    }
+    const isOwner = course.owner_id === userId
 
-    const chapterMap = new Map<string, ChapterResponse>()
-
-    for (const row of rows) {
-      const chapterId = row.chapter_id.toString()
-
-      if (!chapterMap.has(chapterId)) {
-        chapterMap.set(chapterId, {
-          id: chapterId,
-          title: row.chapter_title,
-          short_description: row.chapter_short_description,
-          status: row.chapter_status,
-          sort_order: row.chapter_sort_order,
-          lessons: []
-        })
+    const chapters = await this.prismaService.chapter.findMany({
+      where: {
+        course_id: courseId,
+        ...(isOwner ? {} : { status: 'published' })
+      },
+      orderBy: [{ sort_order: 'asc' }, { id: 'asc' }],
+      include: {
+        chapterItems: {
+          orderBy: [{ sort_order: 'asc' }, { id: 'asc' }],
+          include: {
+            lesson: true,
+            quiz: true,
+            lab: true,
+            chapterItemStatuses: {
+              where: {
+                user_id: userId,
+                completed: true
+              },
+              select: {
+                id: true
+              }
+            }
+          }
+        }
       }
+    })
 
-      const chapter = chapterMap.get(chapterId)!
+    const chapterResponses: ChapterResponse[] = chapters.map((chapter) => ({
+      id: chapter.id.toString(),
+      title: chapter.title,
+      short_description: '',
+      status: chapter.status,
+      sort_order: chapter.sort_order ?? 0,
+      lessons: chapter.chapterItems
+        .filter((item) => {
+          // Filter ở app layer — rõ ràng, dễ debug
+          if (isOwner) return true
 
-      chapter.lessons.push({
-        id: row.lesson_id.toString(),
-        title: row.lesson_title,
-        status: row.lesson_status,
-        type: row.lesson_type,
-        sort_order: row.lesson_sort_order,
-        duration: row.lesson_duration,
-        isFinished: row.is_finished
-      })
-    }
+          if (item.item_type === 'quiz') return item.quiz !== null
+          if (item.item_type === 'lesson') return item.lesson?.status === 'published'
+          if (item.item_type === 'lab') return item.lab?.status === 'published'
+
+          return false
+        })
+        .map((item) => {
+          if (item.item_type === 'lesson' && item.lesson) {
+            return {
+              id: item.id.toString(),
+              title: item.lesson.title,
+              status: item.lesson.status,
+              type: 'lesson',
+              sort_order: item.sort_order,
+              duration: item.lesson.duration,
+              isFinished: item.chapterItemStatuses.length > 0,
+              short_description: item.lesson.short_description ?? '',
+              long_description: item.lesson.long_description ?? '',
+              resources: item.lesson.resources.map((resourceId) => resourceId.toString())
+            }
+          }
+
+          if (item.item_type === 'quiz' && item.quiz) {
+            return {
+              id: item.id.toString(),
+              title: item.quiz.title,
+              status: 'published',
+              type: 'quiz',
+              sort_order: item.sort_order,
+              duration: 0,
+              isFinished: item.chapterItemStatuses.length > 0,
+              short_description: item.quiz.description ?? '',
+              long_description: item.quiz.description ?? '',
+              resources: []
+            }
+          }
+
+          if (item.item_type === 'lab' && item.lab) {
+            return {
+              id: item.id.toString(),
+              title: item.lab.title,
+              status: item.lab.status,
+              type: 'lab',
+              sort_order: item.sort_order,
+              duration: item.lab.duration,
+              isFinished: item.chapterItemStatuses.length > 0,
+              short_description: item.lab.short_description ?? '',
+              long_description: item.lab.long_description ?? '',
+              resources: item.lab.resources.map((resourceId) => resourceId.toString())
+            }
+          }
+
+          return null
+        })
+        .filter(Boolean) as ChapterResponse['lessons']
+    }))
 
     return {
-      course,
-      chapters: Array.from(chapterMap.values())
+      course: {
+        id: course.id.toString(),
+        title: course.title
+      },
+      chapters: chapterResponses
     }
   }
 }

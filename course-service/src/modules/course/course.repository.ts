@@ -108,12 +108,16 @@ export class CourseRepositoy {
       c.title,
       c.thumbnail_url,
       e.complete_percent as progress 
-    FROM "Enrollment" e
-    JOIN "Course" c ON e.course_id = c.id
-    LEFT JOIN "Chapter" ch ON ch.course_id = c.id
-    LEFT JOIN "Lesson" l ON l.chapter_id = ch.id
-    LEFT JOIN "LessonStatus" ls
-      ON ls.lesson_id = l.id AND ls.user_id = e.user_id
+    FROM "course_service"."Enrollment" e
+    JOIN "course_service"."Course" c ON e.course_id = c.id
+    LEFT JOIN "course_service"."Chapter" ch ON ch.course_id = c.id
+    LEFT JOIN "course_service"."ChapterItem" ci
+      ON ci.chapter_id = ch.id
+     AND ci.item_type = 'lesson'
+    LEFT JOIN "course_service"."ChapterItemStatus" cis
+      ON cis.chapter_item_id = ci.id
+     AND cis.user_id = e.user_id
+     AND cis.completed = true
     WHERE e.user_id = $1
     GROUP BY 
       c.id, 
@@ -123,10 +127,10 @@ export class CourseRepositoy {
       e.complete_percent, 
       e.enrolled_at
     HAVING
-      COUNT(DISTINCT l.id) > COUNT(DISTINCT ls.lesson_id)
+      COUNT(DISTINCT ci.id) > COUNT(DISTINCT cis.chapter_item_id)
       OR e.complete_percent = 0
     ORDER BY
-      MAX(COALESCE(ls.updated_at, e.enrolled_at)) DESC
+      MAX(COALESCE(cis.updated_at, e.enrolled_at)) DESC
     LIMIT $2
     OFFSET $3
   `,
@@ -179,5 +183,27 @@ export class CourseRepositoy {
     ])
     Logger.log(`Total enrolled courses for user ${userId}: ${totalItems}`)
     return { data, totalItems }
+  }
+
+  async findCourseById(courseId: bigint) {
+    return this.prismaService.course.findUnique({
+      where: { id: courseId },
+      select: { id: true, owner_id: true, status: true }
+    })
+  }
+
+  async findEnrollment(userId: string, courseId: bigint) {
+    return this.prismaService.enrollment.findFirst({
+      where: { user_id: userId, course_id: courseId }
+    })
+  }
+
+  async createEnrollment(userId: string, courseId: bigint) {
+    return this.prismaService.enrollment.create({
+      data: {
+        user_id: userId,
+        course_id: courseId
+      }
+    })
   }
 }

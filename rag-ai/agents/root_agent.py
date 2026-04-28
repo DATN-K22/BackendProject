@@ -19,7 +19,7 @@ Routing rules:
 def create_root_agent(model_name: str, settings: Settings | None = None) -> LlmAgent:
     return LlmAgent(
         name="rag_assistant",
-        model=LiteLlm(model=model_name),
+        model=LiteLlm(model="openai/gpt-4.1-nano"),
         instruction=ROOT_INSTRUCTION,
         sub_agents=[create_rag_agent(model_name, settings=settings)],
         description="Root orchestrator for the RAG AI service.",

@@ -10,7 +10,7 @@ export class OwnershipGuard implements CanActivate {
     const targetId = request.params.id
 
     // Admin bypass
-    if (userRole === 'admin') return true
+    if (userRole === 'Admin') return true
 
     if (userId !== targetId) {
       throw new ForbiddenException('You can only access your own resource')

@@ -11,3 +11,4 @@ __pycache__/
 *.pyd
 
 orchestrator-ai/error.txt
+orchestrator-ai/google-credentials.json

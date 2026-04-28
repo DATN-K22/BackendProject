@@ -1,11 +1,9 @@
-import { Inject, Injectable, Logger } from '@nestjs/common'
+import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { CourseRepositoy } from './course.repository'
 import { UpdateCourseDto } from './dto/request/update-course.dto'
 import { CreateCourseDto } from './dto/request/create-course.dto'
 import { IamClient } from '../iam-service/IamClient'
 import { IncompleteCourse } from './dto/response/IncompleteCourseResponse'
-import { AppException } from '../../utils/excreption/AppException'
-import { ErrorCode } from '../../utils/excreption/ErrorCode'
 import { ChapterService } from '../chapter/chapter.service'
 
 @Injectable()
@@ -35,14 +33,23 @@ export class CourseService {
     const incompleteCourse = await this.courseRepository.getLatestIncompleteCourseForUser(userId, offset, limit)
     // get creator of each course and return with creator info
     const creatorInfoMap = await this.getCreatorIds(incompleteCourse)
-    return incompleteCourse.map((course: any) => {
-      const user = creatorInfoMap.get(course.owner_id)
+    return incompleteCourse.map((course) => {
+      const creatorInfo = creatorInfoMap.get(course.owner_id)
+
       return {
         id: course.id,
         thumbnail_url: course.thumbnail_url,
         title: course.title,
         progress: course.progress,
-        user: user || { name: '', avt_url: '' }
+        user: creatorInfo
+          ? {
+              name: creatorInfo.name,
+              avt_url: creatorInfo.avt_url
+            }
+          : {
+              name: '',
+              avt_url: ''
+            }
       }
     })
   }
@@ -123,5 +130,30 @@ export class CourseService {
         currentPage
       }
     }
+  }
+  async enrollUserInCourse(userId: string, courseId: string): Promise<void> {
+    const courseIdBig = BigInt(courseId)
+
+    const course = await this.courseRepository.findCourseById(courseIdBig)
+
+    if (!course) {
+      throw new NotFoundException(`Course ${courseId} not found`)
+    }
+
+    if (course.status !== 'published') {
+      throw new BadRequestException('Cannot enroll in an unpublished course')
+    }
+
+    if (course.owner_id === userId) {
+      throw new BadRequestException('Course owner cannot enroll in their own course')
+    }
+
+    const alreadyEnrolled = await this.courseRepository.findEnrollment(userId, courseIdBig)
+
+    if (alreadyEnrolled) {
+      throw new ConflictException('User is already enrolled in this course')
+    }
+
+    await this.courseRepository.createEnrollment(userId, courseIdBig)
   }
 }

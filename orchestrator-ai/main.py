@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 import sys
 import os
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
 
 from dotenv import load_dotenv
 load_dotenv() 
@@ -11,7 +13,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
-
+from uuid import uuid4
 #ADK core
 from google.adk.a2a.utils.agent_to_a2a import to_a2a
 from google.adk.artifacts import InMemoryArtifactService
@@ -22,6 +24,9 @@ from google.adk.sessions import InMemorySessionService
 from google.adk.sessions.database_session_service import DatabaseSessionService
 
 
+# LangSmith
+from langsmith.integrations.google_adk import configure_google_adk
+from langsmith import Client
 
 #Local
 from agents.root_agent import create_root_agent
@@ -57,7 +62,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8080"))
 APP_NAME = "edu-assistant"
-
+LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "default")
 
 # ---------------------------------------------------------------------------
 # Health Check
@@ -166,7 +171,7 @@ async def session_state_update(request: Request) -> JSONResponse:
         user_id = request.headers.get("x-user-id", "anonymous")
 
         if not session_id:
-            return JSONResponse({"error": "Missing session_id"}, status_code=400)
+            session_id = str(uuid4())  # Generate a new session ID if not provided
 
         session_service = getattr(request.app.state, "session_service", None)
         if not session_service:
@@ -178,7 +183,11 @@ async def session_state_update(request: Request) -> JSONResponse:
             session_id=session_id,
         )
         if not session:
-            return JSONResponse({"error": "Session not found"}, status_code=404)
+            session = await session_service.create_session(
+                app_name=APP_NAME,
+                user_id=user_id,
+                session_id=session_id,
+            )
 
         state_delta = {}
         if conversation_title is not None:
@@ -201,7 +210,7 @@ async def session_state_update(request: Request) -> JSONResponse:
             ),
         )
 
-        return JSONResponse({"status": "success", "state_delta": state_delta})
+        return JSONResponse({"status": "success", "state_delta": state_delta, "session_id": session_id})
     except Exception as e:
         logger.error(f"Failed to update session state: {e}")
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -211,19 +220,37 @@ async def session_state_update(request: Request) -> JSONResponse:
 # Build the application
 # ---------------------------------------------------------------------------
 
-async def build_app() -> Starlette:
+@asynccontextmanager
+async def app_lifespan(app: Starlette) -> AsyncIterator[None]:
+    """Run startup/shutdown tasks for the app lifecycle."""
+    logger.info("Application startup initiated.")
+    configure_google_adk()
+
+    try:
+        app.state.langsmith_client = Client()
+        logger.info("LangSmith client initialised for project '%s'.", LANGSMITH_PROJECT)
+    except Exception as exc:
+        logger.warning("LangSmith initialisation failed: %s", exc)
+        app.state.langsmith_client = None
+
+    try:
+        yield
+    finally:
+        logger.info("Application shutdown initiated.")
+        await close_remote_agent_http_client()
+
+
+def build_app() -> Starlette:
     """
-    Initialise services and return the fully configured Starlette ASGI app.
+    Build and return the fully configured Starlette ASGI app.
 
     Call order matters:
-      1. Connect Redis (async)
-      2. Create the root agent
-      3. Wrap with to_a2a() — passes our session/artifact services in
+      1. Create session service
+      2. Create the root agent and runner
+      3. Wrap with to_a2a() — passes our services in
       4. Layer GatewaySecurityMiddleware on top
-      5. Add health check routes
+      5. Add routes and attach lifespan hooks
     """
-
-
     session_service = DatabaseSessionService(DATABASE_URL, connect_args={
         "server_settings": {
             "search_path": "ai_service"   # your schema name
@@ -258,6 +285,7 @@ async def build_app() -> Starlette:
         root_agent,
         port=PORT,
         runner=runner,
+        lifespan=app_lifespan
     )
     logger.info("to_a2a() wrapped root_agent as A2A Starlette app.")
 
@@ -266,6 +294,12 @@ async def build_app() -> Starlette:
         trusted_gateway_secret=os.getenv("GATEWAY_SHARED_SECRET"),
     )
     logger.info("GatewaySecurityMiddleware applied.")
+    
+    
+    
+    # a2a_app.add_middleware(TracingMiddleware)
+    # logger.info("TracingMiddleware applied to A2A app.")
+        
 
     a2a_app.routes.insert(0, Route("/health", health_check, methods=["GET"]))
     a2a_app.routes.insert(1, Route("/ready", readiness_check, methods=["GET"]))
@@ -282,7 +316,6 @@ async def build_app() -> Starlette:
     a2a_app.state.session_service = session_service
     a2a_app.state.session_backend = session_backend
     a2a_app.state.runner = runner
-    a2a_app.add_event_handler("shutdown", close_remote_agent_http_client)
 
     return a2a_app
 
@@ -291,18 +324,18 @@ async def build_app() -> Starlette:
 # Entry point
 # ---------------------------------------------------------------------------
 
+def create_app() -> Starlette:
+    """Sync app factory for uvicorn --factory (supports --reload)."""
+    return build_app()
+
+
 if __name__ == "__main__":
-    import asyncio
-
-    async def main():
-        app = await build_app()
-        config = uvicorn.Config(
-            app=app,
-            host=HOST,
-            port=PORT,
-            log_level="info",
-        )
-        server = uvicorn.Server(config)
-        await server.serve()
-
-    asyncio.run(main())
+    app = build_app()
+    config = uvicorn.Config(
+        app=app,
+        host=HOST,
+        port=PORT,
+        log_level="info",
+    )
+    server = uvicorn.Server(config)
+    server.run()

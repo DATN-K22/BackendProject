@@ -166,4 +166,21 @@ export class CourseController {
     //   return this.courseService.remove(+id)
     // }
   }
+
+  @Post('enroll')
+  @ApiOperation({ summary: 'Enroll a user in a course' })
+  @ApiBody({
+    schema: {
+      example: {
+        userId: 'Uuid. E.g: ',
+        courseId: 'Uuid. E.g: '
+      }
+    }
+  })
+  async enrollUserInCourse(@Body() body: { userId: string; courseId: string }) {
+    return ApiResponse.OkResponse(
+      await this.courseService.enrollUserInCourse(body.userId, body.courseId),
+      'Enroll user in course successfully'
+    )
+  }
 }

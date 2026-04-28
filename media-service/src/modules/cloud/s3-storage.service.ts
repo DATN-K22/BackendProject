@@ -78,4 +78,12 @@ export class S3StorageService implements ICloudStorageService {
       throw new AppException(ErrorCode.INVALID_FILE_URL, true);
     }
   }
+
+  async getPresignedUrlForAccessing(bucket: string, key: string): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: key
+    });
+    return getSignedUrl(this.client, command);
+  }
 }

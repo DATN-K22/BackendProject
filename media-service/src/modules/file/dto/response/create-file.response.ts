@@ -26,5 +26,8 @@ export class CreateFileResponse {
   updated_at: Date;
 
   @ApiProperty({ example: 10, nullable: true })
+  chapter_item_id: number;
+
+  @ApiProperty({ example: 10, nullable: true, deprecated: true })
   lesson_id: number;
 }

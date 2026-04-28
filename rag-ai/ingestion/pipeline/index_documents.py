@@ -22,7 +22,7 @@ load_dotenv()
 
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672//")
 
-app = Celery('DocumentIngestion', broker=RABBITMQ_URL)
+app = Celery('data_queue', broker=RABBITMQ_URL)
 
 def make_connector(source_uri: str) -> SourceConnector:
     if source_uri.startswith(("http://", "https://")):
@@ -31,9 +31,18 @@ def make_connector(source_uri: str) -> SourceConnector:
 
 
 @app.task(name="ingestion.index_document")
-def index_document_task(payload: dict) -> int:
+def index_document_task(*args, **kwargs) -> int:
     """Hàm này sẽ được Celery Worker thực thi ngầm"""
-    event = DocumentUploadEvent.from_dict(payload)
+    if args:
+        raw = args[0]
+    else:
+        raw = kwargs
+
+    # Unwrap NestJS envelope if present
+    if isinstance(raw, dict) and 'data' in raw:
+        raw = raw['data']
+
+    event = DocumentUploadEvent.from_dict(raw)
     settings = load_settings()
 
     orchestrator = IngestionOrchestrator(

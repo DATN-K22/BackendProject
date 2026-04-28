@@ -9,6 +9,8 @@ import { FileRepository } from './file.repository';
 import { Resource } from 'generated/prisma/client';
 import { ICDNService } from '../cloud/cdn.interface';
 import { ICloudStorageService } from '../cloud/cloud-storage.interface';
+import { IMessageBroker } from '../message_broker/message-broker.interface';
+import { MESSAGE_BROKER } from '../message_broker/message-broker.token';
 
 @Injectable()
 export class FileService {
@@ -23,35 +25,44 @@ export class FileService {
     private readonly cdnService: ICDNService,
 
     private readonly configService: ConfigService,
-    private readonly fileRepository: FileRepository
+    private readonly fileRepository: FileRepository,
+
+    @Inject(MESSAGE_BROKER)
+    private readonly message_broker: IMessageBroker
   ) {
     this.bucketName = this.configService.get<string>('AWS_S3_INPUT_BUCKET', 'default-bucket');
     Logger.debug(`Initializing FileService with bucket: ${this.bucketName}`);
   }
 
   async create(createFileDto: CreateFileDto) {
-    if (!createFileDto.lesson_id && !createFileDto.course_id) {
-      throw new AppException(ErrorCode.VALIDATION_ERROR, true, 'Either lesson_id or course_id must be provided');
+    const chapterItemId = createFileDto.chapter_item_id ?? createFileDto.lesson_id;
+    const resourceOwnerId = chapterItemId ?? createFileDto.course_id;
+
+    if (!resourceOwnerId) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, true, 'Either chapter_item_id or course_id must be provided');
     }
     var path = '';
     var filename = '';
     switch (createFileDto.type) {
       case ResourceType.VIDEO:
-        path = `videos/${createFileDto.course_id}/${createFileDto.lesson_id}`;
+        path = `videos/${createFileDto.course_id}/${resourceOwnerId}`;
         filename = createFileDto.filename.split('.').slice(0, -1).join('.') + '_hls.m3u8';
         break;
       case ResourceType.DOCUMENT:
-        path = `documents/${createFileDto.course_id}/${createFileDto.lesson_id}`;
+        path = `documents/${createFileDto.course_id}/${resourceOwnerId}`;
         filename = createFileDto.filename;
         break;
       case ResourceType.IMAGE:
-        path = `images/${createFileDto.course_id}/${createFileDto.lesson_id}`;
+        path = `images/${createFileDto.course_id}/${resourceOwnerId}`;
         filename = createFileDto.filename;
         break;
       default:
         throw new BadRequestException('Unsupported resource type');
     }
-    const response = this.fileRepository.create(createFileDto, path, filename);
+    // create presigned-url
+    const response = await this.fileRepository.create(createFileDto, path, filename);
+    const url = await this.cloudStorageService.getPresignedUrlForAccessing(this.bucketName, path + '/' + filename);
+    await this.message_broker.sendFileUrlForAIProcessing(response.id, url, 'course_' + createFileDto.course_id);
     return response;
   }
 
@@ -78,31 +89,33 @@ export class FileService {
     return { success: true };
   }
 
-  getPresignedUrlForS3Uploading(filename: string, courseId: string, lessonId: string) {
+  getPresignedUrlForS3Uploading(filename: string, courseId: string, chapterItemId: string) {
     var contentType = '';
     var key = '';
-    Logger.debug(`Generating presigned URL for file: ${filename}, courseId: ${courseId}, lessonId: ${lessonId}`);
+    Logger.debug(
+      `Generating presigned URL for file: ${filename}, courseId: ${courseId}, chapterItemId: ${chapterItemId}`
+    );
     switch (filename.split('.').pop()?.toLowerCase()) {
       case 'jpg':
         contentType = 'image/jpg';
-        key = `images/${courseId}/${lessonId}/${filename}`;
+        key = `images/${courseId}/${chapterItemId}/${filename}`;
         break;
       case 'jpeg':
         contentType = 'image/jpeg';
-        key = `images/${courseId}/${lessonId}/${filename}`;
+        key = `images/${courseId}/${chapterItemId}/${filename}`;
         break;
       case 'png':
         contentType = 'image/png';
-        key = `images/${courseId}/${lessonId}/${filename}`;
+        key = `images/${courseId}/${chapterItemId}/${filename}`;
         break;
       case 'mp4':
         contentType = 'video/mp4';
-        key = `videos/${courseId}/${lessonId}/${filename}`;
+        key = `videos/${courseId}/${chapterItemId}/${filename}`;
         break;
 
       case 'pdf':
         contentType = 'application/pdf';
-        key = `documents/${courseId}/${lessonId}/${filename}`;
+        key = `documents/${courseId}/${chapterItemId}/${filename}`;
         break;
       default:
         throw new AppException(ErrorCode.UNSUPORTED_FILE_TYPE, true);
@@ -110,8 +123,9 @@ export class FileService {
     return this.cloudStorageService.getPresignedUrl(this.bucketName, key, contentType);
   }
 
-  async findResourcesByLessonId(lessonId: string) {
-    const resources = await this.fileRepository.findResourcesByLessonId(lessonId);
+  async findResourcesByChapterItemId(chapterItemId: string) {
+    const resources = await this.fileRepository.findResourcesByChapterItemId(chapterItemId);
+    Logger.debug(`Found ${resources.length} resources for chapterItemId=${chapterItemId}`);
     const resourcesWithUrl = await this.getContentsPresignedUrl(resources);
     const result: { document: typeof resources; video: typeof resources; image: typeof resources } = {
       document: [],
@@ -130,6 +144,10 @@ export class FileService {
     });
 
     return result;
+  }
+
+  async findResourcesByLessonId(lessonId: string) {
+    return this.findResourcesByChapterItemId(lessonId);
   }
 
   /****

@@ -21,4 +21,6 @@ export interface ICloudStorageService {
   fileExists(bucket: string, key: string): Promise<boolean>;
 
   extractKeyFromUrl(url: string): string;
+
+  getPresignedUrlForAccessing(bucket: string, key: string): Promise<string>;
 }

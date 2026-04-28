@@ -1,11 +1,4 @@
-import {
-  ForbiddenException,
-  Inject,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-  NotFoundException
-} from '@nestjs/common'
+import { ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger } from '@nestjs/common'
 import { CreateLessonDto } from './dto/create-lesson.dto'
 import { UpdateLessonDto } from './dto/update-lesson.dto'
 import { MediaClient } from '../media-service/MediaClient'
@@ -28,23 +21,29 @@ export class LessonService {
     return this.lessonRepository.findAll(params)
   }
 
-  async getLessonByIdWithValidateUserEnrollment(id: string, userId: string) {
+  async getChapterItemByIdWithValidateUserEnrollment(id: string, userId: string) {
     try {
-      const [lesson, resourcesResponse] = await Promise.all([
-        this.lessonRepository.getLessonByIdWithValidateUserEnrollment(id, userId),
-        this.mediaClient.getResorcesByLessonId(id)
-      ])
+      const item = await this.lessonRepository.getChapterItemByIdWithValidateUserEnrollment(id, userId)
 
-      if (!lesson) {
-        throw new ForbiddenException('User not enrolled')
+      if (!item) {
+        throw new ForbiddenException('User not enrolled or item not found')
       }
+
+      if (item.type === 'quiz') {
+        return item
+      }
+
+      const resourcesResponse = await this.mediaClient.getResourcesByChapterItemId(id)
       return {
-        ...lesson,
+        ...item,
         resources: resourcesResponse?.data ?? []
       }
     } catch (err) {
+      if (err instanceof ForbiddenException) {
+        throw err
+      }
       Logger.error(err)
-      throw new InternalServerErrorException('Fail to get lesson by id')
+      throw new InternalServerErrorException('Fail to get chapter item by id')
     }
   }
 
@@ -56,9 +55,16 @@ export class LessonService {
     return this.lessonRepository.remove(id)
   }
 
-  async markLearnedLesson(userId: string, lessonId: string, courseId: string) {
-    if (await this.lessonRepository.isEnrolled(courseId, userId))
-      return this.lessonRepository.markLearnedLesson(userId, lessonId)
-    else throw new ForbiddenException("User hasn't enrolled into this course")
+  async markLearnedChapterItem(userId: string, chapterItemId: string, courseId: string) {
+    if (!(await this.lessonRepository.isEnrolled(courseId, userId))) {
+      throw new ForbiddenException("User hasn't enrolled into this course")
+    }
+
+    const result = await this.lessonRepository.markLearnedChapterItem(userId, chapterItemId)
+    if (!result) {
+      throw new ForbiddenException('Chapter item not found')
+    }
+
+    return result
   }
 }

@@ -65,7 +65,7 @@ rag_agent = RemoteA2aAgent(
 def create_root_agent() -> LlmAgent:
     root_agent = LlmAgent(
         name="edu_assistant",
-        model=LiteLlm(model="openai/gpt-5-nano"),
+        model=LiteLlm(model="openai/gpt-4.1-nano"),
 
 
         instruction="""You are EduAssistant, the main AI coordinator for an educational platform.
@@ -86,7 +86,10 @@ Routing rules:
 3. If a user message contains both intents, delegate in sequence:
    - first course_schedule_agent for recommendation/planning context,
    - then rag_agent for deep explanation if still needed.
-4. CRITICAL — If the user's message is a short confirmation or rejection word ("approved", "approve", "yes", "confirm", "ok", "sure", "no", "reject", "cancel", "denied") AND the previous agent turn was from course_schedule_agent and was awaiting approval, delegate immediately to course_schedule_agent. Never answer approval/rejection directly.
+4. CRITICAL — Approval routing:
+   - If the user's message matches approval format (`approve <approval_id>` or `reject <approval_id>`, including equivalent words like approved/rejected), delegate immediately to course_schedule_agent.
+   - If the user's message is only a short decision word and the previous turn was from course_schedule_agent and was awaiting approval, also delegate immediately.
+   - Never answer approval/rejection directly.
 5. Only answer directly for greetings or capability/meta questions. Do not bypass delegation for domain intents.
 
 Context:

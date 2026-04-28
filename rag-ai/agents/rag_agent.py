@@ -27,7 +27,7 @@ def create_rag_agent(model_name: str, settings: Settings | None = None) -> LlmAg
 
     return LlmAgent(
         name="rag_agent",
-        model=LiteLlm(model=model_name),
+        model=LiteLlm(model="openai/gpt-4.1-nano"),
         instruction=RAG_AGENT_INSTRUCTION,
         tools=[retrieval_tool],
         description="RAG specialist agent for retrieval-grounded answers.",

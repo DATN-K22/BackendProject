@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { ContentStatus } from '@prisma/client'
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsInt, Min, IsArray, IsNumber } from 'class-validator'
 import { Type } from 'class-transformer'
-import { LessonType } from '@prisma/client'
+// import { LessonType } from '@prisma/client'
 
 export class CreateLessonDto {
   @ApiProperty({
@@ -90,21 +90,12 @@ export class CreateLessonDto {
   @IsOptional()
   resources?: string[]
 
-  @ApiPropertyOptional({
-    description: 'Loại bài học',
-    enum: LessonType,
-    default: LessonType.video
-  })
-  @IsEnum(LessonType)
-  @IsOptional()
-  type?: LessonType
-
-  @ApiPropertyOptional({
-    description: 'Thời lượng bài học (phút)',
-    example: 10,
-    type: Number
-  })
-  @Type(() => Number)
-  @IsOptional()
-  duration?: number
+  // @ApiPropertyOptional({
+  //   description: 'Loại bài học',
+  //   enum: LessonType,
+  //   default: LessonType.video
+  // })
+  // @IsEnum(LessonType)
+  // @IsOptional()
+  // type?: LessonType
 }

@@ -1,8 +1,9 @@
+// Duplicate method removed. Only keep the method inside the class.
+// Duplicate method removed. Only keep the method inside the class.
 import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateCourseDto } from './dto/request/create-course.dto'
 import { UpdateCourseDto } from './dto/request/update-course.dto'
-import { Course, Prisma } from '@prisma/client'
 
 @Injectable()
 export class CourseRepositoy {
@@ -61,25 +62,34 @@ export class CourseRepositoy {
       isEnrolled: course.enrollments.length > 0
     }
   }
-  // async findAll(offset: number, limit: number) {
-  //   const [courses, totalItems] = await Promise.all([
-  //     this.prismaService.course.findMany({
-  //       skip: offset,
-  //       take: limit,
-  //       orderBy: { created_at: 'desc' }
-  //     }),
-  //     this.prismaService.course.count()
-  //   ]);
-  //   return {
-  //     courses,
-  //     page: {
-  //       total_pages: Math.ceil(totalItems / limit),
-  //       total_items: totalItems,
-  //       offset: offset,
-  //       limit: limit
-  //     }
-  //   };
-  // }
+  async findAll(offset: number, limit: number, ownerId?: string) {
+    const [courses, totalItems = 0] = await Promise.all([
+      this.prismaService.course.findMany({
+        skip: offset,
+        take: limit,
+        orderBy: { created_at: 'desc' },
+        where: ownerId ? { owner_id: ownerId } : undefined
+      })
+      // this.prismaService.course.count()
+    ])
+    return {
+      courses,
+      page: {
+        total_pages: Math.ceil(totalItems / limit),
+        total_items: totalItems,
+        offset: offset,
+        limit: limit
+      }
+    }
+  }
+
+  async delete(id: number) {
+    await this.prismaService.course.delete({
+      where: {
+        id: id
+      }
+    })
+  }
 
   async getLatestIncompleteCourseForUser(userId: string, offset: number, limit: number) {
     const result = await this.prismaService.$queryRawUnsafe<

@@ -3,6 +3,14 @@ orchestrator-ai/.env
 rag-ai/.env
 
 .venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+orchestrator-ai/error.txt
 orchestrator-ai/google-credentials.json
 rag-ai/google-credentials.json
 recommendation-ai/google-credentials.json

@@ -40,12 +40,12 @@ export class LessonController {
     )
   }
 
-  // @Patch(':id')
-  // @ApiOperation({ summary: 'Cập nhật lesson' })
-  // @ApiResponse({ status: 200, description: 'Lesson được cập nhật thành công' })
-  // update(@Param('id') id: string, @Body() dto: UpdateLessonDto) {
-  //   return this.lessonService.update(id, dto)
-  // }
+  @Patch(':id')
+  @ApiOperation({ summary: 'Cập nhật lesson' })
+  @ApiResponse({ status: 200, description: 'Lesson được cập nhật thành công' })
+  update(@Param('id') id: string, @Body() dto: UpdateLessonDto) {
+    return this.lessonService.update(id, dto)
+  }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Xóa lesson' })

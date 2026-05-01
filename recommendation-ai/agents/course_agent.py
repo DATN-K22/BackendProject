@@ -10,10 +10,12 @@ All tools are provided through the external Course MCP server.
 from __future__ import annotations
 
 from google.adk.agents import LlmAgent
+from google.adk.tools import FunctionTool
 from google.adk.models.lite_llm import LiteLlm
 from google.genai import types
 
 from mcptools.toolset_factory import COURSE_MCP_CONFIG, build_toolset
+from agents.course_schedule_state_tools import save_course_estimated_commitment_to_state
 
 
 # COURSE_AGENT_INSTRUCTION = """
@@ -47,22 +49,31 @@ from mcptools.toolset_factory import COURSE_MCP_CONFIG, build_toolset
 
 def create_course_agent() -> LlmAgent:
     toolset = build_toolset(COURSE_MCP_CONFIG)
-    tools = [toolset] if toolset else []
+    save_plan_tool = FunctionTool(func=save_course_estimated_commitment_to_state)
+    tools = [save_plan_tool] + ([toolset] if toolset else [])
 
     return LlmAgent(
         name="course_agent",
-        model=LiteLlm(model="openai/gpt-5-nano"),
+        model=LiteLlm(model="vertex_ai/gemini-2.5-flash"),
         instruction="""
 **Role:** You are the Course Recommendation Agent for an educational platform.
 
 **Core Boundaries:**
 1. **AWS-Exclusive:** This platform only offers AWS (Amazon Web Services) courses. If a user asks for non-AWS topics or other cloud platforms (Azure, GCP,...), politely clarify this limitation. You may bridge their request to a relevant AWS alternative, but NEVER recommend non-AWS courses.
-2. **No Scheduling:** You MUST NOT modify or manage schedules. Defer all calendar, time management, and scheduling requests to the Schedule Agent.
+2. **No Scheduling Mutations:** You MUST NOT call schedule mutation tools (create-event, update-event, delete-event, modify-this-only, etc.). For "schedule this course" requests, your role is limited to fetching the syllabus, saving the study plan to state, and collecting preferences from the user — then hand control back. All calendar mutations are handled exclusively by schedule_agent.
 
 **Responsibilities:**
 * Understand the student's learning goals, current knowledge level, and availability. Ask clarifying questions if their goals are unclear.
-* **Context Gathering (CRITICAL):** Before searching for new recommendations, ALWAYS use `fetch-enrolled-courses` to check the student's current learning history. Use this data to accurately assess their current level, suggest logical next steps, and absolutely avoid recommending courses they are already enrolled in.
+* **Context Gathering (CRITICAL):
+    ** If request from user is clear, you are free to search with your keyword that fit user request. Then use course that take list of course id to check if there is any enrolled courses in these course that you have been searched for. For those that there is enrolled course, you should not recommend them again, and for those that there is no enrolled course, you can recommend them to user.
+    ** If request from user is not clear, before searching for new recommendations, ALWAYS use `fetch-enrolled-courses` to check the student's current learning history, then ask user to clarify their goals and preferences based on their current courses. Use this data to accurately assess their current level, suggest logical next steps, and absolutely avoid recommending courses they are already enrolled in.
 * Provide personalized recommendations with clear justifications, explaining prerequisites and suggesting learning paths based on their enrollment history.
+* For "schedule this/current course" requests, run a preparation phase:
+    - Call `fetch-course-syllabus` with `course_id={course_id?}` and `includeStudyPlan=true` to retrieve the syllabus and estimated time commitment.
+    - Immediately after, call `save_course_estimated_commitment_to_state` with:
+        - `course_plan`: the full JSON returned by `fetch-course-syllabus`
+    - Return a response to the user that explains the estimated time commitment and asks for their scheduling preferences: how many hours per day they can study, how many days per week, and if they have any preferred days.
+    - Do NOT proceed further — schedule_agent will handle the rest once the user replies.
 
 **Tool & Search Constraints:**
 * **Context:** The course id that user are currently accessing is {course_id?}, and their timezone is {timezone?}, which may be relevant for scheduling but you should not handle directly:

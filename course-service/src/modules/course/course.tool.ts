@@ -44,6 +44,66 @@ export class CourseTool{
         return Number.isFinite(parsed) ? parsed : fallback;
     }
 
+    private estimateLessonHours(duration: unknown): number {
+        const raw = this.toNumber(duration, 0);
+        // If duration is missing/zero, fallback to 20 minutes.
+        if (raw <= 0) return 20 / 60;
+        // Heuristic: big values are likely seconds, small values likely minutes.
+        if (raw >= 600) return raw / 3600;
+        return raw / 60;
+    }
+
+    private chapterDifficulty(estimatedHours: number): "low" | "medium" | "high" {
+        if (estimatedHours < 2.5) return "low";
+        if (estimatedHours < 5) return "medium";
+        return "high";
+    }
+
+    private buildWeekPlan(
+        chapters: Array<{ chapter_no: number; estimated_hours: number }>,
+        opts: {
+            weeklyHoursTarget: number;
+            cadenceWeeks: number;
+            oneChapterPerActiveWeek: boolean;
+            prioritizeLight: boolean;
+        }
+    ): { durationWeeks: number; chaptersPerWeek: string[] } {
+        const queue = opts.prioritizeLight
+            ? [...chapters].sort((a, b) => a.estimated_hours - b.estimated_hours)
+            : [...chapters];
+
+        const chaptersPerWeek: string[] = [];
+        let currentWeek = 1;
+        let idx = 0;
+
+        while (idx < queue.length) {
+            const picked: number[] = [];
+
+            if (opts.oneChapterPerActiveWeek) {
+                picked.push(queue[idx].chapter_no);
+                idx += 1;
+            } else {
+                let budget = Math.max(opts.weeklyHoursTarget, 1);
+                while (idx < queue.length) {
+                    const next = queue[idx];
+                    if (picked.length > 0 && next.estimated_hours > budget) break;
+                    picked.push(next.chapter_no);
+                    budget -= next.estimated_hours;
+                    idx += 1;
+                    if (budget <= 0) break;
+                }
+            }
+
+            chaptersPerWeek.push(`W${currentWeek}: ${picked.join(",")}`);
+            currentWeek += opts.cadenceWeeks;
+        }
+
+        return {
+            durationWeeks: currentWeek - opts.cadenceWeeks,
+            chaptersPerWeek,
+        };
+    }
+
 
     private buildSearchSuggestions(query: string) {
         const normalized = this.normalizeText(query);
@@ -304,10 +364,13 @@ export class CourseTool{
 
     @Tool({
         name: "fetch-course-syllabus",
-        description: "Get syllabus for a course. Use includeLessons=false for a token-light summary (chapter counts + first/last lesson titles).",
+        description: `Get syllabus for a course, with optional study-plan enrichment (estimated hours, difficulty, course totals).
+    Use includeLessons=false for a token-light summary.
+    Use includeStudyPlan=true to also get per-chapter estimated_hours, difficulty, and course-level totals for scheduling.`,
         parameters: z.object({
             courseId: z.string().describe("The numeric ID of the course"),
             includeLessons: z.boolean().default(true).describe("Return full lesson arrays when true; return chapter summary only when false"),
+            includeStudyPlan: z.boolean().default(false).describe("When true, enrich each chapter with estimated_hours and difficulty, and append course-level totals"),
             chapterTitleQuery: z.string().optional().describe("Optional chapter title contains filter"),
             caseSensitive: z.boolean().default(false).describe("Whether chapterTitleQuery matching is case-sensitive"),
             maxChapters: z.number().int().min(1).max(200).optional().describe("Optional max number of chapters in the response"),
@@ -318,6 +381,7 @@ export class CourseTool{
         {
             courseId,
             includeLessons,
+            includeStudyPlan,
             chapterTitleQuery,
             caseSensitive,
             maxChapters,
@@ -325,6 +389,7 @@ export class CourseTool{
         }: {
             courseId: string;
             includeLessons: boolean;
+            includeStudyPlan: boolean;
             chapterTitleQuery?: string;
             caseSensitive: boolean;
             maxChapters?: number;
@@ -336,7 +401,8 @@ export class CourseTool{
         const userId: string = req?.user?.id ?? req?.headers?.["x-user-id"];
         const syllabus = await this.chapterService.findAllChapterForTOC(courseId, userId);
 
-        const normalize = (value?: string) => caseSensitive ? (value ?? "") : this.normalizeText(value);
+        const normalize = (value?: string) =>
+            caseSensitive ? (value ?? "") : this.normalizeText(value);
         const chapterNeedle = normalize(chapterTitleQuery);
 
         let chapters = syllabus.chapters.filter((chapter) => {
@@ -348,6 +414,7 @@ export class CourseTool{
             chapters = chapters.slice(0, maxChapters);
         }
 
+        // Shared per-chapter computation (runs always, cheap)
         const result = chapters.map((chapter, chapterIndex) => {
             const allLessons = chapter.lessons.map((lesson, lessonIndex) => ({
                 index: lessonIndex + 1,
@@ -360,7 +427,7 @@ export class CourseTool{
                 ? allLessons.slice(0, maxLessonsPerChapter)
                 : allLessons;
 
-            return {
+            const base = {
                 index: chapterIndex + 1,
                 title: chapter.title,
                 lessonCount: allLessons.length,
@@ -368,9 +435,33 @@ export class CourseTool{
                 lastLessonTitle: allLessons[allLessons.length - 1]?.title ?? null,
                 lessons: includeLessons ? lessons : undefined,
             };
+
+            if (!includeStudyPlan) return base;
+
+            // Study plan enrichment
+            const estimatedHours = Number(
+                chapter.lessons
+                    .reduce((sum, lesson) => sum + this.estimateLessonHours((lesson as any).duration), 0)
+                    .toFixed(2)
+            );
+
+            return {
+                ...base,
+                estimated_hours: estimatedHours,
+                difficulty: this.chapterDifficulty(estimatedHours),
+            };
         });
 
-        const totalLessons = result.reduce((sum, chapter) => sum + chapter.lessonCount, 0);
+        const totalLessons = result.reduce((sum, c) => sum + c.lessonCount, 0);
+
+        // Course-level study plan totals (only when requested)
+        const studyPlanSummary = includeStudyPlan
+            ? {
+                total_estimated_hours: Number(
+                    result.reduce((sum, c) => sum + ((c as any).estimated_hours ?? 0), 0).toFixed(2)
+                ),
+            }
+            : undefined;
 
         return {
             content: [{
@@ -378,16 +469,19 @@ export class CourseTool{
                 text: stringify({
                     courseId,
                     includeLessons,
+                    includeStudyPlan,
                     chapterTitleQuery: chapterTitleQuery ?? null,
                     caseSensitive,
                     totalChapters: result.length,
                     totalLessons,
+                    ...(studyPlanSummary ?? {}),
                     chapters: result,
                 }),
             }],
         };
     }
 
+    
     @Tool({
         name: "find-syllabus-lecture",
         description: "Find lecture titles in a course syllabus by optional chapterQuery + required lectureQuery; returns first, last, or all matches with indices.",

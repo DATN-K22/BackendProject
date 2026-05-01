@@ -4,3 +4,5 @@ rag-ai/.env
 
 .venv/
 orchestrator-ai/google-credentials.json
+rag-ai/google-credentials.json
+recommendation-ai/google-credentials.json

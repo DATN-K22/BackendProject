@@ -28,6 +28,9 @@ from google.adk.sessions.database_session_service import DatabaseSessionService
 from langsmith.integrations.google_adk import configure_google_adk
 from langsmith import Client
 
+
+
+
 #Local
 from agents.root_agent import create_root_agent
 from agents.remote_http_client import close_remote_agent_http_client
@@ -225,7 +228,6 @@ async def app_lifespan(app: Starlette) -> AsyncIterator[None]:
     """Run startup/shutdown tasks for the app lifecycle."""
     logger.info("Application startup initiated.")
     configure_google_adk()
-
     try:
         app.state.langsmith_client = Client()
         logger.info("LangSmith client initialised for project '%s'.", LANGSMITH_PROJECT)

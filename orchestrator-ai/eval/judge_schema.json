@@ -1,0 +1,113 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "routing_correctness",
+    "tool_use_correctness",
+    "groundedness",
+    "policy_safety",
+    "overall"
+  ],
+  "properties": {
+    "routing_correctness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "score",
+        "reason"
+      ],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "tool_use_correctness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "score",
+        "reason"
+      ],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "groundedness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "score",
+        "reason"
+      ],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "policy_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "score",
+        "reason"
+      ],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "overall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "score",
+        "pass",
+        "summary",
+        "confidence"
+      ],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "pass": {
+          "type": "boolean"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

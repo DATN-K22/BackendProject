@@ -585,6 +585,98 @@ export class CourseTool{
         };
     }
 
+    @Tool({
+        name: "fetch-enrolled-courses-by-ids",
+        description: "Given a list of course IDs, return enrollment-matched course data for the current user.",
+        parameters: z.object({
+            courseIds: z.array(z.string().min(1)).min(1).max(100)
+                .describe("List of course IDs to check against the current user's enrollments"),
+        }),
+    })
+    async fetchEnrolledCoursesByIds(
+        { courseIds }: { courseIds: string[] },
+        context: any,
+        req: any,
+    ) {
+        const userId: string = req?.user?.id ?? req?.headers?.["x-user-id"];
+        const normalizedIds = [...new Set(courseIds.map((id) => String(id).trim()).filter(Boolean))];
+
+        const validCourseIds: bigint[] = [];
+        const invalidCourseIds: string[] = [];
+        for (const id of normalizedIds) {
+            try {
+                validCourseIds.push(BigInt(id));
+            } catch {
+                invalidCourseIds.push(id);
+            }
+        }
+
+        if (validCourseIds.length === 0) {
+            return {
+                content: [{
+                    type: "text",
+                    text: stringify({
+                        status: "empty",
+                        message: "No valid course IDs were provided.",
+                        requested_count: normalizedIds.length,
+                        invalid_course_ids: invalidCourseIds,
+                        enrolled_count: 0,
+                        items: [],
+                    }),
+                }],
+            };
+        }
+
+        const enrollments = await this.prismaService.enrollment.findMany({
+            where: {
+                user_id: userId,
+                course_id: { in: validCourseIds },
+            },
+            select: {
+                course_id: true,
+                complete_percent: true,
+                enrolled_at: true,
+                course: {
+                    select: {
+                        id: true,
+                        title: true,
+                        short_description: true,
+                    },
+                },
+            },
+        });
+
+        const items = enrollments.map(({ course_id, course, complete_percent, enrolled_at }) => ({
+            id: String(course.id),
+            title: course.title,
+            short_description: course.short_description,
+            progress: complete_percent,
+            enrolled_at,
+            is_enrolled: true,
+            matched_course_id: String(course_id),
+        }));
+
+        const enrolledIdSet = new Set(items.map((item) => item.id));
+        const notEnrolledCourseIds = validCourseIds
+            .map((id) => String(id))
+            .filter((id) => !enrolledIdSet.has(id));
+
+        return {
+            content: [{
+                type: "text",
+                text: stringify({
+                    status: items.length > 0 ? "ok" : "empty",
+                    requested_count: normalizedIds.length,
+                    valid_requested_count: validCourseIds.length,
+                    invalid_course_ids: invalidCourseIds,
+                    enrolled_count: items.length,
+                    not_enrolled_course_ids: notEnrolledCourseIds,
+                    items,
+                }),
+            }],
+        };
+    }
+
 
     
 }

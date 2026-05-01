@@ -108,6 +108,8 @@ def build_retrieval_tool(settings: Settings):
                 {
                     "rank": index,
                     "content": content,
+                    "document_id": doc.metadata.get("document_id"),
+                    "page_number": doc.metadata.get("page_number"),
                     "metadata": doc.metadata,
                 }
             )

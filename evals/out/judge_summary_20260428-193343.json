@@ -1,0 +1,8 @@
+{
+  "project": "datn-chatbot",
+  "model": "gpt-4.1-mini",
+  "total_runs": 30,
+  "valid_judged_runs": 0,
+  "failed_runs": 30,
+  "output_jsonl": "evals/out/judge_results_20260428-193343.jsonl"
+}

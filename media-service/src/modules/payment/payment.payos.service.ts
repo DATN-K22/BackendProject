@@ -21,7 +21,7 @@ import {
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { RedisCacheService } from '../redis/redis-cache.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 const PAYOS_ERROR_MAP: Record<string, () => HttpException> = {
   INVALID_PARAMETER: () => new BadRequestException('Invalid request parameters'),

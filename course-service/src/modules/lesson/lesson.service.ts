@@ -6,6 +6,8 @@ import { LessonRepository } from './lesson.repository'
 
 @Injectable()
 export class LessonService {
+  private readonly logger = new Logger(LessonService.name)
+
   constructor(
     private readonly lessonRepository: LessonRepository,
 
@@ -42,7 +44,7 @@ export class LessonService {
       if (err instanceof ForbiddenException) {
         throw err
       }
-      Logger.error(err)
+      this.logger.error(err)
       throw new InternalServerErrorException('Fail to get chapter item by id')
     }
   }

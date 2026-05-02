@@ -89,15 +89,30 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
+    "rootDir": ".", 
+    "testRegex": ".*\\.spec\\.ts$", 
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "src/modules/**/*.service.ts",    
+      "src/modules/**/*.controller.ts",
+      "src/modules/**/*.repository.ts",
+      "!src/modules/redis/**/*.ts",
+      "!src/modules/message_broker/**/*.ts",
+      "src/utils/**/*.ts",             
+      "!src/**/*.module.ts",         
+      "!src/**/*.dto.ts",              
+      "!src/main.ts",                  
+      "!src/prisma/**/*"              
     ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "coverageDirectory": "./coverage",
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^src/(.*)$": "<rootDir>/src/$1"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(uuid)/)"
+    ]
   }
 }

@@ -2,13 +2,13 @@ import { ApiProperty } from '@nestjs/swagger'
 
 export class IncompleteCourse {
   @ApiProperty({ example: 123 })
-  id: string
+  id!: string
 
   @ApiProperty({ example: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa' })
-  thumbnail_url: string
+  thumbnail_url!: string
 
   @ApiProperty({ example: 'AWS Certified Solutions Architect - Associate (SAA-C03)' })
-  title: string
+  title!: string
 
   @ApiProperty({
     example: {
@@ -16,11 +16,11 @@ export class IncompleteCourse {
       avt_url: null
     }
   })
-  user: {
+  user!: {
     name: string
     avt_url: string
   }
 
   @ApiProperty({ example: '58.9' })
-  progress: number
+  progress!: number
 }

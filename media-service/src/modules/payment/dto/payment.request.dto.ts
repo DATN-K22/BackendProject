@@ -17,17 +17,17 @@ export class PaymentItemDto {
   @ApiProperty({ example: 'Course fee', description: 'Item name' })
   @IsString()
   @IsNotEmpty({ message: 'Item name is required' })
-  name: string;
+  name!: string;
 
   @ApiProperty({ example: 1, description: 'Item quantity' })
   @IsNumber()
   @Min(1, { message: 'Quantity must be at least 1' })
-  quantity: number;
+  quantity!: number;
 
   @ApiProperty({ example: 100000, description: 'Item unit price in USD' })
   @IsNumber()
   @Min(0.0, { message: 'Price must be greater than 0' })
-  price: number;
+  price!: number;
 
   @ApiPropertyOptional({ example: 'VND', description: 'Unit label' })
   @IsString()
@@ -44,7 +44,7 @@ export class PaymentItemDto {
 export class PaymentInvoiceDto {
   @ApiProperty({ example: true, description: 'Whether buyer does not request invoice' })
   @IsBoolean()
-  buyerNotGetInvoice: boolean;
+  buyerNotGetInvoice!: boolean;
 
   @ApiPropertyOptional({ example: 10, description: 'Invoice tax percentage' })
   @IsNumber()
@@ -62,7 +62,7 @@ export class PaymentCreationDto {
   @ApiProperty({ example: 'Nguyen Van A', description: 'Buyer full name' })
   @IsString()
   @IsNotEmpty({ message: 'Buyer name is required' })
-  buyerName: string;
+  buyerName!: string;
 
   @ApiPropertyOptional({ example: 'ABC Company' })
   @IsString()
@@ -93,7 +93,7 @@ export class PaymentCreationDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => PaymentItemDto)
-  items: PaymentItemDto[];
+  items!: PaymentItemDto[];
 
   @ApiProperty({ example: 'http://example.com/cancel' })
   @IsUrl(
@@ -103,7 +103,7 @@ export class PaymentCreationDto {
     },
     { message: 'cancelUrl must be a valid URL' }
   )
-  cancelUrl: string;
+  cancelUrl!: string;
 
   @ApiProperty({ example: 'http://example.com/return' })
   @IsUrl(
@@ -113,7 +113,7 @@ export class PaymentCreationDto {
     },
     { message: 'returnUrl must be a valid URL' }
   )
-  returnUrl: string;
+  returnUrl!: string;
 
   @ApiPropertyOptional({ type: () => PaymentInvoiceDto })
   @ValidateNested()

@@ -1,6 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { FileService } from './file.service';
-import { ApiResponse } from 'src/utils/dto/ApiResponse';
 import {
   ApiBody,
   ApiOkResponse,
@@ -10,9 +9,9 @@ import {
   ApiResponse as SwaggerApiResponse
 } from '@nestjs/swagger';
 import { CreateFileDto } from './dto/request/create-file.dto';
-import { UpdateFileDto } from './dto/request/update-file.dto';
-import { ApiSuccessResponse } from 'src/utils/helper/api-success-response.decorator';
 import { CreateFileResponse } from './dto/response/create-file.response';
+import { ApiSuccessResponse } from '../../utils/helper/api-success-response.decorator';
+import { ApiResponse } from '../../utils/dto/ApiResponse';
 
 @Controller('files')
 @ApiTags('File Management APIs')
@@ -47,10 +46,9 @@ export class FileController {
   async getPresignedUrlForS3Uploading(
     @Param('filename') filename: string,
     @Param('course_id') courseId: string,
-    @Param('chapter_item_id') chapterItemId: string,
-    @Param('lesson_id') lessonId: string
+    @Param('chapter_item_id') chapterItemId: string
   ) {
-    const url = await this.fileService.getPresignedUrlForS3Uploading(filename, courseId, chapterItemId ?? lessonId);
+    const url = await this.fileService.getPresignedUrlForS3Uploading(filename, courseId, chapterItemId);
     return ApiResponse.OkResponse(url, 'Presigned URL retrieved successfully.');
   }
 

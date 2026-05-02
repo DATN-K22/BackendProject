@@ -1,6 +1,6 @@
 // enroll-job.worker.ts
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CourseClient } from '../course-service/CourseClient';
 
 @Injectable()

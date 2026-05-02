@@ -1,16 +1,19 @@
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
-import { CDN_SERVICE, CLOUD_STORAGE_SERVICE } from 'src/config/constant';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  InternalServerErrorException
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AppException } from 'src/utils/excreption/AppException';
-import { ErrorCode } from 'src/utils/excreption/ErrorCode';
 import { CreateFileDto, ResourceType } from './dto/request/create-file.dto';
-import { UpdateFileDto } from './dto/request/update-file.dto';
 import { FileRepository } from './file.repository';
-import { Resource } from 'generated/prisma/client';
-import { ICDNService } from '../cloud/cdn.interface';
-import { ICloudStorageService } from '../cloud/cloud-storage.interface';
-import { IMessageBroker } from '../message_broker/message-broker.interface';
-import { MESSAGE_BROKER } from '../message_broker/message-broker.token';
+import { ICDNService } from '../cloud-provider/cdn/cdn.interface';
+import { ICloudStorageService } from '../cloud-provider/storage/cloud-storage.interface';
+import { IMessageBroker } from '../message-broker/message-broker.interface';
+import { MESSAGE_BROKER } from '../message-broker/message-broker.token';
+import { CDN_SERVICE, CLOUD_STORAGE_SERVICE } from '../../config/constant';
 
 @Injectable()
 export class FileService {
@@ -28,10 +31,10 @@ export class FileService {
     private readonly fileRepository: FileRepository,
 
     @Inject(MESSAGE_BROKER)
-    private readonly message_broker: IMessageBroker
+    private readonly messageBroker: IMessageBroker
   ) {
     this.bucketName = this.configService.get<string>('AWS_S3_INPUT_BUCKET', 'default-bucket');
-    Logger.debug(`Initializing FileService with bucket: ${this.bucketName}`);
+    this.logger.debug(`Initializing FileService with bucket: ${this.bucketName}`);
   }
 
   async create(createFileDto: CreateFileDto) {
@@ -39,130 +42,122 @@ export class FileService {
     const resourceOwnerId = chapterItemId ?? createFileDto.course_id;
 
     if (!resourceOwnerId) {
-      throw new AppException(ErrorCode.VALIDATION_ERROR, true, 'Either chapter_item_id or course_id must be provided');
+      throw new BadRequestException('Either chapter_item_id or course_id must be provided');
     }
-    var path = '';
-    var filename = '';
-    switch (createFileDto.type) {
-      case ResourceType.VIDEO:
-        path = `videos/${createFileDto.course_id}/${resourceOwnerId}`;
-        filename = createFileDto.filename.split('.').slice(0, -1).join('.') + '_hls.m3u8';
-        break;
-      case ResourceType.DOCUMENT:
-        path = `documents/${createFileDto.course_id}/${resourceOwnerId}`;
-        filename = createFileDto.filename;
-        break;
-      case ResourceType.IMAGE:
-        path = `images/${createFileDto.course_id}/${resourceOwnerId}`;
-        filename = createFileDto.filename;
-        break;
-      default:
-        throw new BadRequestException('Unsupported resource type');
-    }
-    // create presigned-url
-    const response = await this.fileRepository.create(createFileDto, path, filename);
-    const url = await this.cloudStorageService.getPresignedUrlForAccessing(this.bucketName, path + '/' + filename);
-    await this.message_broker.sendFileUrlForAIProcessing(response.id, url, 'course_' + createFileDto.course_id);
-    return response;
+
+    const { path, filename } = this.buildPathAndFilename(createFileDto, resourceOwnerId);
+
+    const file = await this.fileRepository.create(createFileDto, path, filename);
+
+    const url = await this.cloudStorageService.getPresignedUrlForAccessing(this.bucketName, `${path}/${filename}`);
+
+    await this.messageBroker.sendFileUrlForAIProcessing(file.id, url, `course_${createFileDto.course_id}`);
+
+    return file;
   }
 
   async remove(id: number) {
     const file = await this.fileRepository.findById(id);
 
     if (!file) {
-      throw new AppException(ErrorCode.FILE_NOT_FOUND, true);
+      throw new NotFoundException('File not found');
     }
 
     if (!file.link) {
-      throw new AppException(ErrorCode.INVALID_FILE_URL, true);
+      throw new BadRequestException('Invalid file URL');
     }
 
     const key = this.cloudStorageService.extractKeyFromUrl(file.link);
+
     try {
       await this.cloudStorageService.deleteFile(this.bucketName, key);
     } catch (err) {
       this.logger.error('Delete S3 failed', err);
-      throw new AppException(ErrorCode.DELETE_FILE_FAILED, true);
+      throw new InternalServerErrorException('Delete file failed');
     }
 
     await this.fileRepository.deleteById(id);
+
     return { success: true };
   }
 
   getPresignedUrlForS3Uploading(filename: string, courseId: string, chapterItemId: string) {
-    var contentType = '';
-    var key = '';
-    Logger.debug(
-      `Generating presigned URL for file: ${filename}, courseId: ${courseId}, chapterItemId: ${chapterItemId}`
-    );
-    switch (filename.split('.').pop()?.toLowerCase()) {
-      case 'jpg':
-        contentType = 'image/jpg';
-        key = `images/${courseId}/${chapterItemId}/${filename}`;
-        break;
-      case 'jpeg':
-        contentType = 'image/jpeg';
-        key = `images/${courseId}/${chapterItemId}/${filename}`;
-        break;
-      case 'png':
-        contentType = 'image/png';
-        key = `images/${courseId}/${chapterItemId}/${filename}`;
-        break;
-      case 'mp4':
-        contentType = 'video/mp4';
-        key = `videos/${courseId}/${chapterItemId}/${filename}`;
-        break;
+    const ext = filename.split('.').pop()?.toLowerCase();
 
-      case 'pdf':
-        contentType = 'application/pdf';
-        key = `documents/${courseId}/${chapterItemId}/${filename}`;
-        break;
-      default:
-        throw new AppException(ErrorCode.UNSUPORTED_FILE_TYPE, true);
+    const map: Record<string, { contentType: string; prefix: string }> = {
+      jpg: { contentType: 'image/jpg', prefix: 'images' },
+      jpeg: { contentType: 'image/jpeg', prefix: 'images' },
+      png: { contentType: 'image/png', prefix: 'images' },
+      mp4: { contentType: 'video/mp4', prefix: 'videos' },
+      pdf: { contentType: 'application/pdf', prefix: 'documents' }
+    };
+
+    const config = ext ? map[ext] : null;
+
+    if (!config) {
+      throw new BadRequestException('Unsupported file type');
     }
-    return this.cloudStorageService.getPresignedUrl(this.bucketName, key, contentType);
+
+    const key = `${config.prefix}/${courseId}/${chapterItemId}/${filename}`;
+
+    return this.cloudStorageService.getPresignedUrl(this.bucketName, key, config.contentType);
   }
 
   async findResourcesByChapterItemId(chapterItemId: string) {
     const resources = await this.fileRepository.findResourcesByChapterItemId(chapterItemId);
-    Logger.debug(`Found ${resources.length} resources for chapterItemId=${chapterItemId}`);
+
+    this.logger.debug(`Found ${resources.length} resources for chapterItemId=${chapterItemId}`);
+
     const resourcesWithUrl = await this.getContentsPresignedUrl(resources);
-    const result: { document: typeof resources; video: typeof resources; image: typeof resources } = {
-      document: [],
-      video: [],
-      image: []
+
+    return {
+      document: resourcesWithUrl.filter((r) => r.type === 'document'),
+      video: resourcesWithUrl.filter((r) => r.type === 'video'),
+      image: resourcesWithUrl.filter((r) => r.type === 'image')
     };
-
-    resourcesWithUrl.forEach((resource) => {
-      if (resource.type === 'document') {
-        result.document.push(resource);
-      } else if (resource.type === 'video') {
-        result.video.push(resource);
-      } else {
-        result.image.push(resource);
-      }
-    });
-
-    return result;
   }
 
   async findResourcesByLessonId(lessonId: string) {
     return this.findResourcesByChapterItemId(lessonId);
   }
 
-  /****
-   * Helper method to get presigned URLs for a list of resources.
-   * This is used to generate accessible links for the FE.
-   * It calls the CDN service to get presigned URLs for each resource based on their S3 keys.
-   ****/
-  private async getContentsPresignedUrl(resources: Resource[]) {
-    const promises = resources.map(async (item) => {
-      const link = await this.cdnService.getPresignedUrlForCloudFront(item.path, item.filename, 3600);
-      return {
-        ...item,
-        link
-      };
-    });
-    return Promise.all(promises);
+  // ================= PRIVATE =================
+
+  private buildPathAndFilename(createFileDto: CreateFileDto, resourceOwnerId: string) {
+    switch (createFileDto.type) {
+      case ResourceType.VIDEO:
+        return {
+          path: `videos/${createFileDto.course_id}/${resourceOwnerId}`,
+          filename: createFileDto.filename.split('.').slice(0, -1).join('.') + '_hls.m3u8'
+        };
+
+      case ResourceType.DOCUMENT:
+        return {
+          path: `documents/${createFileDto.course_id}/${resourceOwnerId}`,
+          filename: createFileDto.filename
+        };
+
+      case ResourceType.IMAGE:
+        return {
+          path: `images/${createFileDto.course_id}/${resourceOwnerId}`,
+          filename: createFileDto.filename
+        };
+
+      default:
+        throw new BadRequestException('Unsupported resource type');
+    }
+  }
+
+  private async getContentsPresignedUrl(resources: any[]) {
+    return Promise.all(
+      resources.map(async (item) => {
+        const link = await this.cdnService.getPresignedUrlForCloudFront(item.path, item.filename, 3600);
+
+        return {
+          ...item,
+          link
+        };
+      })
+    );
   }
 }

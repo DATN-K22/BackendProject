@@ -3,14 +3,11 @@ import { AppModule } from './app.module'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { ConfigService } from '@nestjs/config'
 import { BigIntInterceptor } from './utils/interceptors/bigint.interceptor'
-import * as cookieParser from 'cookie-parser'
 import { Logger } from '@nestjs/common'
-import { MicroserviceOptions, Transport } from '@nestjs/microservices'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
 
-  app.use(cookieParser())
   app.useGlobalInterceptors(new BigIntInterceptor())
 
   app.enableCors({

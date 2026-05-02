@@ -108,6 +108,7 @@ model ChapterItem {
   id         BigInt          @id @default(autoincrement())
   chapter_id BigInt
   item_type  ChapterItemType
+  status     ContentStatus   @default(published)
   lesson_id  BigInt?         @unique // XOR enforced via CHECK constraint in migration
   quiz_id    BigInt?         @unique
   lab_id     BigInt?         @unique
@@ -129,13 +130,11 @@ model ChapterItem {
 // ---------------------------------------------------------------------------
 
 model Lesson {
-  id                BigInt        @id @default(autoincrement())
-  title             String        @db.VarChar(255)
-  short_description String?       @db.Text
-  long_description  String?       @db.Text
-  thumbnail_url     String?       @db.VarChar(255)
-  status            ContentStatus @default(published)
-  duration          Float         @default(0)
+  id                BigInt   @id @default(autoincrement())
+  title             String   @db.VarChar(255)
+  short_description String?  @db.Text
+  long_description  String?  @db.Text
+  duration          Float    @default(0)
   resources         BigInt[]
 
   chapterItem ChapterItem?
@@ -152,8 +151,6 @@ model Lab {
   title             String        @db.VarChar(255)
   short_description String?       @db.Text
   long_description  String?       @db.Text
-  thumbnail_url     String?       @db.VarChar(255)
-  status            ContentStatus @default(published)
   duration          Float         @default(0)
   leaseTemplateId   String?       @db.VarChar(255)
   resources         BigInt[]

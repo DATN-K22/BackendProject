@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ChapterController } from './chapter.controller'
 import { ChapterService } from './chapter.service'
-import { PrismaService } from '../prisma/prisma.service'
+import { PrismaService } from '../../prisma/prisma.service'
 import { ChapterRepository } from './chaper.repository'
 
 @Module({

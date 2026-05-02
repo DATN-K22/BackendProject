@@ -11,15 +11,15 @@ export enum ResourceType {
 export class CreateFileDto {
   @ApiProperty({ example: 'lesson video' })
   @IsString()
-  title: string;
+  title!: string;
 
   @ApiProperty({ example: 'video' })
   @IsEnum(ResourceType)
-  type: ResourceType;
+  type!: ResourceType;
 
   @ApiProperty({ example: 'test.mp4' })
   @IsString()
-  filename: string;
+  filename!: string;
 
   @ApiProperty({ example: '123', nullable: true })
   @IsOptional()
@@ -33,5 +33,5 @@ export class CreateFileDto {
 
   @ApiProperty({ example: '21', nullable: true })
   @IsString()
-  course_id: string;
+  course_id!: string;
 }

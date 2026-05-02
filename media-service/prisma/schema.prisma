@@ -5,9 +5,9 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider        = "prisma-client"
+  provider        = "prisma-client-js"
   previewFeatures = ["multiSchema"]
-  output          = "../generated/prisma"
+  engineType      = "binary"
 }
 
 datasource db {
@@ -40,22 +40,6 @@ model Resource {
   updated_at DateTime @updatedAt @db.Timestamptz
   lesson_id  BigInt?
 
-  // Relations
-  watching_progress WatchingProgress[]
-
-  @@schema("media_service")
-}
-
-model WatchingProgress {
-  user_id     String
-  resource_id BigInt
-  is_opened   Boolean   @default(false)
-  last_watch  DateTime? @db.Timestamptz
-
-  // Relations
-  resource Resource @relation(fields: [resource_id], references: [id], onDelete: Cascade)
-
-  @@id([user_id, resource_id])
   @@schema("media_service")
 }
 

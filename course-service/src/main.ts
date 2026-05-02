@@ -2,8 +2,6 @@ import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
 import { ConfigService } from '@nestjs/config'
-import { GlobalExceptionFilter } from './utils/excreption/GlobalExceptionHandler'
-import { AppValidationPipe } from './utils/pipe/validation.pipe'
 import { BigIntInterceptor } from './utils/interceptors/bigint.interceptor'
 import { Logger } from '@nestjs/common'
 
@@ -12,8 +10,6 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new BigIntInterceptor())
 
-  app.useGlobalPipes(AppValidationPipe)
-  app.useGlobalFilters(new GlobalExceptionFilter())
   app.enableCors({
     origin: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',

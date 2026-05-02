@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
-import { PrismaService } from '../prisma/prisma.service'
+import { PrismaService } from '../../prisma/prisma.service'
 import { CreateLessonDto } from './dto/create-lesson.dto'
 import { UpdateLessonDto } from './dto/update-lesson.dto'
 

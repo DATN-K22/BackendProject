@@ -8,7 +8,7 @@
 //  - Access check uses a minimal join — only selects `id`, no eager loading.
 
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common'
-import { PrismaService } from '../prisma/prisma.service'
+import { PrismaService } from '../../prisma/prisma.service'
 import { SkillLevel } from './dto/skill-level.constant'
 
 @Injectable()

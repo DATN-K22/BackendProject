@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreateFileDto } from './dto/request/create-file.dto';
 
 @Injectable()
@@ -8,8 +8,9 @@ export class FileRepository {
 
   async create(createFileDto: CreateFileDto, path: string, filename: string) {
     const chapterItemId = createFileDto.chapter_item_id ?? createFileDto.lesson_id;
+    const prisma: any = this.prismaService as any;
 
-    const record = await this.prismaService.resource.create({
+    const record = await prisma.resource.create({
       data: {
         title: createFileDto.title,
         type: createFileDto.type,
@@ -29,15 +30,18 @@ export class FileRepository {
   }
 
   async findById(id: number) {
-    return this.prismaService.resource.findFirst({ where: { id } });
+    const prisma: any = this.prismaService as any;
+    return prisma.resource.findFirst({ where: { id } });
   }
 
   async deleteById(id: number) {
-    return this.prismaService.resource.delete({ where: { id } });
+    const prisma: any = this.prismaService as any;
+    return prisma.resource.delete({ where: { id } });
   }
 
   async findResourcesByChapterItemId(chapterItemId: string) {
-    return this.prismaService.resource.findMany({ where: { lesson_id: BigInt(chapterItemId) } });
+    const prisma: any = this.prismaService as any;
+    return prisma.resource.findMany({ where: { lesson_id: BigInt(chapterItemId) } });
   }
 
   async findResourcesByLessonId(lessonId: string) {

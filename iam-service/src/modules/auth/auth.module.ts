@@ -8,9 +8,10 @@ import { PrismaModule } from '../../prisma/prisma.module'
 import { ISecretManagementService } from './secret-management.interface'
 import { AwsSecretService } from './sm.service'
 import { PrismaService } from '../../prisma/prisma.service'
+import { UserModule } from '../user/user.module'
 
 @Module({
-  imports: [ConfigModule, PrismaModule, JwtModule.register({ global: true })],
+  imports: [UserModule, ConfigModule, PrismaModule, JwtModule.register({ global: true })],
   controllers: [AuthController],
   providers: [
     {

@@ -16,9 +16,9 @@ export class UpdateUserDto {
 export class UpdateUserPasswordDto {
   @ApiProperty({ example: 'new_password123' })
   @IsString()
-  new_password: string
+  new_password!: string
 
   @ApiProperty({ example: 'current_password123' })
   @IsString()
-  current_password: string
+  current_password!: string
 }

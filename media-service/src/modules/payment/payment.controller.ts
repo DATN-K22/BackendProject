@@ -23,9 +23,6 @@ export class PaymentController {
     @Param('course_id') courseId: string,
     @Body() dto: PaymentCreationDto
   ) {
-    console.log(
-      `Received payment creation request - userId: ${userId}, courseId: ${courseId}, amount: ${dto.items.reduce((sum, item) => sum + item.price * item.quantity, 0)} USD`
-    );
     return this.paymentProvider.createPayment(dto, userId, courseId);
   }
 

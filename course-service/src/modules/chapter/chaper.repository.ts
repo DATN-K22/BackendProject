@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { ChapterResponse } from './dto/ChapterResponse'
-import { PrismaService } from '../prisma/prisma.service'
+import { PrismaService } from '../../prisma/prisma.service'
 import { CreateChapterDto } from './dto/create-chapter.dto'
 import { UpdateChapterDto } from './dto/update-chapter.dto'
 

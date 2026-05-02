@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
-import { PrismaModule } from './modules/prisma/prisma.module'
+import { PrismaModule } from './prisma/prisma.module'
 import { ConfigModule } from '@nestjs/config/dist/config.module'
 import { CourseModule } from './modules/course/course.module'
 import { ChapterModule } from './modules/chapter/chapter.module'

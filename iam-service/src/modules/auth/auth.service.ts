@@ -21,6 +21,7 @@ import { IMessageBroker } from '../message_broker/message-broker.interface'
 import { MESSAGE_BROKER } from '../message_broker/message-broker.token'
 import { RedisCacheService } from '../redis/redis-cache.service'
 import { ISecretManagementService } from './secret-management.interface'
+import { UserRespository } from '../user/user.repository'
 
 @Injectable()
 export class AuthService {
@@ -33,7 +34,8 @@ export class AuthService {
     @Inject(MESSAGE_BROKER)
     private readonly messageBroker: IMessageBroker,
     @Inject('SECRET_MANAGEMENT_SERVICE')
-    private readonly awsSecret: ISecretManagementService
+    private readonly awsSecret: ISecretManagementService,
+    private readonly userRepository: UserRespository
   ) {}
 
   private hashToken(raw: string): string {
@@ -60,110 +62,101 @@ export class AuthService {
 
   async signup(dto: AuthSignUpDto) {
     const hash = await this.hashPassword(dto.password)
+
     try {
-      await this.prisma.users.create({
-        data: {
-          email: dto.email,
-          password_hash: hash,
-          first_name: dto.first_name,
-          last_name: dto.last_name,
-          role: dto.role,
-          status: UserStatus.pending
-        }
+      await this.userRepository.createUser({
+        email: dto.email,
+        password_hash: hash,
+        first_name: dto.first_name,
+        last_name: dto.last_name,
+        role: dto.role,
+        status: UserStatus.pending
       })
 
       await this.messageBroker.sendMail(dto.email)
-    } catch (error) {
+    } catch (error: any) {
       if (error?.code === 'P2002') {
-        Logger.debug(`Signup failed due to duplicate email: ${dto.email}`)
         throw new ForbiddenException('Email already exists')
       }
-      Logger.debug(`Signup failed with unexpected error for email: ${dto.email}`)
       throw new InternalServerErrorException('Signup failed')
     }
   }
 
   async sendOtp(email: string) {
-    const user = await this.prisma.users.findUnique({ where: { email } })
+    const user = await this.userRepository.findByEmail(email)
+
     if (!user) {
-      Logger.debug(`sendOtp failed: email not found: ${email}`)
       throw new ForbiddenException('Email not found')
     }
+
     await this.messageBroker.sendMail(email)
   }
 
   async verifyOtp(email: string, otp: string, type?: string) {
-    const user = await this.prisma.users.findUnique({ where: { email } })
+    const user = await this.userRepository.findByEmail(email)
+
     if (!user) {
-      Logger.debug(`verifyOtp failed: email not found: ${email}`)
       throw new NotFoundException('Email not found')
     }
 
     const storedOtp = await this.redis.get(`otp:${email}`)
     if (!storedOtp) {
-      Logger.debug(`verifyOtp failed: OTP expired for email: ${email}`)
       throw new BadRequestException('OTP expired')
     }
 
     if (otp !== storedOtp) {
-      Logger.debug(`verifyOtp failed: invalid OTP for email: ${email}`)
       throw new BadRequestException('Invalid OTP')
     }
+
     if (type !== 'forgot_password') {
       await Promise.all([
         this.redis.del(`otp:${email}`),
-        this.prisma.users.update({ where: { email }, data: { status: UserStatus.active } })
+        this.userRepository.updateStatusByEmail(email, UserStatus.active)
       ])
     }
   }
 
   async resetPassword(email: string, otp: string, newPassword: string) {
-    const user = await this.prisma.users.findUnique({ where: { email } })
+    const user = await this.userRepository.findByEmail(email)
+
     if (!user) {
-      Logger.debug(`resetPassword failed: email not found: ${email}`)
       throw new NotFoundException('Email not found')
     }
 
     const storedOtp = await this.redis.get(`otp:${email}`)
     if (!storedOtp) {
-      Logger.debug(`resetPassword failed: OTP expired for email: ${email}`)
       throw new BadRequestException('OTP expired')
     }
 
     if (otp !== storedOtp) {
-      Logger.debug(`resetPassword failed: invalid OTP for email: ${email}`)
       throw new BadRequestException('Invalid OTP')
     }
 
     const hash = await this.hashPassword(newPassword)
-    await this.prisma.users.update({
-      where: { email },
-      data: { password_hash: hash }
-    })
+
+    await this.userRepository.updatePasswordByEmail(email, hash)
 
     await this.redis.del(`otp:${email}`)
   }
 
   async signin(dto: AuthSignInDto) {
-    const user = await this.prisma.users.findUnique({ where: { email: dto.email } })
+    const user = await this.userRepository.findByEmail(dto.email)
+
     if (!user) {
-      Logger.debug(`signin failed: user not found for email: ${dto.email}`)
       throw new NotFoundException('User not found')
     }
 
     if (user.status === UserStatus.pending) {
-      Logger.debug(`signin failed: account pending for user id: ${user.id}`)
       throw new ForbiddenException('Account not activated. Please verify your email.')
     }
 
     if (user.status === UserStatus.temporary_banned) {
-      Logger.debug(`signin failed: temporary banned user id: ${user.id}`)
       throw new ForbiddenException('Account is temporarily banned.')
     }
 
     const passMatch = await this.passwordMatches(user, dto.password)
+
     if (!passMatch) {
-      Logger.debug(`signin failed: credentials incorrect for user id: ${user.id}`)
       throw new ForbiddenException('Credentials incorrect')
     }
 
@@ -230,7 +223,7 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token expired')
     }
 
-    const user = await this.prisma.users.findUnique({ where: { id: tokenRecord.user_id } })
+    const user = await this.userRepository.findById(tokenRecord.user_id)
     if (!user) {
       Logger.debug(`refreshToken failed: user not found for user id: ${tokenRecord.user_id}`)
       throw new UnauthorizedException('User not found')

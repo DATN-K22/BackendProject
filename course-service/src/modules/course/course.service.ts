@@ -99,7 +99,7 @@ export class CourseService {
     try {
       const creatorInfo = await this.iamClient.findUserById(creatorIds)
       const creatorInfoMap: Map<string, { id: string; name: string; avt_url: string }> = new Map(
-        creatorInfo.map((creator) => [creator.id, creator])
+        creatorInfo.map((creator: { id: string; name: string; avt_url: string }) => [creator.id, creator])
       )
       return creatorInfoMap
     } catch (error) {

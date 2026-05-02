@@ -20,6 +20,7 @@ import { RabbitMQService } from './providers/rabbitmq.servce'
           default:
           // return new ConsoleBrokerService()
         }
+        throw new Error('Unsupported broker type')
       },
       inject: [ConfigService]
     }

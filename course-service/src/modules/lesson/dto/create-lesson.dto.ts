@@ -11,7 +11,7 @@ export class CreateLessonDto {
   })
   @IsString()
   @IsNotEmpty()
-  chapter_id: string
+  chapter_id!: string
 
   @ApiProperty({
     description: 'Tiêu đề lesson',
@@ -20,7 +20,7 @@ export class CreateLessonDto {
   })
   @IsString()
   @IsNotEmpty()
-  title: string
+  title!: string
 
   @ApiPropertyOptional({
     description: 'Mô tả ngắn',

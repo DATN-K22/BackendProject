@@ -29,7 +29,7 @@ export class CreateChapterDto {
   })
   @IsString()
   @IsNotEmpty()
-  title: string
+  title!: string
 
   @ApiPropertyOptional({
     description: 'Mô tả ngắn',

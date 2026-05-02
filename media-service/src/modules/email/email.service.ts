@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { RedisCacheService } from '../redis/redis-cache.service';
@@ -6,7 +6,7 @@ import { RedisCacheService } from '../redis/redis-cache.service';
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter;
-
+  private readonly logger = new Logger(EmailService.name);
   private readonly EMAIL_USER: string;
   private readonly EMAIL_PASS: string;
 
@@ -54,7 +54,7 @@ export class EmailService {
       if (this.redisCache.set) {
         await this.redisCache.set(`otp:${to}`, otp, ttlSeconds);
       }
-      console.log(`Email sent successfully: ${info.messageId}`);
+      this.logger.log(`Email sent successfully: ${info.messageId}`);
       return {
         success: true,
         messageId: info.messageId,
@@ -62,7 +62,7 @@ export class EmailService {
         expiresAt: expiresAt.toISOString()
       };
     } catch (error) {
-      console.error('Error sending email:', error);
+      this.logger.error('Error sending email:', error);
       throw new Error('Failed to send verification email');
     }
   }

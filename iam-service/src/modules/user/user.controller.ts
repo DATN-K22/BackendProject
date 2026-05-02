@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Request, UseGuards } from '@nestjs/common'
 import { UserService } from './user.service'
-import { ApiResponse } from '../../utils/dto/ApiResponse'
+import { ApiResponse } from '../../utils/dto/ApiResponse.dto'
 import { UpdateUserDto, UpdateUserPasswordDto } from './dto/update-user.dto'
 
 @Controller('user')

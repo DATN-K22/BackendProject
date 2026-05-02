@@ -16,7 +16,7 @@ import { AuthService } from './auth.service'
 import { AuthRefeshTokenDto, AuthSignInDto, AuthSignUpDto, JtiDto } from './dto/auth.dto'
 import { Request, Response } from 'express'
 import { ApiTags } from '@nestjs/swagger'
-import { ApiResponse } from '../../utils/dto/ApiResponse'
+import { ApiResponse } from '../../utils/dto/ApiResponse.dto'
 import { ForgotPasswordDto, OTPDto, OTPVerificationDto } from './dto/otp.dto'
 
 @Controller('auth')

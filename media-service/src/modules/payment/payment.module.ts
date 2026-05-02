@@ -5,7 +5,7 @@ import { PaymentController } from './payment.controller';
 import { IPaymentProvider, PAYMENT_PROVIDER } from './payment.interface';
 import { PayosPaymentProvider } from './payment.payos.service';
 import { HttpModule, HttpService } from '@nestjs/axios';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { RedisCacheService } from '../redis/redis-cache.service';
 import { EnrollJobWorker } from './payment.worker';
 import { CourseModule } from '../course-service/course.module';

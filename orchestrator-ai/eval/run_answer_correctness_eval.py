@@ -14,10 +14,12 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage, SystemMessage
 
 load_dotenv()
 
-DEFAULT_MODEL = "gpt-4.1-mini"
+DEFAULT_MODEL = "gemini-2.5-pro"
 
 ANSWER_CORRECTNESS_PROMPT = """###Task Description:
 An instruction (might include an Input inside it), a response to evaluate, a reference answer that gets a score of 5, and a score rubric representing a evaluation criteria are given.
@@ -131,39 +133,28 @@ def _call_a2a_server(
     return _extract_a2a_response_text(body)
 
 
-def _call_judge_model(model: str, prompt: str, timeout_sec: int = 90) -> dict[str, Any]:
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("Missing OPENAI_API_KEY for judge model call.")
-
-    body = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": "You are a fair evaluator language model."},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.0,
-    }
-
-    req = urllib.request.Request(
-        url="https://api.openai.com/v1/chat/completions",
-        data=json.dumps(body).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+def _call_judge_model(
+    model: str,
+    prompt: str,
+    project: str | None = None,
+    location: str = "us-central1",
+    timeout_sec: int = 90,
+) -> dict[str, Any]:
+    llm = ChatGoogleGenerativeAI(
+        model=model,
+        temperature=0.0,
+        vertexai=True,
+        project=project or os.environ.get("GOOGLE_CLOUD_PROJECT"),
+        location=location,
+        request_timeout=timeout_sec,
     )
+    messages = [
+        SystemMessage(content="You are a fair evaluator language model."),
+        HumanMessage(content=prompt),
+    ]
+    response = llm.invoke(messages)
+    content = response.content
 
-    try:
-        with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
-            raw = resp.read().decode("utf-8")
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Judge model HTTPError {e.code}: {detail}") from e
-
-    data = json.loads(raw)
-    content = data["choices"][0]["message"]["content"]
     if "[RESULT]" not in content:
         raise RuntimeError(f"Judge response missing [RESULT]: {content[:1200]}")
 
@@ -192,7 +183,19 @@ def main() -> int:
         help="A2A message endpoint URL.",
     )
     parser.add_argument("--limit", type=int, default=50, help="Max dataset rows to evaluate.")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help="Judge model")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="Vertex AI judge model")
+    parser.add_argument(
+        "--project",
+        type=str,
+        default=None,
+        help="GCP project ID. Defaults to GOOGLE_CLOUD_PROJECT env var.",
+    )
+    parser.add_argument(
+        "--location",
+        type=str,
+        default=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+        help="Vertex AI region (default: us-central1).",
+    )
     parser.add_argument("--output-dir", default="orchestrator-ai/eval/out", help="Output directory")
     parser.add_argument("--sleep-ms", type=int, default=150, help="Delay between rows")
     parser.add_argument("--timeout-sec", type=int, default=90, help="HTTP timeout in seconds")
@@ -227,7 +230,13 @@ def main() -> int:
                 response=candidate,
                 reference_answer=reference,
             )
-            judge = _call_judge_model(model=args.model, prompt=eval_prompt, timeout_sec=args.timeout_sec)
+            judge = _call_judge_model(
+                model=args.model,
+                prompt=eval_prompt,
+                project=args.project,
+                location=args.location,
+                timeout_sec=args.timeout_sec,
+            )
             row = {
                 "question": question,
                 "reference_answer": reference,

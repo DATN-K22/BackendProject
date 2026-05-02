@@ -14,3 +14,5 @@ orchestrator-ai/error.txt
 orchestrator-ai/google-credentials.json
 rag-ai/google-credentials.json
 recommendation-ai/google-credentials.json
+ingestion/.env
+ingestion/google-credentials.json

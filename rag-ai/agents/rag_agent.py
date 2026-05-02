@@ -19,6 +19,7 @@ Always:
 - Ask for clarification if user query is ambiguous.
 - Keep answers concise and actionable.
 - If retrieval returns no relevant context, say so clearly with no additional information.
+- Prefix your response with `[from RAG agent]`.
 
 Citation and evidence rules:
 - Every factual claim must be supported by at least one retrieved result.
@@ -45,7 +46,7 @@ def create_rag_agent(model_name: str, settings: Settings | None = None) -> LlmAg
 
     return LlmAgent(
         name="rag_agent",
-        model=LiteLlm(model=model_name),
+        model=LiteLlm("vertex_ai/gemini-2.5-flash"),
         instruction=RAG_AGENT_INSTRUCTION,
         tools=[retrieval_tool],
         description="RAG specialist agent for retrieval-grounded answers.",

@@ -61,7 +61,7 @@ Question:
 """
 
 RELEVANCE_CRITIQUE_PROMPT = """You will be given a question.
-Score how relevant this question is for an AWS CloudFormation learning dataset, from 1 to 5.
+Score how relevant this question is for an AWS learning dataset, from 1 to 5.
 
 Question:
 {question}

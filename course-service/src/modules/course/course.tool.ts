@@ -83,15 +83,76 @@ export class CourseTool {
     return (value ?? '').toLowerCase().trim()
   }
 
-  private toNumber(value: unknown, fallback = 0): number {
-    if (typeof value === 'number') return value
-    if (typeof value === 'bigint') return Number(value)
-    if (value && typeof (value as any).toNumber === 'function') {
-      return (value as any).toNumber()
+    private toNumber(value: unknown, fallback = 0): number {
+        if (typeof value === "number") return value;
+        if (typeof value === "bigint") return Number(value);
+        if (value && typeof (value as any).toNumber === "function") {
+            return (value as any).toNumber();
+        }
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
     }
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : fallback
-  }
+
+    private estimateLessonHours(duration: unknown): number {
+        const raw = this.toNumber(duration, 0);
+        // If duration is missing/zero, fallback to 20 minutes.
+        if (raw <= 0) return 20 / 60;
+        // Heuristic: big values are likely seconds, small values likely minutes.
+        if (raw >= 600) return raw / 3600;
+        return raw / 60;
+    }
+
+    private chapterDifficulty(estimatedHours: number): "low" | "medium" | "high" {
+        if (estimatedHours < 2.5) return "low";
+        if (estimatedHours < 5) return "medium";
+        return "high";
+    }
+
+    private buildWeekPlan(
+        chapters: Array<{ chapter_no: number; estimated_hours: number }>,
+        opts: {
+            weeklyHoursTarget: number;
+            cadenceWeeks: number;
+            oneChapterPerActiveWeek: boolean;
+            prioritizeLight: boolean;
+        }
+    ): { durationWeeks: number; chaptersPerWeek: string[] } {
+        const queue = opts.prioritizeLight
+            ? [...chapters].sort((a, b) => a.estimated_hours - b.estimated_hours)
+            : [...chapters];
+
+        const chaptersPerWeek: string[] = [];
+        let currentWeek = 1;
+        let idx = 0;
+
+        while (idx < queue.length) {
+            const picked: number[] = [];
+
+            if (opts.oneChapterPerActiveWeek) {
+                picked.push(queue[idx].chapter_no);
+                idx += 1;
+            } else {
+                let budget = Math.max(opts.weeklyHoursTarget, 1);
+                while (idx < queue.length) {
+                    const next = queue[idx];
+                    if (picked.length > 0 && next.estimated_hours > budget) break;
+                    picked.push(next.chapter_no);
+                    budget -= next.estimated_hours;
+                    idx += 1;
+                    if (budget <= 0) break;
+                }
+            }
+
+            chaptersPerWeek.push(`W${currentWeek}: ${picked.join(",")}`);
+            currentWeek += opts.cadenceWeeks;
+        }
+
+        return {
+            durationWeeks: currentWeek - opts.cadenceWeeks,
+            chaptersPerWeek,
+        };
+    }
+
 
   private buildSearchSuggestions(query: string) {
     const normalized = this.normalizeText(query)
@@ -360,58 +421,48 @@ export class CourseTool {
     }
   }
 
-  @Tool({
-    name: 'fetch-course-syllabus',
-    description:
-      'Get syllabus for a course. Use includeLessons=false for a token-light summary (chapter counts + first/last lesson titles).',
-    parameters: z.object({
-      courseId: z.string().describe('The numeric ID of the course'),
-      includeLessons: z
-        .boolean()
-        .default(true)
-        .describe('Return full lesson arrays when true; return chapter summary only when false'),
-      chapterTitleQuery: z.string().optional().describe('Optional chapter title contains filter'),
-      caseSensitive: z.boolean().default(false).describe('Whether chapterTitleQuery matching is case-sensitive'),
-      maxChapters: z
-        .number()
-        .int()
-        .min(1)
-        .max(200)
-        .optional()
-        .describe('Optional max number of chapters in the response'),
-      maxLessonsPerChapter: z
-        .number()
-        .int()
-        .min(1)
-        .max(500)
-        .optional()
-        .describe('Optional max lessons per chapter (applied only when includeLessons=true)')
+    @Tool({
+        name: "fetch-course-syllabus",
+        description: `Get syllabus for a course, with optional study-plan enrichment (estimated hours, difficulty, course totals).
+    Use includeLessons=false for a token-light summary.
+    Use includeStudyPlan=true to also get per-chapter estimated_hours, difficulty, and course-level totals for scheduling.`,
+        parameters: z.object({
+            courseId: z.string().describe("The numeric ID of the course"),
+            includeLessons: z.boolean().default(true).describe("Return full lesson arrays when true; return chapter summary only when false"),
+            includeStudyPlan: z.boolean().default(false).describe("When true, enrich each chapter with estimated_hours and difficulty, and append course-level totals"),
+            chapterTitleQuery: z.string().optional().describe("Optional chapter title contains filter"),
+            caseSensitive: z.boolean().default(false).describe("Whether chapterTitleQuery matching is case-sensitive"),
+            maxChapters: z.number().int().min(1).max(200).optional().describe("Optional max number of chapters in the response"),
+            maxLessonsPerChapter: z.number().int().min(1).max(500).optional().describe("Optional max lessons per chapter (applied only when includeLessons=true)"),
+        })
     })
-  })
-  async getCourseSyllabus(
-    {
-      courseId,
-      includeLessons,
-      chapterTitleQuery,
-      caseSensitive,
-      maxChapters,
-      maxLessonsPerChapter
-    }: {
-      courseId: string
-      includeLessons: boolean
-      chapterTitleQuery?: string
-      caseSensitive: boolean
-      maxChapters?: number
-      maxLessonsPerChapter?: number
-    },
-    context: any,
-    req: any
-  ) {
-    const userId: string = req?.user?.id ?? req?.headers?.['x-user-id']
-    const syllabus = await this.chapterService.findAllChapterForTOC(courseId, userId)
+    async getCourseSyllabus(
+        {
+            courseId,
+            includeLessons,
+            includeStudyPlan,
+            chapterTitleQuery,
+            caseSensitive,
+            maxChapters,
+            maxLessonsPerChapter,
+        }: {
+            courseId: string;
+            includeLessons: boolean;
+            includeStudyPlan: boolean;
+            chapterTitleQuery?: string;
+            caseSensitive: boolean;
+            maxChapters?: number;
+            maxLessonsPerChapter?: number;
+        },
+        context: any,
+        req: any
+    ) {
+        const userId: string = req?.user?.id ?? req?.headers?.["x-user-id"];
+        const syllabus = await this.chapterService.findAllChapterForTOC(courseId, userId);
 
-    const normalize = (value?: string) => (caseSensitive ? (value ?? '') : this.normalizeText(value))
-    const chapterNeedle = normalize(chapterTitleQuery)
+        const normalize = (value?: string) =>
+            caseSensitive ? (value ?? "") : this.normalizeText(value);
+        const chapterNeedle = normalize(chapterTitleQuery);
 
     let chapters = syllabus.chapters.filter((chapter) => {
       if (!chapterNeedle) return true
@@ -422,81 +473,106 @@ export class CourseTool {
       chapters = chapters.slice(0, maxChapters)
     }
 
-    const result = chapters.map((chapter, chapterIndex) => {
-      const allLessons = chapter.lessons.map((lesson, lessonIndex) => ({
-        index: lessonIndex + 1,
-        title: lesson.title,
-        isFinished: lesson.isFinished,
-        duration: lesson.duration ?? null
-      }))
+        // Shared per-chapter computation (runs always, cheap)
+        const result = chapters.map((chapter, chapterIndex) => {
+            const allLessons = chapter.lessons.map((lesson, lessonIndex) => ({
+                index: lessonIndex + 1,
+                title: lesson.title,
+                isFinished: lesson.isFinished,
+                duration: lesson.duration ?? null,
+            }));
 
       const lessons = typeof maxLessonsPerChapter === 'number' ? allLessons.slice(0, maxLessonsPerChapter) : allLessons
 
-      return {
-        index: chapterIndex + 1,
-        title: chapter.title,
-        lessonCount: allLessons.length,
-        firstLessonTitle: allLessons[0]?.title ?? null,
-        lastLessonTitle: allLessons[allLessons.length - 1]?.title ?? null,
-        lessons: includeLessons ? lessons : undefined
-      }
-    })
+            const base = {
+                index: chapterIndex + 1,
+                title: chapter.title,
+                lessonCount: allLessons.length,
+                firstLessonTitle: allLessons[0]?.title ?? null,
+                lastLessonTitle: allLessons[allLessons.length - 1]?.title ?? null,
+                lessons: includeLessons ? lessons : undefined,
+            };
 
-    const totalLessons = result.reduce((sum, chapter) => sum + chapter.lessonCount, 0)
+            if (!includeStudyPlan) return base;
 
-    return {
-      content: [
-        {
-          type: 'text',
-          text: stringify({
-            courseId,
-            includeLessons,
-            chapterTitleQuery: chapterTitleQuery ?? null,
-            caseSensitive,
-            totalChapters: result.length,
-            totalLessons,
-            chapters: result
-          })
-        }
-      ]
+            // Study plan enrichment
+            const estimatedHours = Number(
+                chapter.lessons
+                    .reduce((sum, lesson) => sum + this.estimateLessonHours((lesson as any).duration), 0)
+                    .toFixed(2)
+            );
+
+            return {
+                ...base,
+                estimated_hours: estimatedHours,
+                difficulty: this.chapterDifficulty(estimatedHours),
+            };
+        });
+
+        const totalLessons = result.reduce((sum, c) => sum + c.lessonCount, 0);
+
+        // Course-level study plan totals (only when requested)
+        const studyPlanSummary = includeStudyPlan
+            ? {
+                total_estimated_hours: Number(
+                    result.reduce((sum, c) => sum + ((c as any).estimated_hours ?? 0), 0).toFixed(2)
+                ),
+            }
+            : undefined;
+
+        return {
+            content: [{
+                type: "text",
+                text: stringify({
+                    courseId,
+                    includeLessons,
+                    includeStudyPlan,
+                    chapterTitleQuery: chapterTitleQuery ?? null,
+                    caseSensitive,
+                    totalChapters: result.length,
+                    totalLessons,
+                    ...(studyPlanSummary ?? {}),
+                    chapters: result,
+                }),
+            }],
+        };
     }
-  }
 
-  @Tool({
-    name: 'find-syllabus-lecture',
-    description:
-      'Find lecture titles in a course syllabus by optional chapterQuery + required lectureQuery; returns first, last, or all matches with indices.',
-    parameters: z.object({
-      courseId: z.string().describe('The numeric ID of the course'),
-      chapterQuery: z.string().optional().describe('Optional chapter keyword to narrow down search'),
-      lectureQuery: z.string().describe('Lecture keyword to find'),
-      mode: z.enum(['first', 'last', 'all']).default('first').describe('Which match to return'),
-      caseSensitive: z.boolean().default(false).describe('Whether matching should be case-sensitive')
+    
+    @Tool({
+        name: "find-syllabus-lecture",
+        description: "Find lecture titles in a course syllabus by optional chapterQuery + required lectureQuery; returns first, last, or all matches with indices.",
+        parameters: z.object({
+            courseId: z.string().describe("The numeric ID of the course"),
+            chapterQuery: z.string().optional().describe("Optional chapter keyword to narrow down search"),
+            lectureQuery: z.string().describe("Lecture keyword to find"),
+            mode: z.enum(["first", "last", "all"]).default("first").describe("Which match to return"),
+            caseSensitive: z.boolean().default(false).describe("Whether matching should be case-sensitive"),
+        })
     })
-  })
-  async findSyllabusLecture(
-    {
-      courseId,
-      chapterQuery,
-      lectureQuery,
-      mode,
-      caseSensitive
-    }: {
-      courseId: string
-      chapterQuery?: string
-      lectureQuery: string
-      mode: 'first' | 'last' | 'all'
-      caseSensitive: boolean
-    },
-    context: any,
-    req: any
-  ) {
-    const userId: string = req?.user?.id ?? req?.headers?.['x-user-id']
-    const syllabus = await this.chapterService.findAllChapterForTOC(courseId, userId)
+    async findSyllabusLecture(
+        {
+            courseId,
+            chapterQuery,
+            lectureQuery,
+            mode,
+            caseSensitive,
+        }: {
+            courseId: string;
+            chapterQuery?: string;
+            lectureQuery: string;
+            mode: "first" | "last" | "all";
+            caseSensitive: boolean;
+        },
+        context: any,
+        req: any
+    ) {
+        const userId: string = req?.user?.id ?? req?.headers?.["x-user-id"];
+        const syllabus = await this.chapterService.findAllChapterForTOC(courseId, userId);
 
-    const normalize = (value?: string) => (caseSensitive ? (value ?? '') : this.normalizeText(value))
-    const chapterNeedle = normalize(chapterQuery)
-    const lectureNeedle = normalize(lectureQuery)
+        const normalize = (value?: string) => caseSensitive ? (value ?? "") : this.normalizeText(value);
+        const chapterNeedle = normalize(chapterQuery);
+        const lectureNeedle = normalize(lectureQuery);
 
     const matches: Array<{
       chapterIndex: number
@@ -648,26 +724,119 @@ export class CourseTool {
       this.prismaService.enrollment.count({ where: { user_id: userId } })
     ])
 
-    const result = enrollments.map(({ course, complete_percent, enrolled_at }) => ({
-      ...course,
-      id: String(course.id),
-      progress: complete_percent,
-      enrolled_at
-    }))
-    return {
-      content: [
-        {
-          type: 'text',
-          text: stringify({
-            offset,
-            limit,
-            returned_count: result.length,
-            total,
-            has_more: offset + result.length < total,
-            items: result
-          })
-        }
-      ]
+        const result = enrollments.map(({ course, complete_percent, enrolled_at }) => ({
+            ...course,
+            id: String(course.id),
+            progress: complete_percent,
+            enrolled_at,
+        }));
+        return {
+            content: [{
+                type: "text",
+                text: stringify({
+                    offset,
+                    limit,
+                    returned_count: result.length,
+                    total,
+                    has_more: offset + result.length < total,
+                    items: result,
+                }),
+            }],
+        };
     }
-  }
+
+    @Tool({
+        name: "fetch-enrolled-courses-by-ids",
+        description: "Given a list of course IDs, return enrollment-matched course data for the current user.",
+        parameters: z.object({
+            courseIds: z.array(z.string().min(1)).min(1).max(100)
+                .describe("List of course IDs to check against the current user's enrollments"),
+        }),
+    })
+    async fetchEnrolledCoursesByIds(
+        { courseIds }: { courseIds: string[] },
+        context: any,
+        req: any,
+    ) {
+        const userId: string = req?.user?.id ?? req?.headers?.["x-user-id"];
+        const normalizedIds = [...new Set(courseIds.map((id) => String(id).trim()).filter(Boolean))];
+
+        const validCourseIds: bigint[] = [];
+        const invalidCourseIds: string[] = [];
+        for (const id of normalizedIds) {
+            try {
+                validCourseIds.push(BigInt(id));
+            } catch {
+                invalidCourseIds.push(id);
+            }
+        }
+
+        if (validCourseIds.length === 0) {
+            return {
+                content: [{
+                    type: "text",
+                    text: stringify({
+                        status: "empty",
+                        message: "No valid course IDs were provided.",
+                        requested_count: normalizedIds.length,
+                        invalid_course_ids: invalidCourseIds,
+                        enrolled_count: 0,
+                        items: [],
+                    }),
+                }],
+            };
+        }
+
+        const enrollments = await this.prismaService.enrollment.findMany({
+            where: {
+                user_id: userId,
+                course_id: { in: validCourseIds },
+            },
+            select: {
+                course_id: true,
+                complete_percent: true,
+                enrolled_at: true,
+                course: {
+                    select: {
+                        id: true,
+                        title: true,
+                        short_description: true,
+                    },
+                },
+            },
+        });
+
+        const items = enrollments.map(({ course_id, course, complete_percent, enrolled_at }) => ({
+            id: String(course.id),
+            title: course.title,
+            short_description: course.short_description,
+            progress: complete_percent,
+            enrolled_at,
+            is_enrolled: true,
+            matched_course_id: String(course_id),
+        }));
+
+        const enrolledIdSet = new Set(items.map((item) => item.id));
+        const notEnrolledCourseIds = validCourseIds
+            .map((id) => String(id))
+            .filter((id) => !enrolledIdSet.has(id));
+
+        return {
+            content: [{
+                type: "text",
+                text: stringify({
+                    status: items.length > 0 ? "ok" : "empty",
+                    requested_count: normalizedIds.length,
+                    valid_requested_count: validCourseIds.length,
+                    invalid_course_ids: invalidCourseIds,
+                    enrolled_count: items.length,
+                    not_enrolled_course_ids: notEnrolledCourseIds,
+                    items,
+                }),
+            }],
+        };
+    }
+
+
+    
 }

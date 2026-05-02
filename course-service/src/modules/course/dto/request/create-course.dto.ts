@@ -1,18 +1,18 @@
 import { IsNumber } from '@nestjs/class-validator'
 import { ApiProperty } from '@nestjs/swagger'
-import { ContentStatus } from '@prisma/client'
+import { ContentStatus, CourseLevel } from '@prisma/client'
 import { IsEnum, IsOptional, IsString } from 'class-validator'
 
 export class CreateCourseDto {
   @ApiProperty({ example: 'E.g: 1' })
   @IsString()
-  owner_id: string
+  owner_id!: string
 
   @IsString()
   @ApiProperty({
     example: 'AWS Certified Solutions Architect - Associate (SAA-C03): Scaling and Decoupling Architectures'
   })
-  title: string
+  title!: string
 
   @ApiProperty({ example: '' })
   @IsString()
@@ -32,14 +32,28 @@ export class CreateCourseDto {
   @IsOptional()
   thumbnail_url?: string
 
+  @ApiProperty({ example: CourseLevel.Beginner, enum: CourseLevel, required: false })
+  @IsEnum(CourseLevel)
+  @IsOptional()
+  course_level?: CourseLevel
+
+  @ApiProperty({ example: 0, required: false })
+  @IsNumber()
+  @IsOptional()
+  rating?: number
+
+  @ApiProperty({ example: 'simple', required: false })
+  @IsString()
+  @IsOptional()
+  language?: string
   @ApiProperty({ example: '100000' })
   @IsNumber()
-  price: number
+  price!: number
 
   @ApiProperty({
     example: ContentStatus.draft,
     enum: ContentStatus
   })
   @IsEnum(ContentStatus)
-  status: ContentStatus
+  status!: ContentStatus
 }

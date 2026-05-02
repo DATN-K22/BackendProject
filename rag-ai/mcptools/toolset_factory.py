@@ -60,16 +60,21 @@ class UserScopedMCPTool(MCPTool):
 
 class UserScopedMCPToolset(MCPToolset):
     """MCP toolset that builds user-aware MCP tools."""
-
+    def __init__(self, connection_params: SseConnectionParams | StreamableHTTPConnectionParams, allowed_tools: Optional[List[str]] = None):
+        super().__init__(connection_params=connection_params)
+        self._allowed_tools = allowed_tools
+    
     async def get_tools(
         self,
-        readonly_context: Optional[ReadonlyContext] = None,
+        readonly_context: Optional[ReadonlyContext] = None
     ) -> List[BaseTool]:
         session = await self._mcp_session_manager.create_session()
         tools_response = await session.list_tools()
 
         tools: List[BaseTool] = []
         for tool in tools_response.tools:
+            if self._allowed_tools and tool.name not in self._allowed_tools:
+                continue
             mcp_tool = UserScopedMCPTool(
                 mcp_tool=tool,
                 mcp_session_manager=self._mcp_session_manager,
@@ -82,7 +87,7 @@ class UserScopedMCPToolset(MCPToolset):
         return tools
 
 
-def build_toolset(config: MCPServerConfig) -> Optional[MCPToolset]:
+def build_toolset(config: MCPServerConfig, allowed_tools: Optional[List[str]] = None) -> Optional[MCPToolset]:
     """Return an MCPToolset, or None if the server is disabled."""
     if not config.enabled:
         return None
@@ -107,7 +112,7 @@ def build_toolset(config: MCPServerConfig) -> Optional[MCPToolset]:
             sse_read_timeout=MCP_READ_TIMEOUT_SEC,
         )
 
-    return UserScopedMCPToolset(connection_params=connection_params)
+    return UserScopedMCPToolset(connection_params=connection_params, allowed_tools=allowed_tools)
 
 
         

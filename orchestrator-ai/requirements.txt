@@ -1,4 +1,4 @@
-google-adk[a2a,extensions]>=1.27.0
+google-adk[a2a,extensions]>=1.28.0
 langchain>=0.3.0
 langchain-openai>=0.2.0
 langchain-qdrant>=0.2.0

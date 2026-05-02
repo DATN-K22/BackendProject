@@ -17,7 +17,7 @@ def build_retriever(settings: Settings, course_id: str | None = None):
         embedding=embeddings,
     )
 
-    search_kwargs: dict = {"k": 5}
+    search_kwargs: dict = {"k": 10}
     if course_id:
         search_kwargs["filter"] = models.Filter(
             must=[

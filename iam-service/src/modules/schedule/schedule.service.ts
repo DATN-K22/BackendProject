@@ -62,14 +62,16 @@ export class ScheduleService {
     const timeEnd = new Date(createEventDto.time_end)
     await this.validateTimeRange(timeStart, timeEnd)
 
-    if (createEventDto.original_event_id) {
-      const originalEvent = await this.scheduleRepository.findEventById(createEventDto.original_event_id)
-      this.AuthorizeEvent(originalEvent, user_id)
+            if (createEventDto.original_event_id) {
+                const originalEvent = await this.prisma.event.findUnique({
+                    where: { id: createEventDto.original_event_id }
+                });
+                await this.AuthorizeEvent(originalEvent, user_id);
 
-      if (!originalEvent?.rrule_string) {
-        throw new BadRequestException('Cannot create exception for non-recurring event')
-      }
-    }
+                if (!originalEvent.rrule_string) {
+                    throw new BadRequestException('Cannot create exception for non-recurring event');
+                }
+            }
 
     if (createEventDto.rrule_string) {
       if (!createEventDto.rrule_string.startsWith('RRULE:')) {

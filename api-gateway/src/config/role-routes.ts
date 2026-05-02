@@ -107,7 +107,7 @@ export const roleRoutes: RoleRoute[] = [
   {
     path: /^\/api\/media\/files$/,
     method: 'POST',
-    roles: ['Admin', 'teacher'],
+    roles: ['Admin', 'teacher', 'User'],
     description: 'Save file record',
   },
   {

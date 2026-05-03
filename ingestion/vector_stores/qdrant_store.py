@@ -7,8 +7,8 @@ from qdrant_client import QdrantClient, models
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import FieldCondition, Filter, MatchValue, PointStruct
 
-from ingestion.interfaces.vector_store import VectorStore
-from ingestion.models.document import VectorPoint
+from interfaces.vector_store import VectorStore
+from models.document import VectorPoint
 from config.settings import Settings
 
 

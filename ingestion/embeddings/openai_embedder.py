@@ -4,7 +4,7 @@ from collections.abc import Sequence
 
 from langchain_openai import OpenAIEmbeddings
 
-from ingestion.interfaces.embedder import Embedder
+from interfaces.embedder import Embedder
 
 
 class OpenAIEmbedder(Embedder):

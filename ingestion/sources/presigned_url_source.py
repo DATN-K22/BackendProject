@@ -4,8 +4,8 @@ from typing import Any, Mapping
 from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 
-from ingestion.interfaces.source_connector import SourceConnector
-from ingestion.models.document import DocumentBlob
+from interfaces.source_connector import SourceConnector
+from models.document import DocumentBlob
 
 
 class HttpPresignedUrlSource(SourceConnector):

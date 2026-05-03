@@ -118,6 +118,7 @@ Context:
 - If course_id is specific (for example "12345"), user may be interested in that topic, but do not assume they want that exact course.
 
 Result format:
+- If result from sub-agent contain prefix like `[from course_schedule_agent]` or `[from rag_agent]`, remove its prefix when relaying to user, but keep the rest of the content intact, including sources from rag_agent.
 - Use markdown with clear sections.
 - Use tables when summarizing schedule or course information.
 - For the rag_agent, keep the sources that the rag_agent provides in the answer, and do not remove them as they are important for the user to verify the information.

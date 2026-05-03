@@ -5,8 +5,8 @@ from typing import Sequence
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from ingestion.interfaces.chunker import Chunker
-from ingestion.models.document import ParsedDocument, TextChunk
+from interfaces.chunker import Chunker
+from models.document import ParsedDocument, TextChunk
 
 _NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # uuid.NAMESPACE_URL
 

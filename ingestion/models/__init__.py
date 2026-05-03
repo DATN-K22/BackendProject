@@ -1,4 +1,4 @@
-from ingestion.models.document import (
+from models.document import (
     DocumentBlob,
     ParsedDocument,
     ParsedPage,

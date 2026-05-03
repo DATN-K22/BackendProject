@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
-from ingestion.interfaces.source_connector import SourceConnector
-from ingestion.models.document import DocumentBlob
+from interfaces.source_connector import SourceConnector
+from models.document import DocumentBlob
 
 
 

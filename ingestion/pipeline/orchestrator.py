@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from ingestion.events.event_schema import DocumentUploadEvent
-from ingestion.interfaces.chunker import Chunker
-from ingestion.interfaces.data_loader import DataLoader
-from ingestion.interfaces.embedder import Embedder
-from ingestion.interfaces.source_connector import SourceConnector
-from ingestion.interfaces.sparse_embedder import SparseEmbedder
-from ingestion.interfaces.vector_store import VectorWriter
-from ingestion.models.document import VectorPoint
+from events.event_schema import DocumentUploadEvent
+from interfaces.chunker import Chunker
+from interfaces.data_loader import DataLoader
+from interfaces.embedder import Embedder
+from interfaces.source_connector import SourceConnector
+from interfaces.sparse_embedder import SparseEmbedder
+from interfaces.vector_store import VectorWriter
+from models.document import VectorPoint
 
 
 class IngestionOrchestrator:
@@ -67,6 +67,7 @@ class IngestionOrchestrator:
                     **chunk.metadata,
                     "document_id": chunk.document_id,
                     "chunk_id": chunk.chunk_id,
+                    "text": chunk.text,
                 },
                 sparse_indices=sparse_vector.indices,
                 sparse_values=sparse_vector.values,

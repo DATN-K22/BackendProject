@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 
-from ingestion.interfaces.sparse_embedder import SparseEmbedder, SparseEmbedding
+from interfaces.sparse_embedder import SparseEmbedder, SparseEmbedding
 
 logger = logging.getLogger(__name__)
 

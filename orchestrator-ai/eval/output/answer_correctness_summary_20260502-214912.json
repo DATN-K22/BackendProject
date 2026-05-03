@@ -1,0 +1,11 @@
+{
+  "judge_model": "gemini-2.5-pro",
+  "a2a_endpoint": "http://localhost:3007/",
+  "dataset": "eval/output/course21_eval_langsmith.jsonl",
+  "total_rows": 50,
+  "judged_rows": 43,
+  "failed_rows": 7,
+  "output_jsonl": "eval/output/course21_eval_langsmith.jsonl",
+  "answer_correctness_avg": 4.0698,
+  "answer_correctness_pass_rate": 0.7442
+}

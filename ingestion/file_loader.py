@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from ingestion.interfaces.data_loader import DataLoader
-from ingestion.loaders.plain_text_loader import PlainTextDataLoader
-from ingestion.loaders.pymupdf_loader import PyMuPDFDataLoader
-from ingestion.loaders.pypdf_loader import PyPDFDataLoader
-from ingestion.models.document import DocumentBlob, ParsedDocument
+from interfaces.data_loader import DataLoader
+from loaders.plain_text_loader import PlainTextDataLoader
+from loaders.pymupdf_loader import PyMuPDFDataLoader
+from loaders.pypdf_loader import PyPDFDataLoader
+from models.document import DocumentBlob, ParsedDocument
 
 
 class FileLoader(DataLoader):

@@ -4,10 +4,11 @@ import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateCourseDto } from './dto/request/create-course.dto'
 import { UpdateCourseDto } from './dto/request/update-course.dto'
-
+import { Prisma } from '@prisma/client'
+import { FilterOptionDto } from './dto/request/filter-option.dto'
 @Injectable()
 export class CourseRepositoy {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(private readonly prismaService: PrismaService) { }
 
   async create(createCourseDto: CreateCourseDto) {
     const record = await this.prismaService.course.create({
@@ -205,5 +206,116 @@ export class CourseRepositoy {
         course_id: courseId
       }
     })
+  }
+  private async buildSearchWhereClause(filters: FilterOptionDto): Promise<Prisma.CourseWhereInput | null> {
+    const { q, levels, isPaid, minPrice, maxPrice } = filters;
+    const where: Prisma.CourseWhereInput = { status: 'published' };
+
+    if (q) {
+      const ftsResults = await this.prismaService.fullTextSearch({
+        modelName: 'Course',
+        query: q,
+        limit: 100 // PrismaService có validate limit tối đa là 100
+      });
+
+      if (ftsResults.length === 0) return null; // Null indicates no results
+
+      const matchIds = ftsResults.map((c: any) => BigInt(c.id));
+      where.id = { in: matchIds };
+    }
+
+    if (levels && levels.length > 0) {
+      where.course_level = { in: levels as any }; // Cast due to auto-generated type matching
+    }
+
+    // Logic giá
+    if (isPaid === true) {
+      where.price = { gt: 0 };
+    } else if (isPaid === false) {
+      where.price = 0;
+    }
+
+    // Lọc theo khoảng giá
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      where.price = {
+        ...(typeof where.price === 'object' ? where.price : {}),
+        ...(minPrice !== undefined ? { gte: minPrice } : {}),
+        ...(maxPrice !== undefined ? { lte: maxPrice } : {}),
+      };
+    }
+
+    return where;
+  }
+
+  async searchCourses(filters: FilterOptionDto) {
+    const { page = 1, limit = 10 } = filters;
+    const offset = (page - 1) * limit;
+
+    // 1. Lấy mệnh đề WHERE (trả về null nếu FTS không match kết quả nào)
+    const where = await this.buildSearchWhereClause(filters);
+
+    if (where === null) {
+      return {
+        courses: [],
+        meta: { totalItems: 0, page, limit, totalPages: 0 },
+        facets: { levels: {}, priceTypes: { FREE: 0, PAID: 0 } }
+      };
+    }
+
+    // 2. Chạy Query lấy Data và đếm Total song song
+    const [courses, totalItems] = await Promise.all([
+      this.prismaService.course.findMany({
+        where,
+        skip: offset,
+        take: limit,
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          title: true,
+          thumbnail_url: true,
+          price: true,
+          course_level: true,
+          rating: true,
+          owner_id: true,
+          short_description: true,
+          created_at: true,
+        }
+      }),
+      this.prismaService.course.count({ where })
+    ]);
+
+    // 3. FACETED SEARCH
+    const [levelFacets, freeCount] = await Promise.all([
+      this.prismaService.course.groupBy({
+        by: ['course_level'],
+        where,
+        _count: { course_level: true }
+      }),
+      this.prismaService.course.count({
+        where: { ...where, price: 0 }
+      })
+    ]);
+
+    const formattedLevelFacets = levelFacets.reduce((acc, curr) => {
+      acc[curr.course_level] = curr._count.course_level;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return {
+      courses,
+      meta: {
+        totalItems,
+        page,
+        limit,
+        totalPages: Math.ceil(totalItems / limit)
+      },
+      facets: {
+        levels: formattedLevelFacets,
+        priceTypes: {
+          FREE: freeCount,
+          PAID: totalItems - freeCount
+        }
+      }
+    };
   }
 }

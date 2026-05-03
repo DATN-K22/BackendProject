@@ -1,3 +1,3 @@
-from ingestion.embeddings.openai_embedder import OpenAIEmbedder
+from embeddings.openai_embedder import OpenAIEmbedder
 
 __all__ = ["OpenAIEmbedder"]

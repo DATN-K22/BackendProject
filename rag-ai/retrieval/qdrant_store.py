@@ -188,9 +188,11 @@ class QdrantVectorStore:
         namespace: str | None = None,
         filters: dict[str, Any] | None = None,
         score_threshold: float = 0.5,
+        sparse_indices: list[int] | None = None,
+        sparse_values: list[float] | None = None,
     ) -> list[dict[str, Any]]:
         """
-        Tìm kiếm các điểm gần nhất với query_vector.
+        Tìm kiếm các điểm gần nhất với query_vector (hybrid search nếu có sparse).
 
         Args:
             query_vector: Dense embedding vector của câu hỏi.
@@ -198,6 +200,8 @@ class QdrantVectorStore:
             namespace: Giới hạn tìm kiếm trong một tenant cụ thể.
             filters: Bộ lọc payload bổ sung dạng {key: value}.
             score_threshold: Ngưỡng similarity tối thiểu (0.0–1.0).
+            sparse_indices: Token indices cho BM25.
+            sparse_values: TF scores cho BM25.
 
         Returns:
             List các dict gồm id, score, payload.
@@ -215,20 +219,51 @@ class QdrantVectorStore:
                 for k, v in filters.items()
             )
 
-        results = self._client.search(
-            collection_name=self._collection_name,
-            query_vector=("dense", query_vector),
-            limit=limit,
-            query_filter=Filter(must=must) if must else None,
-            score_threshold=score_threshold,
-            with_payload=True,
-            with_vectors=False,
-        )
+        query_filter = Filter(must=must) if must else None
 
+        if sparse_indices is not None and sparse_values is not None:
+            # Hybrid search using Prefetch and RRF
+            prefetch = [
+                models.Prefetch(
+                    query=query_vector,
+                    using="dense",
+                    limit=limit,
+                ),
+                models.Prefetch(
+                    query=models.SparseVector(
+                        indices=sparse_indices,
+                        values=sparse_values,
+                    ),
+                    using="sparse",
+                    limit=limit,
+                ),
+            ]
+            results = self._client.query_points(
+                collection_name=self._collection_name,
+                prefetch=prefetch,
+                query=models.FusionQuery(fusion=models.Fusion.RRF),
+                query_filter=query_filter,
+                limit=limit,
+                with_payload=True,
+                with_vectors=False,
+            ).points
+        else:
+            # Dense only search
+            results = self._client.query_points(
+                collection_name=self._collection_name,
+                query=query_vector,
+                using="dense",
+                limit=limit,
+                query_filter=query_filter,
+                score_threshold=score_threshold,
+                with_payload=True,
+                with_vectors=False,
+            ).points
+        
         output = [
             {
                 "id": r.id,
-                "score": r.score,
+                "score": getattr(r, "score", 0.0), # RRF might not have a direct score attribute in the same way, but point structure usually has score
                 "payload": r.payload or {},
             }
             for r in results

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from io import BytesIO
 
-from ingestion.interfaces.data_loader import DataLoader
-from ingestion.models.document import DocumentBlob, ParsedDocument, ParsedPage
+from interfaces.data_loader import DataLoader
+from models.document import DocumentBlob, ParsedDocument, ParsedPage
 
 try:
     from pypdf import PdfReader

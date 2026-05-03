@@ -10,11 +10,13 @@ import { PaginationDto } from '../../utils/dto/PagnitionDto'
 import { ApiSuccessResponse } from '../../utils/helper/api-success-response.decorator'
 import { CoursesListResponse } from './dto/response/CourseslListResponse'
 import { OwnershipGuard } from '../../guard/ownership.guard'
+import { FilterOptionDto } from './dto/request/filter-option.dto'
+import { SearchCourseResponseDto } from './dto/response/search-course-response.dto'
 
 @Controller('course')
 @ApiTags('Course Management APIsl')
 export class CourseController {
-  constructor(private readonly courseService: CourseService) {}
+  constructor(private readonly courseService: CourseService) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new course' })
@@ -56,6 +58,13 @@ export class CourseController {
       await this.courseService.findAll(+offset, +limit, ownerId),
       'Get all courses successfully'
     )
+  }
+
+  @Get('/search')
+  @ApiOperation({ summary: 'Search courses' })
+  @ApiOkResponse({ type: SearchCourseResponseDto })
+  async searchCourses(@Query() filters: FilterOptionDto) {
+    return ApiResponse.OkResponse(await this.courseService.searchCourses(filters), 'Search courses successfully')
   }
 
   @Get(':id')
@@ -129,6 +138,7 @@ export class CourseController {
       `Get recommendation courses successfully`
     )
   }
+
 
   @Get('/me/:id/enrolled')
   @ApiOperation({ summary: 'Get courses that user has enrolled in' })

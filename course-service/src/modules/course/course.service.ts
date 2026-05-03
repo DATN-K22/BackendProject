@@ -5,6 +5,8 @@ import { CreateCourseDto } from './dto/request/create-course.dto'
 import { IamClient } from '../iam-service/IamClient'
 import { IncompleteCourse } from './dto/response/IncompleteCourseResponse'
 import { ChapterService } from '../chapter/chapter.service'
+import { FilterOptionDto } from './dto/request/filter-option.dto'
+import { SearchCourseResponseDto } from './dto/response/search-course-response.dto'
 
 @Injectable()
 export class CourseService {
@@ -14,7 +16,7 @@ export class CourseService {
 
     @Inject('IamClient')
     private readonly iamClient: IamClient
-  ) {}
+  ) { }
 
   async create(createCourseDto: CreateCourseDto) {
     return this.courseRepository.create(createCourseDto)
@@ -43,13 +45,13 @@ export class CourseService {
         progress: course.progress,
         user: creatorInfo
           ? {
-              name: creatorInfo.name,
-              avt_url: creatorInfo.avt_url
-            }
+            name: creatorInfo.name,
+            avt_url: creatorInfo.avt_url
+          }
           : {
-              name: '',
-              avt_url: ''
-            }
+            name: '',
+            avt_url: ''
+          }
       }
     })
   }
@@ -155,5 +157,26 @@ export class CourseService {
     }
 
     await this.courseRepository.createEnrollment(userId, courseIdBig)
+  }
+
+  async searchCourses(filters: FilterOptionDto): Promise<SearchCourseResponseDto> {
+    const result = await this.courseRepository.searchCourses(filters);
+
+    // Dùng getCreatorIds để batch gộp tất cả các request lấy user info (tránh lỗi N+1 API call)
+    const creatorInfoMap = await this.getCreatorIds(result.courses);
+
+    const data = result.courses.map((course) => ({
+      ...course,
+      id: course.id.toString(), // Fix lỗi BigInt không assignable cho string
+      price: Number(course.price), // Fix lỗi Decimal không assignable cho number
+      course_level: course.course_level as string, // Fix lỗi Type enum
+      user: creatorInfoMap.get(course.owner_id)
+    }));
+
+    return {
+      data,
+      meta: result.meta,
+      facets: result.facets
+    };
   }
 }

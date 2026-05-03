@@ -30,6 +30,21 @@ def _get_reranker():
             logger.warning("Reranker unavailable, skipping rerank step: %s", exc)
     return _reranker
 
+_sparse_embedder = None
+
+def _get_sparse_embedder():
+    global _sparse_embedder
+    if _sparse_embedder is None:
+        try:
+            from fastembed import SparseTextEmbedding
+            _sparse_embedder = SparseTextEmbedding(model_name="Qdrant/bm25")
+            logger.info("Sparse Embedder loaded: Qdrant/bm25")
+        except ImportError:
+            logger.warning("fastembed package not installed, skipping sparse search.")
+        except Exception as exc:
+            logger.warning("Sparse Embedder unavailable, skipping sparse search: %s", exc)
+    return _sparse_embedder
+
 
 # ── Query expansion ───────────────────────────────────────────────────────────
 
@@ -185,6 +200,9 @@ def build_retrieval_tool(settings: Settings):
                 "results": [],
                 "error": f"embedding_failed: {exc}",
             }
+            
+        sparse_embedder = _get_sparse_embedder()
+        sparse_vectors = list(sparse_embedder.embed(queries)) if sparse_embedder else [None] * len(queries)
 
         # ── 6. Hybrid search — fetch nhiều hơn để rerank ──────────────────
         OVER_FETCH = 4
@@ -192,13 +210,18 @@ def build_retrieval_tool(settings: Settings):
         all_docs: list[dict[str, Any]] = []
 
         try:
-            for vector in query_vectors:
-                results = vectorstore.similarity_search(
-                    query_vector=vector,
-                    limit=safe_top_k * OVER_FETCH,
-                    namespace=effective_tenant,
-                    score_threshold=score_threshold,
-                )
+            for vector, sparse_vector in zip(query_vectors, sparse_vectors, strict=True):
+                kwargs = {
+                    "query_vector": vector,
+                    "limit": safe_top_k * OVER_FETCH,
+                    "namespace": effective_tenant,
+                    "score_threshold": score_threshold,
+                }
+                if sparse_vector is not None:
+                    kwargs["sparse_indices"] = sparse_vector.indices
+                    kwargs["sparse_values"] = sparse_vector.values
+
+                results = vectorstore.similarity_search(**kwargs)
                 for doc in results:
                     doc_id = doc["payload"].get("document_id", doc["id"])
                     if doc_id not in seen_ids:

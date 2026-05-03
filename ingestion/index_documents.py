@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ingestion.pipeline.index_documents import main
+from pipeline.index_documents import main
 
 
 if __name__ == "__main__":

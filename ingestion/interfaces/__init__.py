@@ -1,9 +1,9 @@
-from ingestion.interfaces.chunker import Chunker
-from ingestion.interfaces.data_loader import DataLoader
-from ingestion.interfaces.embedder import Embedder
-from ingestion.interfaces.source_connector import SourceConnector
-from ingestion.interfaces.sparse_embedder import SparseEmbedder, SparseEmbedding
-from ingestion.interfaces.vector_store import VectorReader, VectorStore, VectorWriter
+from interfaces.chunker import Chunker
+from interfaces.data_loader import DataLoader
+from interfaces.embedder import Embedder
+from interfaces.source_connector import SourceConnector
+from interfaces.sparse_embedder import SparseEmbedder, SparseEmbedding
+from interfaces.vector_store import VectorReader, VectorStore, VectorWriter
 
 __all__ = [
     "Chunker",

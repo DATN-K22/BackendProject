@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from ingestion.models.document import DocumentBlob, ParsedDocument
+from models.document import DocumentBlob, ParsedDocument
 
 
 class DataLoader(ABC):

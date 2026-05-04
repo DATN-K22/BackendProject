@@ -277,6 +277,23 @@ export class QuizRepository {
   // ─── Access ──────────────────────────────────────────────────────────────────
 
   async checkUserAccessToQuiz(userId: string, chapterItemId: string) {
+    const course = await this.prismaService.course.findFirst({
+      where: {
+        chapters: {
+          some: {
+            chapterItems: {
+              some: {
+                id: this.toBigInt(chapterItemId),
+                item_type: 'quiz'
+              }
+            }
+          }
+        }
+      },
+      select: { owner_id: true }
+    })
+    if (course?.owner_id === userId) return true
+
     const enrollment = await this.prismaService.enrollment.findFirst({
       where: {
         user_id: userId,

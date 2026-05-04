@@ -183,7 +183,7 @@ export class LessonRepository {
         chapter: {
           include: {
             course: {
-              select: { id: true, title: true }
+              select: { id: true, title: true, owner_id: true }
             }
           }
         },
@@ -198,7 +198,11 @@ export class LessonRepository {
 
     Logger.debug(`Checking enrollment for userId=${userId} in courseId=${chapterItem.chapter.course_id}`)
 
-    if (!(await this.isEnrolled(chapterItem.chapter.course_id.toString(), userId))) return null
+    if (
+      !(chapterItem.chapter.course?.owner_id === userId) &&
+      !(await this.isEnrolled(chapterItem.chapter.course_id.toString(), userId))
+    )
+      return null
 
     const isFinished = chapterItem.chapterItemStatuses.length > 0
     const chapter = chapterItem.chapter
@@ -276,6 +280,12 @@ export class LessonRepository {
 
   async isEnrolled(courseId: string, userId: string) {
     Logger.debug(`Checking enrollment for userId=${userId} in courseId=${courseId}`)
+    const course = await this.prismaService.course.findUnique({
+      where: { id: BigInt(courseId) },
+      select: { owner_id: true }
+    })
+    if (course?.owner_id === userId) return true
+
     const enrollment = await this.prismaService.enrollment.findFirst({
       where: {
         user_id: userId,

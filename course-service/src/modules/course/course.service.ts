@@ -21,7 +21,19 @@ export class CourseService {
   }
 
   async findAll(offset: number, limit: number, ownerId?: string) {
-    return this.courseRepository.findAll(offset, limit, ownerId)
+    const { data: courses, totalItems } = await this.courseRepository.findAll(offset, limit, ownerId)
+    const totalPages = Math.ceil(totalItems / limit)
+    const currentPage = offset
+
+    return {
+      data: courses,
+      meta: {
+        totalItems,
+        totalPages,
+        itemsPerPage: limit,
+        currentPage
+      }
+    }
   }
 
   // async getTopRatingCourse(offset: number, limit: number) {
@@ -116,7 +128,7 @@ export class CourseService {
     const creatorInfoMap = await this.getCreatorIds(courses)
 
     const totalPages = Math.ceil(totalItems / limit)
-    const currentPage = Math.floor(offset / limit) + 1
+    const currentPage = offset
 
     const data = courses.map((course: any) => ({
       ...course,

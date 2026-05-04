@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { CreateChapterDto } from './dto/create-chapter.dto'
 import { UpdateChapterDto } from './dto/update-chapter.dto'
+import { UpdateChapterOrderDto } from './dto/update-chapter-order.dto'
 import { ChapterRepository } from './chaper.repository'
 
 @Injectable()
 export class ChapterService {
+  private readonly logger = new Logger(ChapterService.name)
   constructor(private readonly chapterRepository: ChapterRepository) {}
 
   create(dto: CreateChapterDto) {
@@ -21,6 +23,10 @@ export class ChapterService {
 
   update(id: string, dto: UpdateChapterDto) {
     return this.chapterRepository.update(id, dto)
+  }
+
+  async updateOrder(courseId: string, dto: UpdateChapterOrderDto) {
+    return this.chapterRepository.updateOrder(courseId, dto.chapters)
   }
 
   remove(id: string) {

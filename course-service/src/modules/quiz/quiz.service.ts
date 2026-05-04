@@ -15,6 +15,7 @@ import { QuizRepository } from './quiz.repository'
 import { RedisCacheService } from '../redis/redis-cache.service'
 import { estimateSkillLevel, SKILL_WINDOW_SIZE, SkillLevel } from './dto/skill-level.constant'
 import type { QuizSessionCache, QuestionState } from './dto/quiz-session.types'
+import { CreateOptionStandaloneDto, CreateQuestionDto, UpdateOptionDto, UpdateQuestionDto } from './dto/quiz.dto'
 
 @Injectable()
 export class QuizService {
@@ -271,9 +272,7 @@ export class QuizService {
 
     return {
       quiz: {
-        id: quiz.id.toString(),
-        title: quiz.title,
-        description: quiz.description
+        id: quiz.id.toString()
       },
       history: history.map((h) => ({
         sessionId: h.id.toString(),
@@ -284,6 +283,34 @@ export class QuizService {
         skillEstimate: h.skillEstimate
       }))
     }
+  }
+
+  async getQuestions(chapterItemId: string) {
+    return await this.quizRepository.getQuestions(BigInt(chapterItemId))
+  }
+
+  async createQuestion(chapterItemId: string, dto: CreateQuestionDto) {
+    return await this.quizRepository.createQuestion(BigInt(chapterItemId), dto)
+  }
+
+  async updateQuestion(questionId: string, dto: UpdateQuestionDto) {
+    return await this.quizRepository.updateQuestion(BigInt(questionId), dto)
+  }
+
+  async deleteQuestion(questionId: string) {
+    return await this.quizRepository.deleteQuestion(BigInt(questionId))
+  }
+
+  async addOption(questionId: string, dto: CreateOptionStandaloneDto) {
+    return await this.quizRepository.addOption(BigInt(questionId), dto)
+  }
+
+  async updateOption(optionId: string, dto: UpdateOptionDto) {
+    return await this.quizRepository.updateOption(BigInt(optionId), dto)
+  }
+
+  async deleteOption(optionId: string) {
+    return await this.quizRepository.deleteOption(BigInt(optionId))
   }
 
   // ─── Private helpers ─────────────────────────────────────────────────────────

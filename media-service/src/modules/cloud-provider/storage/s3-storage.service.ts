@@ -1,43 +1,61 @@
-// cloud-storage/services/s3-storage.service.ts
-import { Injectable } from '@nestjs/common';
-import { ICloudStorageService } from './cloud-storage.interface';
-import { S3Client } from '@aws-sdk/client-s3';
 import {
+  S3Client,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
+  ListPartsCommand,
   PutObjectCommand,
-  GetObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   ListObjectsV2Command,
   HeadObjectCommand
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { AppException } from 'src/utils/excreption/AppException';
-import { ErrorCode } from 'src/utils/excreption/ErrorCode';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { ICloudStorageService, S3PartInfo } from './cloud-storage.interface';
+import { ConfigService } from '@nestjs/config';
+
+export interface MultipartUploadSession {
+  uploadId: string;
+  key: string;
+}
+
+export interface UploadedPart {
+  partNumber: number;
+  etag: string;
+}
+
 @Injectable()
-export class S3StorageService implements ICloudStorageService {
-  constructor(private readonly client: S3Client) {}
+export class S3Service implements ICloudStorageService {
+  private readonly logger = new Logger(S3Service.name);
+
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly client: S3Client
+  ) {}
+
+  // ── Existing methods (giữ nguyên interface cũ) ─────────────────────────────
 
   async downloadFile(bucket: string, key: string): Promise<Buffer> {
-    const command = new GetObjectCommand({
-      Bucket: bucket,
-      Key: key
-    });
-
+    const command = new GetObjectCommand({ Bucket: bucket, Key: key });
     const response = await this.client.send(command);
-    const stream = response.Body as any;
 
-    return Buffer.from(await stream.transformToByteArray());
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+
+    return Buffer.concat(chunks);
   }
 
   async deleteFile(bucket: string, key: string): Promise<void> {
-    const command = new DeleteObjectCommand({
-      Bucket: bucket,
-      Key: key
-    });
-
+    const command = new DeleteObjectCommand({ Bucket: bucket, Key: key });
     await this.client.send(command);
   }
 
-  async getPresignedUrl(bucket: string, key: string, contentType: string, expiresIn = 3600): Promise<string> {
+  // Single PUT presigned URL — dùng cho PDF/image
+  async getPresignedUrl(bucket: string, key: string, contentType: string, expiresIn: number = 900): Promise<string> {
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: key,
@@ -48,42 +66,124 @@ export class S3StorageService implements ICloudStorageService {
   }
 
   async listFiles(bucket: string, prefix?: string): Promise<string[]> {
-    const command = new ListObjectsV2Command({
-      Bucket: bucket,
-      Prefix: prefix
-    });
-
+    const command = new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix });
     const response = await this.client.send(command);
-    return response.Contents?.map((item) => item.Key || '') || [];
+
+    return (response.Contents ?? []).map((obj) => obj.Key).filter((key): key is string => !!key);
   }
 
   async fileExists(bucket: string, key: string): Promise<boolean> {
     try {
-      const command = new HeadObjectCommand({
-        Bucket: bucket,
-        Key: key
-      });
+      const command = new HeadObjectCommand({ Bucket: bucket, Key: key });
       await this.client.send(command);
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
 
-  extractKeyFromUrl(url: string): string {
-    try {
-      const parsedUrl = new URL(url);
-      return decodeURIComponent(parsedUrl.pathname.substring(1));
-    } catch (err) {
-      throw new AppException(ErrorCode.INVALID_FILE_URL, true);
-    }
+  async getPresignedUrlForAccessing(bucket: string, key: string): Promise<string> {
+    const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+    return getSignedUrl(this.client, command, { expiresIn: 3600 });
   }
 
-  async getPresignedUrlForAccessing(bucket: string, key: string): Promise<string> {
-    const command = new GetObjectCommand({
+  // ── Multipart Upload (video) ───────────────────────────────────────────────
+
+  async createMultipartUpload(
+    bucket: string,
+    key: string,
+    contentType: string = 'video/mp4'
+  ): Promise<MultipartUploadSession> {
+    const command = new CreateMultipartUploadCommand({
       Bucket: bucket,
-      Key: key
+      Key: key,
+      ContentType: contentType,
+      Metadata: { 'upload-source': 'lms-platform' }
     });
-    return getSignedUrl(this.client, command);
+
+    const response = await this.client.send(command);
+
+    if (!response.UploadId) {
+      throw new InternalServerErrorException('Failed to create multipart upload');
+    }
+
+    return { uploadId: response.UploadId, key };
+  }
+
+  async getPresignedUrlForPart(
+    bucket: string,
+    key: string,
+    uploadId: string,
+    partNumber: number,
+    expiresIn: number = 3600
+  ): Promise<string> {
+    const command = new UploadPartCommand({
+      Bucket: bucket,
+      Key: key,
+      UploadId: uploadId,
+      PartNumber: partNumber
+    });
+
+    return getSignedUrl(this.client, command, { expiresIn });
+  }
+
+  async completeMultipartUpload(bucket: string, key: string, uploadId: string, parts: UploadedPart[]): Promise<string> {
+    const sorted = [...parts].sort((a, b) => a.partNumber - b.partNumber);
+
+    const command = new CompleteMultipartUploadCommand({
+      Bucket: bucket,
+      Key: key,
+      UploadId: uploadId,
+      MultipartUpload: {
+        Parts: sorted.map((p) => ({
+          PartNumber: p.partNumber,
+          ETag: p.etag
+        }))
+      }
+    });
+
+    const response = await this.client.send(command);
+    this.logger.log(`Multipart upload completed: ${response.Location}`);
+
+    return response.Location ?? `https://${bucket}.s3.amazonaws.com/${key}`;
+  }
+
+  async abortMultipartUpload(bucket: string, key: string, uploadId: string): Promise<void> {
+    const command = new AbortMultipartUploadCommand({
+      Bucket: bucket,
+      Key: key,
+      UploadId: uploadId
+    });
+
+    await this.client.send(command);
+    this.logger.warn(`Aborted multipart upload: ${uploadId} for key: ${key}`);
+  }
+
+  async listUploadedParts(bucket: string, key: string, uploadId: string): Promise<S3PartInfo[]> {
+    const parts: S3PartInfo[] = [];
+    let partNumberMarker: string | undefined;
+
+    do {
+      const command = new ListPartsCommand({
+        Bucket: bucket,
+        Key: key,
+        UploadId: uploadId,
+        PartNumberMarker: partNumberMarker
+      });
+
+      const response = await this.client.send(command);
+
+      for (const part of response.Parts ?? []) {
+        parts.push({
+          partNumber: part.PartNumber!,
+          etag: part.ETag!,
+          size: part.Size!
+        });
+      }
+
+      partNumberMarker = response.IsTruncated ? response.NextPartNumberMarker : undefined;
+    } while (partNumberMarker);
+
+    return parts;
   }
 }

@@ -5,8 +5,8 @@ import { UserRespository } from './user.repository'
 import { AuthModule } from '../auth/auth.module'
 
 @Module({
-  imports: [AuthModule],
   controllers: [UserController],
-  providers: [UserService, UserRespository]
+  providers: [UserService, UserRespository],
+  exports: [UserRespository]
 })
 export class UserModule {}

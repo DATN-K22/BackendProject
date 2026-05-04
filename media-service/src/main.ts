@@ -1,9 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { AppValidationPipe } from 'src/utils/pipe/validation.pipe';
 import { ConfigService } from '@nestjs/config';
-import { GlobalExceptionFilter } from './utils/excreption/GlobalExceptionHandler';
 import { BigIntInterceptor } from './utils/interceptors/bigint.interceptor';
 import { Logger } from '@nestjs/common';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
@@ -11,8 +9,6 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.useGlobalInterceptors(new BigIntInterceptor());
-  app.useGlobalPipes(AppValidationPipe);
-  app.useGlobalFilters(new GlobalExceptionFilter());
 
   const configService = app.get(ConfigService);
 

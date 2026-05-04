@@ -9,7 +9,7 @@ export class CreateCourseDto {
   })
   @IsString()
   @IsNotEmpty()
-  owner_id: string
+  owner_id!: string
 
   @ApiProperty({
     description: 'Tiêu đề khóa học',
@@ -18,7 +18,7 @@ export class CreateCourseDto {
   })
   @IsString()
   @IsNotEmpty()
-  title: string
+  title!: string
 
   @ApiPropertyOptional({
     description: 'Mô tả ngắn',

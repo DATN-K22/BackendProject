@@ -22,6 +22,7 @@ import { MESSAGE_BROKER } from '../message_broker/message-broker.token'
 import { RedisCacheService } from '../redis/redis-cache.service'
 import { ISecretManagementService } from './secret-management.interface'
 import { UserRespository } from '../user/user.repository'
+import { UpdateUserPasswordDto } from '../user/dto/update-user.dto'
 
 @Injectable()
 export class AuthService {
@@ -35,6 +36,7 @@ export class AuthService {
     private readonly messageBroker: IMessageBroker,
     @Inject('SECRET_MANAGEMENT_SERVICE')
     private readonly awsSecret: ISecretManagementService,
+    
     private readonly userRepository: UserRespository
   ) {}
 
@@ -272,5 +274,18 @@ export class AuthService {
 
   public async passwordMatches(user: { password_hash: string }, password: string) {
     return await argon.verify(user.password_hash, password)
+  }
+
+  async updatePassword(id: string, updatePassword: UpdateUserPasswordDto) {
+    const user = await this.userRepository.findById(id.toString())
+    if (!user) {
+      throw new NotFoundException('User not found')
+    }
+    // Check if current password is correct
+    const isPasswordValid = await this.passwordMatches(user, updatePassword.current_password)
+    if (!isPasswordValid) {
+      throw new ForbiddenException('Current password is incorrect')
+    }
+    await this.userRepository.updatePassword(user, await this.hashPassword(updatePassword.new_password))
   }
 }

@@ -1,15 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { FileService } from './file.service';
 import {
-  ApiBody,
-  ApiOkResponse,
-  ApiOperation,
-  ApiParam,
-  ApiTags,
-  ApiResponse as SwaggerApiResponse
-} from '@nestjs/swagger';
-import { CreateFileDto } from './dto/request/create-file.dto';
-import { CreateFileResponse } from './dto/response/create-file.response';
+  CompleteVideoUploadDto,
+  CreateFilesDto,
+  GetPartPresignedUrlDto,
+  GetPresignedUrlsDto,
+  InitVideoUploadDto
+} from './dto/request/create-file.dto';
 import { ApiSuccessResponse } from '../../utils/helper/api-success-response.decorator';
 import { ApiResponse } from '../../utils/dto/ApiResponse';
 
@@ -18,65 +16,71 @@ import { ApiResponse } from '../../utils/dto/ApiResponse';
 export class FileController {
   constructor(private readonly fileService: FileService) {}
 
+  // ── Documents / Images ─────────────────────────────────────────────────────
+
   @Post()
-  @ApiOperation({ summary: 'Save a file record after fe uploading to S3' })
-  @ApiBody({ type: CreateFileDto })
-  @ApiSuccessResponse(CreateFileResponse)
-  async create(@Body() createFileDto: CreateFileDto) {
-    return ApiResponse.OkCreateResponse(await this.fileService.create(createFileDto), 'Save record successfully');
+  @ApiOperation({ summary: 'Save multiple document/image records after uploading to S3' })
+  @ApiBody({ type: CreateFilesDto })
+  async createMany(@Body() createFilesDto: CreateFilesDto) {
+    return ApiResponse.OkCreateResponse(await this.fileService.createMany(createFilesDto), 'Save records successfully');
   }
 
-  @Get('presigned-url/:course_id/:chapter_item_id/:filename')
-  @Get('presigned-url/:course_id/:lesson_id/:filename')
-  @ApiOperation({ summary: 'Get Presigned URL for uploading file for video and image resources of a chapter item' })
-  @ApiParam({ name: 'filename', description: 'The filename for the file in the cloud storage. Eg: test.jpeg' })
-  @ApiParam({ name: 'course_id', description: 'The ID of the course to which the file belongs' })
-  @ApiParam({ name: 'chapter_item_id', description: 'The ID of the chapter item to which the file belongs' })
-  @ApiOkResponse({
-    schema: {
-      example: {
-        success: true,
-        code: 200,
-        message: 'Presigned URL retrieved successfully.',
-        data: 'https://example-bucket.s3.amazonaws.com/your-file-key?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...',
-        timestamp: '2024-10-01T12:34:56.789Z'
-      }
-    }
-  })
-  async getPresignedUrlForS3Uploading(
-    @Param('filename') filename: string,
-    @Param('course_id') courseId: string,
-    @Param('chapter_item_id') chapterItemId: string
-  ) {
-    const url = await this.fileService.getPresignedUrlForS3Uploading(filename, courseId, chapterItemId);
-    return ApiResponse.OkResponse(url, 'Presigned URL retrieved successfully.');
+  @Post('presigned-urls')
+  @ApiOperation({ summary: 'Get presigned PUT URLs for documents/images (single PUT, no video)' })
+  @ApiBody({ type: GetPresignedUrlsDto })
+  async getPresignedUrls(@Body() dto: GetPresignedUrlsDto) {
+    return ApiResponse.OkResponse(await this.fileService.generatePresignedUrls(dto));
   }
-
-  // @Get(':id')
-  // findOne(@Param('id') id: string) {
-  //   return this.fileService.findOne(+id);
-  // }
-
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateFileDto: UpdateFileDto) {
-  //   return this.fileService.update(+id, updateFileDto);
-  // }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete file in both database and cloud storage' })
-  @ApiParam({ name: 'id', description: 'id of file saved in database' })
+  @ApiOperation({ summary: 'Delete file from both database and S3' })
+  @ApiParam({ name: 'id', description: 'Database ID of the file' })
   @ApiSuccessResponse(ApiResponse<string>)
   remove(@Param('id') id: string) {
     return this.fileService.remove(+id);
   }
 
   @Get('/chapter-item/:id')
+  @ApiOperation({ summary: 'Get all resources by chapter item ID' })
   async findResourcesByChapterItemId(@Param('id') chapterItemId: string) {
     return ApiResponse.OkResponse(await this.fileService.findResourcesByChapterItemId(chapterItemId));
   }
 
   @Get('/lesson/:id')
+  @ApiOperation({ summary: 'Get all resources by lesson ID' })
   async findResourcesByLessonId(@Param('id') lessonId: string) {
     return ApiResponse.OkResponse(await this.fileService.findResourcesByLessonId(lessonId));
+  }
+
+  // ── Video Multipart Upload ─────────────────────────────────────────────────
+
+  @Post('video/init')
+  @ApiOperation({ summary: 'Init S3 multipart upload session for video — returns uploadId + totalParts' })
+  @ApiBody({ type: InitVideoUploadDto })
+  async initVideoUpload(@Body() dto: InitVideoUploadDto) {
+    return ApiResponse.OkCreateResponse(await this.fileService.initVideoUpload(dto), 'Upload session created');
+  }
+
+  @Post('video/:uploadId/presigned-url')
+  @ApiOperation({ summary: 'Get presigned URL for a single part (call on-demand per part)' })
+  @ApiParam({ name: 'uploadId', description: 'S3 multipart UploadId' })
+  @ApiBody({ type: GetPartPresignedUrlDto })
+  async getPartPresignedUrl(@Param('uploadId') uploadId: string, @Body() dto: GetPartPresignedUrlDto) {
+    return ApiResponse.OkResponse(await this.fileService.getPartPresignedUrl(uploadId, dto.partNumber));
+  }
+
+  @Get('video/:uploadId/parts')
+  @ApiOperation({ summary: 'List uploaded parts from S3 — use missingParts[] to resume' })
+  @ApiParam({ name: 'uploadId', description: 'S3 multipart UploadId' })
+  async listParts(@Param('uploadId') uploadId: string) {
+    return ApiResponse.OkResponse(await this.fileService.listUploadedParts(uploadId));
+  }
+
+  @Post('video/:uploadId/complete')
+  @ApiOperation({ summary: 'Complete multipart upload → triggers S3 event → Lambda for HLS conversion' })
+  @ApiParam({ name: 'uploadId', description: 'S3 multipart UploadId' })
+  @ApiBody({ type: CompleteVideoUploadDto })
+  async completeVideoUpload(@Param('uploadId') uploadId: string, @Body() dto: CompleteVideoUploadDto) {
+    return ApiResponse.OkResponse(await this.fileService.completeVideoUpload(uploadId, dto));
   }
 }

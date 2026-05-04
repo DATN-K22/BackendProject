@@ -63,22 +63,25 @@ export class CourseRepositoy {
     }
   }
   async findAll(offset: number, limit: number, ownerId?: string) {
-    const [courses, totalItems = 0] = await Promise.all([
+    const [courses, totalItems] = await Promise.all([
       this.prismaService.course.findMany({
         skip: offset,
         take: limit,
         orderBy: { created_at: 'desc' },
         where: ownerId ? { owner_id: ownerId } : undefined
+      }),
+      this.prismaService.course.count({
+        where: ownerId ? { owner_id: ownerId } : undefined
       })
-      // this.prismaService.course.count()
     ])
+
     return {
-      courses,
-      page: {
+      data: courses,
+      meta: {
         total_pages: Math.ceil(totalItems / limit),
         total_items: totalItems,
-        offset: offset,
-        limit: limit
+        offset,
+        limit
       }
     }
   }

@@ -1,12 +1,12 @@
 // cloud-storage/cloud-storage.module.ts
 import { Module, Global, Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { CDN_SERVICE, CLOUD_STORAGE_INITIALIZER, CLOUD_STORAGE_SERVICE } from 'src/config/constant';
 import { CloudStorageConfigInitializer } from '../../config/CloudStorageConfigInitializer';
 import { S3Config } from '../../config/S3.config';
-import { S3StorageService } from './storage/s3-storage.service';
 import { ICloudStorageService } from './storage/cloud-storage.interface';
 import { CloudFrontService } from './cdn/cloudfront.service';
+import { CDN_SERVICE, CLOUD_STORAGE_INITIALIZER, CLOUD_STORAGE_SERVICE } from '../../config/constant';
+import { S3Service } from './storage/s3-storage.service';
 
 @Global()
 @Module({
@@ -48,7 +48,7 @@ import { CloudFrontService } from './cdn/cloudfront.service';
             const config = initializer.getCurrentConfig();
             if (config instanceof S3Config) {
               Logger.log('Using AWS S3 for cloud storage');
-              return new S3StorageService(config.getClient());
+              return new S3Service(configService, config.getClient());
             }
             throw new Error('AWS config is not properly initialized');
           }

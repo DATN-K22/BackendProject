@@ -4,8 +4,8 @@ import { ContentStatus } from '@prisma/client'
 import { IsEnum, IsOptional, IsString } from 'class-validator'
 
 export class CoursesListResponse {
-  courses: CourseItem[]
-  page: {
+  courses!: CourseItem[]
+  page!: {
     total_pages: number
     total_items: number
     offset: number
@@ -16,13 +16,13 @@ export class CoursesListResponse {
 class CourseItem {
   @ApiProperty({ example: 'E.g: 1' })
   @IsString()
-  owner_id: string
+  owner_id!: string
 
   @IsString()
   @ApiProperty({
-    example: 'AWS Certified Solutions Architect - Associate (SAA-C03): Scaling and Decoupling Architectures'
+    example: 'AWS Certified Solutions Architect - Associate (SAA-C03)!: Scaling and Decoupling Architectures'
   })
-  title: string
+  title!: string
 
   @ApiProperty({ example: '' })
   @IsString()
@@ -36,12 +36,12 @@ class CourseItem {
 
   @ApiProperty({ example: '100000' })
   @IsNumber()
-  price: number
+  price!: number
 
   @ApiProperty({
     example: ContentStatus.draft,
     enum: ContentStatus
   })
   @IsEnum(ContentStatus)
-  status: ContentStatus
+  status!: ContentStatus
 }

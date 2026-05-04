@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { ContentStatus } from '@prisma/client'
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsInt, Min } from 'class-validator'
-import { Type } from 'class-transformer'
+import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator'
 
 export class CreateChapterDto {
   @ApiPropertyOptional({
@@ -32,22 +31,6 @@ export class CreateChapterDto {
   title!: string
 
   @ApiPropertyOptional({
-    description: 'Mô tả ngắn',
-    example: 'Giới thiệu về khóa học'
-  })
-  @IsString()
-  @IsOptional()
-  short_description?: string
-
-  @ApiPropertyOptional({
-    description: 'Mô tả chi tiết',
-    example: 'Chapter này giới thiệu tổng quan về khóa học...'
-  })
-  @IsString()
-  @IsOptional()
-  long_description?: string
-
-  @ApiPropertyOptional({
     description: 'Trạng thái chapter',
     enum: ContentStatus,
     default: ContentStatus.draft
@@ -55,15 +38,4 @@ export class CreateChapterDto {
   @IsEnum(ContentStatus)
   @IsOptional()
   status?: ContentStatus
-
-  @ApiPropertyOptional({
-    description: 'Thứ tự sắp xếp',
-    example: 1,
-    type: Number
-  })
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @IsOptional()
-  sort_order?: number
 }

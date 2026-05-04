@@ -43,10 +43,12 @@ export class CourseService {
         progress: course.progress,
         user: creatorInfo
           ? {
+              id: course.owner_id,
               name: creatorInfo.name,
               avt_url: creatorInfo.avt_url
             }
           : {
+              id: course.owner_id,
               name: '',
               avt_url: ''
             }

@@ -21,12 +21,4 @@ export class UserController {
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return ApiResponse.OkResponse(await this.userService.update(id, updateUserDto), 'User updated successfully')
   }
-
-  @Patch(':id/password')
-  async updatePassword(@Param('id') id: string, @Body() updatePassword: UpdateUserPasswordDto) {
-    return ApiResponse.OkResponse(
-      await this.userService.updatePassword(id, updatePassword),
-      'Password updated successfully'
-    )
-  }
 }

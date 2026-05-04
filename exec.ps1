@@ -76,7 +76,37 @@ switch ($Action) {
             )
         }
     }
+    "test" {
+        Write-Host "--- STARTING MICROSERVICES ---" -ForegroundColor Green
 
+        # BUG FIX 1: Removed the duplicate outer `foreach ($service in $nodeServices)` wrapper
+
+        foreach ($service in $nodeServices) {
+            Write-Host "Launching $service in a new window..." -ForegroundColor Gray
+            $servicePath = Join-Path $rootDir $service
+            Start-Process powershell -ArgumentList @(
+                "-NoExit",
+                "-Command",
+                "Set-Location -LiteralPath '$servicePath'; doppler run -- npm run test"
+            )
+        }
+    }
+
+    "coverage" {
+        Write-Host "--- STARTING MICROSERVICES ---" -ForegroundColor Green
+
+        # BUG FIX 1: Removed the duplicate outer `foreach ($service in $nodeServices)` wrapper
+
+        foreach ($service in $nodeServices) {
+            Write-Host "Launching $service in a new window..." -ForegroundColor Gray
+            $servicePath = Join-Path $rootDir $service
+            Start-Process powershell -ArgumentList @(
+                "-NoExit",
+                "-Command",
+                "Set-Location -LiteralPath '$servicePath'; doppler run -- npm run test:cov"
+            )
+        }
+    }
     # BUG FIX 3: Moved Default outside of "run" block — it was nested inside it before
     Default {
         Write-Host "Unknown action: $Action. Use 'init' or 'run'." -ForegroundColor Red

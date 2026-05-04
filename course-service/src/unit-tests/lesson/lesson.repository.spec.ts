@@ -36,13 +36,13 @@ const baseChapter = {
 const makeLessonItem = (overrides = {}) => ({
   id: 1n,
   item_type: 'lesson',
+  status: 'published',
+  duration: 30,
   sort_order: 1,
   quiz_id: null,
   lesson: {
     id: 10n,
     title: 'Lesson 1',
-    status: 'published',
-    duration: 30,
     short_description: 'short',
     long_description: 'long'
   },
@@ -102,7 +102,7 @@ describe('LessonRepository', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             title: 'Lesson 1',
-            duration: 30,
+            thumbnail_url: 'thumb',
             resources: [1n, 2n]
           })
         })
@@ -112,6 +112,7 @@ describe('LessonRepository', () => {
           data: expect.objectContaining({
             chapter_id: 100n,
             item_type: 'lesson',
+            duration: 30,
             sort_order: 1
           })
         })
@@ -125,7 +126,7 @@ describe('LessonRepository', () => {
 
       await repository.create(makeDto({ duration: undefined }))
 
-      expect(tx.lesson.create).toHaveBeenCalledWith(
+      expect(tx.chapterItem.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ duration: 0 }) })
       )
     })
@@ -173,8 +174,9 @@ describe('LessonRepository', () => {
       mockPrisma.chapterItem.findMany.mockResolvedValue([
         {
           id: 1n,
+          status: 'published',
           sort_order: 1,
-          lesson: { id: 10n, title: 'Lesson 1', status: 'published' },
+          lesson: { id: 10n, title: 'Lesson 1' },
           chapter: { id: 100n, title: 'Chapter 1', course_id: 1000n }
         }
       ])
@@ -214,12 +216,14 @@ describe('LessonRepository', () => {
       mockPrisma.chapterItem.findMany.mockResolvedValue([
         {
           id: 1n,
+          status: 'published',
           sort_order: 1,
-          lesson: { id: 10n, title: 'Lesson 1', status: 'published' },
+          lesson: { id: 10n, title: 'Lesson 1' },
           chapter: { id: 100n, title: 'Chapter 1', course_id: 1000n }
         },
         {
           id: 2n,
+          status: 'published',
           sort_order: 2,
           lesson: null,
           chapter: { id: 100n, title: 'Chapter 1', course_id: 1000n }
@@ -300,8 +304,6 @@ describe('LessonRepository', () => {
           lesson: {
             id: 10n,
             title: 'Lesson',
-            status: 'published',
-            duration: 30,
             short_description: null,
             long_description: null
           }
@@ -319,10 +321,9 @@ describe('LessonRepository', () => {
         makeLessonItem({
           item_type: 'lab',
           lesson: null,
+          duration: 60,
           lab: {
             title: 'Lab 1',
-            status: 'published',
-            duration: 60,
             short_description: 'lab short',
             long_description: 'lab long',
             leaseTemplateId: 'template-123'
@@ -349,10 +350,9 @@ describe('LessonRepository', () => {
         makeLessonItem({
           item_type: 'lab',
           lesson: null,
+          duration: 60,
           lab: {
             title: 'Lab 1',
-            status: 'published',
-            duration: 60,
             short_description: null,
             long_description: null,
             leaseTemplateId: null
@@ -371,6 +371,7 @@ describe('LessonRepository', () => {
           item_type: 'quiz',
           lesson: null,
           quiz_id: 200n,
+          duration: 0,
           quiz: {
             title: 'Quiz 1',
             description: 'Quiz desc',

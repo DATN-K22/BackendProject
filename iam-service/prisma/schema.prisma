@@ -82,6 +82,7 @@ model EventExceptionDate {
 enum UserRole {
   user
   admin
+  teacher
 
   @@schema("iam_service")
 }

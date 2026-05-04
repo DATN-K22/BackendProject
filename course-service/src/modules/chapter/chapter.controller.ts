@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger'
 import { ChapterService } from './chapter.service'
 import { CreateChapterDto } from './dto/create-chapter.dto'
 import { UpdateChapterDto } from './dto/update-chapter.dto'
+import { UpdateChapterOrderDto } from './dto/update-chapter-order.dto'
 import { ApiResponse as ApiSwaggerResponse } from '../../utils/dto/ApiResponse'
 @ApiTags('Chapters')
 @Controller('chapters')
@@ -44,6 +45,13 @@ export class ChapterController {
   @ApiResponse({ status: 404, description: 'Không tìm thấy chapter' })
   findOne(@Param('id') id: string) {
     return this.chapterService.findOne(id)
+  }
+
+  @Patch(':course_id/order')
+  @ApiOperation({ summary: 'Cập nhật thứ tự sắp xếp chapters' })
+  @ApiResponse({ status: 200, description: 'Thứ tự sắp xếp được cập nhật thành công' })
+  updateOrder(@Param('course_id') course_id: string, @Body() dto: UpdateChapterOrderDto) {
+    return this.chapterService.updateOrder(course_id, dto)
   }
 
   @Patch(':id')

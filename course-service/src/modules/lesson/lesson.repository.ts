@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common'
-import { Prisma } from '@prisma/client'
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { ChapterItemType, Prisma } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { CreateLessonDto } from './dto/create-lesson.dto'
 import { UpdateLessonDto } from './dto/update-lesson.dto'
+import { UpdateLessonOrderItemDto } from './dto/update-chapter-order.dto'
 
 @Injectable()
 export class LessonRepository {
@@ -11,30 +12,131 @@ export class LessonRepository {
   async create(dto: CreateLessonDto) {
     return this.prismaService.$transaction(async (tx) => {
       const chapterId = BigInt(dto.chapter_id)
-      const lesson = await tx.lesson.create({
+      const nextSortOrder = await this.getNextSortOrder(tx, chapterId)
+      const itemType = dto.lessonType ?? ChapterItemType.lesson
+
+      let lessonId: bigint | null = null
+      let labId: bigint | null = null
+      let quizId: bigint | null = null
+
+      if (itemType === ChapterItemType.lesson) {
+        const lesson = await tx.lesson.create({
+          data: {
+            resources: this.mapResources(dto.resources),
+            is_free: dto.is_free ?? false
+          }
+        })
+        lessonId = lesson.id
+      }
+
+      if (itemType === ChapterItemType.lab) {
+        const lab = await tx.lab.create({
+          data: {
+            resources: this.mapResources(dto.resources),
+            leaseTemplateId: dto.leaseTemplateId,
+            instruction: dto.instruction
+          }
+        })
+        labId = lab.id
+      }
+
+      if (itemType === ChapterItemType.quiz) {
+        const quiz = await tx.quiz.create({
+          data: {
+            quiz_questions:
+              dto.questions && dto.questions.length > 0
+                ? {
+                    create: dto.questions.map((question) => ({
+                      question_text: question.question_text,
+                      questionType: question.questionType,
+                      quiz_options:
+                        question.options && question.options.length > 0
+                          ? {
+                              create: question.options.map((option) => ({
+                                option_text: option.option_text,
+                                is_correct: option.is_correct,
+                                description: option.description ?? '',
+                                reason: option.reason ?? ''
+                              }))
+                            }
+                          : undefined
+                    }))
+                  }
+                : undefined
+          }
+        })
+        quizId = quiz.id
+      }
+
+      const chapterItem = await tx.chapterItem.create({
         data: {
+          chapter_id: chapterId,
+          item_type: itemType,
+          status: dto.status,
           title: dto.title,
           short_description: dto.short_description,
           long_description: dto.long_description,
-          thumbnail_url: dto.thumbnail_url,
-          status: dto.status,
           duration: dto.duration ?? 0,
-          resources: dto.resources ? dto.resources.map((r) => BigInt(r)) : []
+          sort_order: dto.sort_order ?? nextSortOrder,
+          lesson_id: lessonId,
+          lab_id: labId,
+          quiz_id: quizId
+        },
+        include: {
+          chapter: {
+            select: {
+              id: true,
+              title: true,
+              course_id: true
+            }
+          },
+          lesson: true,
+          lab: true,
+          quiz: true
         }
       })
 
-      const nextSortOrder = await this.getNextSortOrder(tx, chapterId)
+      return this.toGeneralItem(chapterItem)
+    })
+  }
 
-      await tx.chapterItem.create({
-        data: {
-          chapter_id: chapterId,
-          item_type: 'lesson',
-          lesson_id: lesson.id,
-          sort_order: dto.sort_order ?? nextSortOrder
-        }
+  async updateLessonOrder(courseId: string, chapterId: string, lessons: UpdateLessonOrderItemDto[]) {
+    const existingItems = await this.prismaService.chapterItem.findMany({
+      where: {
+        id: { in: lessons.map((l) => BigInt(l.lesson_id)) }
+      },
+      select: { id: true, chapter_id: true }
+    })
+
+    if (existingItems.length !== lessons.length) {
+      throw new NotFoundException('One or more lessons not found')
+    }
+
+    const belongsToOtherChapter = existingItems.some((item) => item.chapter_id.toString() !== chapterId)
+    if (belongsToOtherChapter) {
+      throw new BadRequestException('All lessons must belong to the specified chapter')
+    }
+
+    return await this.prismaService.$transaction(async (tx) => {
+      const chapter = await tx.chapter.findFirst({
+        where: { id: BigInt(chapterId), course_id: BigInt(courseId) }
       })
+      if (!chapter) throw new NotFoundException('Chapter not found for the given course')
 
-      return lesson
+      const TEMP_OFFSET = 1_000_000
+      for (const l of lessons) {
+        await tx.chapterItem.update({
+          where: { id: BigInt(l.lesson_id) },
+          data: { sort_order: l.sort_order + TEMP_OFFSET }
+        })
+      }
+
+      for (const l of lessons) {
+        await tx.chapterItem.update({
+          where: { id: BigInt(l.lesson_id) },
+          data: { sort_order: l.sort_order }
+        })
+      }
     })
   }
 
@@ -45,7 +147,6 @@ export class LessonRepository {
       skip,
       take,
       where: {
-        item_type: 'lesson',
         ...(chapterId ? { chapter_id: chapterId } : {})
       },
       orderBy: [{ sort_order: 'asc' }, { id: 'asc' }],
@@ -57,22 +158,13 @@ export class LessonRepository {
             course_id: true
           }
         },
-        lesson: true
+        lesson: true,
+        lab: true,
+        quiz: true
       }
     })
 
-    return items
-      .filter((item) => item.lesson)
-      .map((item) => ({
-        ...item.lesson,
-        type: 'lesson',
-        sort_order: item.sort_order,
-        chapter: {
-          id: item.chapter.id,
-          title: item.chapter.title,
-          course_id: item.chapter.course_id
-        }
-      }))
+    return items.map((item) => this.toGeneralItem(item))
   }
 
   async getChapterItemByIdWithValidateUserEnrollment(itemId: string, userId: string) {
@@ -115,13 +207,15 @@ export class LessonRepository {
       const lesson = chapterItem.lesson
       return {
         id: chapterItem.id.toString(),
-        title: lesson.title,
-        status: lesson.status,
+        title: chapterItem.title,
+        status: chapterItem.status,
         type: 'lesson' as const,
         sort_order: chapterItem.sort_order,
-        short_description: lesson.short_description ?? '',
-        long_description: lesson.long_description ?? '',
-        duration: lesson.duration,
+        short_description: chapterItem.short_description ?? '',
+        long_description: chapterItem.long_description ?? '',
+        duration: chapterItem.duration,
+        is_free: lesson.is_free,
+        resources: (lesson.resources ?? []).map((resourceId) => resourceId.toString()),
         chapter,
         isFinished
       }
@@ -131,14 +225,16 @@ export class LessonRepository {
       const lab = chapterItem.lab
       return {
         id: chapterItem.id.toString(),
-        title: lab.title,
-        status: lab.status,
+        title: chapterItem.title,
+        status: chapterItem.status,
         type: 'lab' as const,
         sort_order: chapterItem.sort_order,
-        short_description: lab.short_description ?? '',
-        long_description: lab.long_description ?? '',
-        duration: lab.duration,
+        short_description: chapterItem.short_description ?? '',
+        long_description: chapterItem.long_description ?? '',
+        duration: chapterItem.duration,
         leaseTemplateId: lab.leaseTemplateId ?? undefined,
+        instruction: lab.instruction ?? undefined,
+        resources: (lab.resources ?? []).map((resourceId) => resourceId.toString()),
         chapter,
         isFinished
       }
@@ -151,13 +247,13 @@ export class LessonRepository {
 
       return {
         id: chapterItem.id.toString(),
-        title: quiz.title,
-        status: 'published' as const,
+        title: chapterItem.title,
+        status: chapterItem.status,
         type: 'quiz' as const,
         sort_order: chapterItem.sort_order,
-        short_description: quiz.description ?? '',
-        long_description: quiz.description ?? '',
-        duration: 0,
+        short_description: chapterItem.short_description ?? '',
+        long_description: chapterItem.long_description ?? '',
+        duration: chapterItem.duration,
         chapter,
         isFinished,
         questions: quiz.quiz_questions.map((q) => ({
@@ -193,32 +289,119 @@ export class LessonRepository {
 
   update(id: string, dto: UpdateLessonDto) {
     return this.prismaService.$transaction(async (tx) => {
-      const data: Prisma.LessonUpdateInput = {
+      const chapterItemId = BigInt(id)
+      const chapterItem = await tx.chapterItem.findUnique({
+        where: { id: chapterItemId },
+        select: {
+          id: true,
+          item_type: true,
+          lesson_id: true,
+          lab_id: true,
+          quiz_id: true
+        }
+      })
+
+      if (!chapterItem) {
+        throw new NotFoundException('Chapter item not found')
+      }
+
+      if (dto.lessonType && dto.lessonType !== chapterItem.item_type) {
+        throw new BadRequestException('Cannot change chapter item type')
+      }
+
+      const chapterItemData: Prisma.ChapterItemUncheckedUpdateInput = {
+        ...(dto.chapter_id ? { chapter_id: BigInt(dto.chapter_id) } : {}),
         ...(dto.title !== undefined ? { title: dto.title } : {}),
         ...(dto.short_description !== undefined ? { short_description: dto.short_description } : {}),
         ...(dto.long_description !== undefined ? { long_description: dto.long_description } : {}),
-        ...(dto.thumbnail_url !== undefined ? { thumbnail_url: dto.thumbnail_url } : {}),
-        ...(dto.status !== undefined ? { status: dto.status } : {}),
+        ...(dto.sort_order !== undefined ? { sort_order: dto.sort_order } : {}),
         ...(dto.duration !== undefined ? { duration: dto.duration } : {}),
-        ...(dto.resources ? { resources: dto.resources.map((r) => BigInt(r)) } : {})
+        ...(dto.status !== undefined ? { status: dto.status } : {})
       }
 
-      const lesson = await tx.lesson.update({
-        where: { id: BigInt(id) },
-        data
-      })
-
-      if (dto.chapter_id || dto.sort_order !== undefined) {
+      if (Object.keys(chapterItemData).length > 0) {
         await tx.chapterItem.update({
-          where: { lesson_id: BigInt(id) },
+          where: { id: chapterItemId },
+          data: chapterItemData
+        })
+      }
+
+      if (chapterItem.item_type === ChapterItemType.lesson && chapterItem.lesson_id) {
+        const lessonData: Prisma.LessonUncheckedUpdateInput = {
+          ...(dto.resources !== undefined ? { resources: this.mapResources(dto.resources) } : {}),
+          ...(dto.is_free !== undefined ? { is_free: dto.is_free } : {})
+        }
+
+        if (Object.keys(lessonData).length > 0) {
+          await tx.lesson.update({
+            where: { id: chapterItem.lesson_id },
+            data: lessonData
+          })
+        }
+      }
+
+      if (chapterItem.item_type === ChapterItemType.lab && chapterItem.lab_id) {
+        const labData: Prisma.LabUncheckedUpdateInput = {
+          ...(dto.resources !== undefined ? { resources: this.mapResources(dto.resources) } : {}),
+          ...(dto.leaseTemplateId !== undefined ? { leaseTemplateId: dto.leaseTemplateId } : {}),
+          ...(dto.instruction !== undefined ? { instruction: dto.instruction } : {})
+        }
+
+        if (Object.keys(labData).length > 0) {
+          await tx.lab.update({
+            where: { id: chapterItem.lab_id },
+            data: labData
+          })
+        }
+      }
+
+      if (chapterItem.item_type === ChapterItemType.quiz && chapterItem.quiz_id && dto.questions !== undefined) {
+        await tx.quiz.update({
+          where: { id: chapterItem.quiz_id },
           data: {
-            ...(dto.chapter_id ? { chapter_id: BigInt(dto.chapter_id) } : {}),
-            ...(dto.sort_order !== undefined ? { sort_order: dto.sort_order } : {})
+            quiz_questions: {
+              deleteMany: {},
+              create: dto.questions.map((question) => ({
+                question_text: question.question_text,
+                questionType: question.questionType,
+                quiz_options:
+                  question.options && question.options.length > 0
+                    ? {
+                        create: question.options.map((option) => ({
+                          option_text: option.option_text,
+                          is_correct: option.is_correct,
+                          description: option.description ?? '',
+                          reason: option.reason ?? ''
+                        }))
+                      }
+                    : undefined
+              }))
+            }
           }
         })
       }
 
-      return lesson
+      const updatedItem = await tx.chapterItem.findUnique({
+        where: { id: chapterItemId },
+        include: {
+          chapter: {
+            select: {
+              id: true,
+              title: true,
+              course_id: true
+            }
+          },
+          lesson: true,
+          lab: true,
+          quiz: true
+        }
+      })
+
+      if (!updatedItem) {
+        throw new NotFoundException('Chapter item not found')
+      }
+
+      return this.toGeneralItem(updatedItem)
     })
   }
 
@@ -253,9 +436,80 @@ export class LessonRepository {
   }
 
   remove(id: string) {
-    return this.prismaService.lesson.delete({
-      where: { id: BigInt(id) }
+    return this.prismaService.$transaction(async (tx) => {
+      const chapterItemId = BigInt(id)
+      const chapterItem = await tx.chapterItem.findUnique({
+        where: { id: chapterItemId },
+        select: {
+          id: true,
+          item_type: true,
+          lesson_id: true,
+          lab_id: true,
+          quiz_id: true
+        }
+      })
+
+      if (!chapterItem) {
+        throw new NotFoundException('Chapter item not found')
+      }
+
+      if (chapterItem.item_type === ChapterItemType.lesson && chapterItem.lesson_id) {
+        await tx.lesson.delete({ where: { id: chapterItem.lesson_id } })
+      } else if (chapterItem.item_type === ChapterItemType.lab && chapterItem.lab_id) {
+        await tx.lab.delete({ where: { id: chapterItem.lab_id } })
+      } else if (chapterItem.item_type === ChapterItemType.quiz && chapterItem.quiz_id) {
+        await tx.quiz.delete({ where: { id: chapterItem.quiz_id } })
+      } else {
+        await tx.chapterItem.delete({ where: { id: chapterItemId } })
+      }
+
+      return { id: chapterItemId.toString() }
     })
+  }
+
+  private toGeneralItem(item: {
+    id: bigint
+    item_type: ChapterItemType
+    title: string
+    short_description: string | null
+    long_description: string | null
+    status: any
+    sort_order: number
+    duration: number
+    chapter: { id: bigint; title: string; course_id: bigint | null }
+    lesson: { resources: bigint[]; is_free: boolean } | null
+    lab: { resources: bigint[]; leaseTemplateId: string | null; instruction: string | null } | null
+    quiz: { id: bigint } | null
+  }) {
+    return {
+      id: item.id.toString(),
+      title: item.title,
+      short_description: item.short_description ?? '',
+      long_description: item.long_description ?? '',
+      status: item.status,
+      type: item.item_type,
+      sort_order: item.sort_order,
+      duration: item.duration,
+      chapter: {
+        id: item.chapter.id,
+        title: item.chapter.title,
+        course_id: item.chapter.course_id
+      },
+      resources:
+        item.item_type === ChapterItemType.lesson && item.lesson
+          ? (item.lesson.resources ?? []).map((resourceId) => resourceId.toString())
+          : item.item_type === ChapterItemType.lab && item.lab
+            ? (item.lab.resources ?? []).map((resourceId) => resourceId.toString())
+            : [],
+      is_free: item.item_type === ChapterItemType.lesson ? (item.lesson?.is_free ?? false) : undefined,
+      leaseTemplateId: item.item_type === ChapterItemType.lab ? (item.lab?.leaseTemplateId ?? undefined) : undefined,
+      instruction: item.item_type === ChapterItemType.lab ? (item.lab?.instruction ?? undefined) : undefined,
+      quiz_id: item.item_type === ChapterItemType.quiz ? item.quiz?.id.toString() : undefined
+    }
+  }
+
+  private mapResources(resources?: string[]): bigint[] {
+    return resources ? resources.map((resourceId) => BigInt(resourceId)) : []
   }
 
   private async getNextSortOrder(tx: Prisma.TransactionClient, chapterId: bigint): Promise<number> {

@@ -3,6 +3,7 @@ import { CreateLessonDto } from './dto/create-lesson.dto'
 import { UpdateLessonDto } from './dto/update-lesson.dto'
 import { MediaClient } from '../media-service/MediaClient'
 import { LessonRepository } from './lesson.repository'
+import { UpdateLessonOrderDto } from './dto/update-chapter-order.dto'
 
 @Injectable()
 export class LessonService {
@@ -17,6 +18,10 @@ export class LessonService {
 
   create(dto: CreateLessonDto) {
     return this.lessonRepository.create(dto)
+  }
+
+  async updateLessonOrder(courseId: string, chapterId: string, dto: UpdateLessonOrderDto) {
+    return await this.lessonRepository.updateLessonOrder(courseId, chapterId, dto.lessons)
   }
 
   findAll(params: { skip?: number; take?: number; chapterId?: bigint }) {

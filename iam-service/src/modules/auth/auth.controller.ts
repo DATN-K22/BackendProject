@@ -10,7 +10,9 @@ import {
   HttpStatus,
   UnauthorizedException,
   Headers,
-  Query
+  Query,
+  Patch,
+  Param
 } from '@nestjs/common'
 import { AuthService } from './auth.service'
 import { AuthRefeshTokenDto, AuthSignInDto, AuthSignUpDto, JtiDto } from './dto/auth.dto'
@@ -18,6 +20,7 @@ import { Request, Response } from 'express'
 import { ApiTags } from '@nestjs/swagger'
 import { ApiResponse } from '../../utils/dto/ApiResponse.dto'
 import { ForgotPasswordDto, OTPDto, OTPVerificationDto } from './dto/otp.dto'
+import { UpdateUserPasswordDto } from '../user/dto/update-user.dto'
 
 @Controller('auth')
 @UsePipes(
@@ -95,5 +98,13 @@ export class AuthController {
     @Headers('x-user-token-exp') tokenExp: number
   ) {
     return ApiResponse.OkResponse(await this.authService.logout(userId, jti, tokenExp))
+  }
+
+  @Patch(':id/password')
+  async updatePassword(@Param('id') id: string, @Body() updatePassword: UpdateUserPasswordDto) {
+    return ApiResponse.OkResponse(
+      await this.authService.updatePassword(id, updatePassword),
+      'Password updated successfully'
+    )
   }
 }

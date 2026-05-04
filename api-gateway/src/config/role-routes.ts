@@ -1,10 +1,10 @@
 // gateway/src/config/role-routes.ts
 
-export type Role = 'Admin' | 'teacher' | 'User';
+export type Role = 'Admin' | 'Teacher' | 'User';
 
 export interface RoleRoute {
   path: RegExp;
-  method: string; // 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT' | '*'
+  method: string;
   roles: Role[];
   description?: string;
 }
@@ -14,106 +14,150 @@ export const roleRoutes: RoleRoute[] = [
   // COURSE SERVICE (/api/courses/*)
   // ==========================================
 
-  // Xóa course → chỉ Admin
+  // ---------- COURSE ----------
   {
     path: /^\/api\/courses\/course\/[^/]+$/,
     method: 'DELETE',
-    roles: ['Admin'],
+    roles: ['Admin', 'Teacher'],
     description: 'Delete course',
   },
 
-  // Tạo chapter, lesson, forum → Admin + teacher
+  // ---------- CREATE (Admin + Teacher) ----------
   {
     path: /^\/api\/courses\/chapters$/,
     method: 'POST',
-    roles: ['Admin', 'teacher'],
+    roles: ['Admin', 'Teacher'],
     description: 'Create chapter',
   },
   {
     path: /^\/api\/courses\/lessons$/,
     method: 'POST',
-    roles: ['Admin', 'teacher'],
+    roles: ['Admin', 'Teacher'],
     description: 'Create lesson',
   },
   {
     path: /^\/api\/courses\/forums$/,
     method: 'POST',
-    roles: ['Admin', 'teacher'],
+    roles: ['Admin', 'Teacher'],
     description: 'Create forum',
   },
+  {
+    path: /^\/api\/courses\/quizzes$/,
+    method: 'POST',
+    roles: ['Admin', 'Teacher'],
+    description: 'Create quiz',
+  },
+  {
+    path: /^\/api\/courses\/labs$/,
+    method: 'POST',
+    roles: ['Admin', 'Teacher'],
+    description: 'Create lab',
+  },
 
-  // Cập nhật / xóa chapter → Admin + teacher
+  // ---------- CHAPTER ----------
   {
     path: /^\/api\/courses\/chapters\/[^/]+$/,
     method: 'PATCH',
-    roles: ['Admin', 'teacher'],
+    roles: ['Admin', 'Teacher'],
     description: 'Update chapter',
   },
   {
     path: /^\/api\/courses\/chapters\/[^/]+$/,
     method: 'DELETE',
-    roles: ['Admin', 'teacher'],
+    roles: ['Admin', 'Teacher'],
     description: 'Delete chapter',
   },
 
-  // Xóa lesson → Admin + teacher
+  // ---------- LESSON ----------
+  {
+    path: /^\/api\/courses\/lessons\/[^/]+$/,
+    method: 'PATCH',
+    roles: ['Admin', 'Teacher'],
+    description: 'Update lesson',
+  },
   {
     path: /^\/api\/courses\/lessons\/[^/]+$/,
     method: 'DELETE',
-    roles: ['Admin', 'teacher'],
+    roles: ['Admin', 'Teacher'],
     description: 'Delete lesson',
   },
 
-  // Cập nhật / xóa forum → Admin + teacher
+  // ---------- QUIZ ----------
+  {
+    path: /^\/api\/courses\/quizzes\/[^/]+$/,
+    method: 'PATCH',
+    roles: ['Admin', 'Teacher'],
+    description: 'Update quiz',
+  },
+  {
+    path: /^\/api\/courses\/quizzes\/[^/]+$/,
+    method: 'DELETE',
+    roles: ['Admin', 'Teacher'],
+    description: 'Delete quiz',
+  },
+
+  // ---------- LAB ----------
+  {
+    path: /^\/api\/courses\/labs\/[^/]+$/,
+    method: 'PATCH',
+    roles: ['Admin', 'Teacher'],
+    description: 'Update lab',
+  },
+  {
+    path: /^\/api\/courses\/labs\/[^/]+$/,
+    method: 'DELETE',
+    roles: ['Admin', 'Teacher'],
+    description: 'Delete lab',
+  },
+
+  // ---------- FORUM ----------
   {
     path: /^\/api\/courses\/forums\/[^/]+$/,
     method: 'PATCH',
-    roles: ['Admin', 'teacher'],
+    roles: ['Admin', 'Teacher'],
     description: 'Update forum',
   },
   {
     path: /^\/api\/courses\/forums\/[^/]+$/,
     method: 'DELETE',
-    roles: ['Admin', 'teacher'],
+    roles: ['Admin', 'Teacher'],
     description: 'Delete forum',
   },
 
-  // Xóa message → Admin + teacher (mod forum)
+  // ---------- MESSAGE (forum moderation) ----------
   {
     path: /^\/api\/courses\/messages\/[^/]+$/,
     method: 'DELETE',
-    roles: ['Admin', 'teacher'],
+    roles: ['Admin', 'Teacher'],
     description: 'Delete message',
   },
 
   // ==========================================
-  // IAM SERVICE (/api/Users/*)
+  // IAM SERVICE (/api/users/*)
   // ==========================================
 
-  // Schedule: mỗi User quản lý lịch của mình → ownership check tại service
-  // Chỉ cần authenticated, không cần role check ở gateway
+  // No role restriction at gateway (handled by ownership in service)
 
   // ==========================================
   // MEDIA SERVICE (/api/media/*)
   // ==========================================
 
-  // Upload file / presigned URL → Admin + teacher
   {
     path: /^\/api\/media\/files\/presigned-url\/.*$/,
     method: 'GET',
-    roles: ['Admin', 'teacher'],
+    roles: ['Admin', 'Teacher'],
     description: 'Get presigned URL',
   },
   {
     path: /^\/api\/media\/files$/,
     method: 'POST',
-    roles: ['Admin', 'teacher', 'User'],
+    roles: ['Admin', 'Teacher', 'User'],
     description: 'Save file record',
   },
   {
     path: /^\/api\/media\/files\/[^/]+$/,
     method: 'DELETE',
-    roles: ['Admin', 'teacher'],
+    roles: ['Admin', 'Teacher'],
     description: 'Delete file',
   },
 ];

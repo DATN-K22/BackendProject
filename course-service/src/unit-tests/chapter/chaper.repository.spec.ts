@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service'
 const mockPrisma = {
   chapter: {
     create: jest.fn(),
+    aggregate: jest.fn(),
     findMany: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
@@ -33,35 +34,43 @@ describe('ChapterRepository', () => {
     it('should convert string foreign key ids to bigint', async () => {
       const dto = { title: 'Chapter 1', course_id: '10', resource_id: '20' } as any
       const created = { id: 1n, ...dto, course_id: 10n, resource_id: 20n }
+      mockPrisma.chapter.aggregate.mockResolvedValue({ _max: { sort_order: 0 } })
       mockPrisma.chapter.create.mockResolvedValue(created)
 
       const result = await repository.create(dto)
 
       expect(mockPrisma.chapter.create).toHaveBeenCalledWith({
-        data: { ...dto, course_id: 10n, resource_id: 20n }
+        data: {
+          title: 'Chapter 1',
+          sort_order: 1,
+          course: { connect: { id: 10n } },
+          resource_id: 20n
+        }
       })
       expect(result).toEqual(created)
     })
 
     it('should set course_id to null when not provided', async () => {
       const dto = { title: 'Chapter 1' } as any
+      mockPrisma.chapter.aggregate.mockResolvedValue({ _max: { sort_order: null } })
       mockPrisma.chapter.create.mockResolvedValue({ id: 1n, ...dto })
 
       await repository.create(dto)
 
       expect(mockPrisma.chapter.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ course_id: null, resource_id: null })
+        data: expect.objectContaining({ sort_order: 1, course: undefined, resource_id: null })
       })
     })
 
     it('should set resource_id to null when not provided', async () => {
       const dto = { title: 'Chapter 1', course_id: '10' } as any
+      mockPrisma.chapter.aggregate.mockResolvedValue({ _max: { sort_order: 5 } })
       mockPrisma.chapter.create.mockResolvedValue({ id: 1n })
 
       await repository.create(dto)
 
       expect(mockPrisma.chapter.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ course_id: 10n, resource_id: null })
+        data: expect.objectContaining({ sort_order: 6, course: { connect: { id: 10n } }, resource_id: null })
       })
     })
   })
@@ -94,8 +103,9 @@ describe('ChapterRepository', () => {
           sort_order: 1,
           chapterItems: [
             {
+              status: 'published',
               sort_order: 2,
-              lesson: { id: 11n, title: 'Lesson 1', status: 'published' }
+              lesson: { id: 11n, title: 'Lesson 1' }
             }
           ]
         }
@@ -123,8 +133,8 @@ describe('ChapterRepository', () => {
           status: 'published',
           sort_order: 1,
           chapterItems: [
-            { sort_order: 1, lesson: { id: 11n, title: 'Lesson 1', status: 'published' } },
-            { sort_order: 2, lesson: null }
+            { status: 'published', sort_order: 1, lesson: { id: 11n, title: 'Lesson 1' } },
+            { status: 'published', sort_order: 2, lesson: null }
           ]
         }
       ])
@@ -173,8 +183,9 @@ describe('ChapterRepository', () => {
         sort_order: 1,
         chapterItems: [
           {
+            status: 'published',
             sort_order: 1,
-            lesson: { id: 11n, title: 'Lesson 1', status: 'published' }
+            lesson: { id: 11n, title: 'Lesson 1' }
           }
         ]
       })
@@ -202,8 +213,8 @@ describe('ChapterRepository', () => {
         status: 'published',
         sort_order: 1,
         chapterItems: [
-          { sort_order: 1, lesson: { id: 11n, title: 'Lesson 1', status: 'published' } },
-          { sort_order: 2, lesson: null }
+          { status: 'published', sort_order: 1, lesson: { id: 11n, title: 'Lesson 1' } },
+          { status: 'published', sort_order: 2, lesson: null }
         ]
       })
 
@@ -306,11 +317,11 @@ describe('ChapterRepository', () => {
             {
               id: 101n,
               item_type: 'lesson',
+              status: 'published',
+              duration: 30,
               sort_order: 1,
               lesson: {
                 title: 'Published',
-                status: 'published',
-                duration: 30,
                 short_description: 'short',
                 long_description: 'long',
                 resources: []
@@ -322,11 +333,11 @@ describe('ChapterRepository', () => {
             {
               id: 102n,
               item_type: 'lesson',
+              status: 'draft',
+              duration: 20,
               sort_order: 2,
               lesson: {
                 title: 'Draft',
-                status: 'draft',
-                duration: 20,
                 short_description: null,
                 long_description: null,
                 resources: []
@@ -357,11 +368,11 @@ describe('ChapterRepository', () => {
             {
               id: 101n,
               item_type: 'lesson',
+              status: 'published',
+              duration: 30,
               sort_order: 1,
               lesson: {
                 title: 'Published',
-                status: 'published',
-                duration: 30,
                 short_description: null,
                 long_description: null,
                 resources: []
@@ -373,11 +384,11 @@ describe('ChapterRepository', () => {
             {
               id: 102n,
               item_type: 'lesson',
+              status: 'draft',
+              duration: 20,
               sort_order: 2,
               lesson: {
                 title: 'Draft',
-                status: 'draft',
-                duration: 20,
                 short_description: null,
                 long_description: null,
                 resources: []
@@ -408,6 +419,8 @@ describe('ChapterRepository', () => {
             {
               id: 103n,
               item_type: 'quiz',
+              status: 'published',
+              duration: 0,
               sort_order: 1,
               lesson: null,
               quiz: { title: 'Quiz 1', description: 'Quiz desc' },
@@ -446,13 +459,13 @@ describe('ChapterRepository', () => {
             {
               id: 104n,
               item_type: 'lab',
+              status: 'published',
+              duration: 60,
               sort_order: 1,
               lesson: null,
               quiz: null,
               lab: {
                 title: 'Lab 1',
-                status: 'published',
-                duration: 60,
                 short_description: 'lab short',
                 long_description: 'lab long',
                 resources: [1n, 2n]
@@ -491,13 +504,13 @@ describe('ChapterRepository', () => {
             {
               id: 104n,
               item_type: 'lab',
+              status: 'draft',
+              duration: 60,
               sort_order: 1,
               lesson: null,
               quiz: null,
               lab: {
                 title: 'Lab Draft',
-                status: 'draft',
-                duration: 60,
                 short_description: null,
                 long_description: null,
                 resources: []
@@ -525,11 +538,11 @@ describe('ChapterRepository', () => {
             {
               id: 101n,
               item_type: 'lesson',
+              status: 'published',
+              duration: 30,
               sort_order: 1,
               lesson: {
                 title: 'Done Lesson',
-                status: 'published',
-                duration: 30,
                 short_description: null,
                 long_description: null,
                 resources: []
@@ -559,11 +572,11 @@ describe('ChapterRepository', () => {
             {
               id: 101n,
               item_type: 'lesson',
+              status: 'published',
+              duration: 30,
               sort_order: 1,
               lesson: {
                 title: 'Lesson',
-                status: 'published',
-                duration: 30,
                 short_description: null,
                 long_description: null,
                 resources: [1n, 2n, 3n]
@@ -625,6 +638,7 @@ describe('ChapterRepository', () => {
             {
               id: 105n,
               item_type: 'lesson',
+              status: 'published',
               sort_order: 1,
               lesson: null,
               quiz: null,

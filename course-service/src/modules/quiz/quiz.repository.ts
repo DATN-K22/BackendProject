@@ -1,15 +1,14 @@
-// quiz.repository.ts
-//
-// Design principles applied here:
-//  - Every query uses explicit `select` — no implicit over-fetching.
-//  - `getQuestionWithFeedback` is the single query for both question display
-//    AND answer feedback. This avoids two separate round-trips (getQuestion + getCorrectOption).
-//  - `updateMany` over findFirst+update for session score (1 DB round-trip).
-//  - Access check uses a minimal join — only selects `id`, no eager loading.
-
-import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common'
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException
+} from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service'
 import { SkillLevel } from './dto/skill-level.constant'
+import { QuestionType } from '@prisma/client'
+import { CreateOptionStandaloneDto, CreateQuestionDto, UpdateOptionDto, UpdateQuestionDto } from './dto/quiz.dto'
 
 @Injectable()
 export class QuizRepository {
@@ -47,6 +46,232 @@ export class QuizRepository {
     }
 
     return chapterItem.quiz_id
+  }
+
+  // ─── Question: Get all for a quiz ─────────────────────────────────────────
+
+  async getQuestions(chapterItemId: bigint) {
+    const chapterItem = await this.prismaService.chapterItem.findUnique({
+      where: { id: chapterItemId },
+      select: { quiz_id: true }
+    })
+
+    if (!chapterItem || !chapterItem.quiz_id) {
+      throw new NotFoundException(`Quiz not found for chapterItem ${chapterItemId}`)
+    }
+
+    return this.prismaService.quizQuestion.findMany({
+      where: { quiz_id: chapterItem.quiz_id },
+      include: { quiz_options: true },
+      orderBy: { id: 'asc' }
+    })
+  }
+
+  // ─── Question: Create ─────────────────────────────────────────────────────
+
+  async createQuestion(chapterItemId: bigint, dto: CreateQuestionDto) {
+    // 1. Resolve quiz_id từ chapterItem
+    const chapterItem = await this.prismaService.chapterItem.findUnique({
+      where: { id: chapterItemId },
+      select: {
+        id: true,
+        item_type: true,
+        quiz_id: true
+      }
+    })
+
+    if (!chapterItem) {
+      throw new NotFoundException(`ChapterItem ${chapterItemId} not found`)
+    }
+
+    if (chapterItem.item_type !== 'quiz') {
+      throw new BadRequestException(`ChapterItem ${chapterItemId} is not a quiz`)
+    }
+
+    if (!chapterItem.quiz_id) {
+      throw new NotFoundException(`Quiz not found for chapterItem ${chapterItemId}`)
+    }
+
+    const quizId = chapterItem.quiz_id
+
+    // 2. Validate options
+    if (dto.options && dto.questionType !== QuestionType.FILL_BLANK) {
+      this._validateOptions(dto.questionType, dto.options)
+    }
+
+    // 3. Transaction create
+    try {
+      return await this.prismaService.$transaction(async (tx) => {
+        const question = await tx.quizQuestion.create({
+          data: {
+            quiz_id: quizId,
+            question_text: dto.question_text,
+            questionType: dto.questionType,
+            quiz_options:
+              dto.options && dto.questionType !== QuestionType.FILL_BLANK
+                ? {
+                    create: dto.options.map((o) => ({
+                      option_text: o.option_text,
+                      is_correct: o.is_correct,
+                      description: o.description ?? '',
+                      reason: o.reason ?? ''
+                    }))
+                  }
+                : undefined
+          },
+          include: { quiz_options: true }
+        })
+
+        return question
+      })
+    } catch (err) {
+      this.logger.error('createQuestion failed', err)
+      throw new InternalServerErrorException('Failed to create question')
+    }
+  }
+
+  // ─── Question: Update ─────────────────────────────────────────────────────
+
+  async updateQuestion(questionId: bigint, dto: UpdateQuestionDto) {
+    const existing = await this.prismaService.quizQuestion.findUnique({
+      where: { id: questionId },
+      include: { quiz_options: true }
+    })
+    if (!existing) throw new NotFoundException(`Question ${questionId} not found`)
+
+    // If changing type FROM choice TO FILL_BLANK, warn / clear options
+    const newType = dto.questionType ?? existing.questionType
+
+    try {
+      return await this.prismaService.$transaction(async (tx) => {
+        // If switching to FILL_BLANK, delete all options
+        if (newType === QuestionType.FILL_BLANK && existing.questionType !== QuestionType.FILL_BLANK) {
+          await tx.quizOption.deleteMany({ where: { quiz_question_id: questionId } })
+        }
+
+        return tx.quizQuestion.update({
+          where: { id: questionId },
+          data: {
+            question_text: dto.question_text,
+            questionType: dto.questionType
+          },
+          include: { quiz_options: true }
+        })
+      })
+    } catch (err) {
+      this.logger.error('updateQuestion failed', err)
+      throw new InternalServerErrorException('Failed to update question')
+    }
+  }
+
+  // ─── Question: Delete ─────────────────────────────────────────────────────
+
+  async deleteQuestion(questionId: bigint) {
+    const existing = await this.prismaService.quizQuestion.findUnique({
+      where: { id: questionId }
+    })
+    if (!existing) throw new NotFoundException(`Question ${questionId} not found`)
+
+    // Cascade delete: options are deleted via DB cascade (onDelete: Cascade in schema)
+    await this.prismaService.quizQuestion.delete({ where: { id: questionId } })
+    return { deleted: true, questionId }
+  }
+
+  // ─── Option: Add ──────────────────────────────────────────────────────────
+
+  async addOption(questionId: bigint, dto: CreateOptionStandaloneDto) {
+    const question = await this.prismaService.quizQuestion.findUnique({
+      where: { id: questionId },
+      include: { quiz_options: true }
+    })
+    if (!question) throw new NotFoundException(`Question ${questionId} not found`)
+    if (question.questionType === QuestionType.FILL_BLANK) {
+      throw new BadRequestException('FILL_BLANK questions cannot have options')
+    }
+
+    // For SINGLE_CHOICE: ensure adding a "correct" option doesn't violate constraint
+    if (dto.is_correct && question.questionType === QuestionType.SINGLE_CHOICE) {
+      const existingCorrect = question.quiz_options.filter((o) => o.is_correct)
+      if (existingCorrect.length >= 1) {
+        throw new BadRequestException('SINGLE_CHOICE questions can only have 1 correct answer')
+      }
+    }
+
+    return this.prismaService.quizOption.create({
+      data: {
+        quiz_question_id: questionId,
+        option_text: dto.option_text,
+        is_correct: dto.is_correct,
+        description: dto.description ?? '',
+        reason: dto.reason ?? ''
+      }
+    })
+  }
+
+  // ─── Option: Update ───────────────────────────────────────────────────────
+
+  async updateOption(optionId: bigint, dto: UpdateOptionDto) {
+    const option = await this.prismaService.quizOption.findUnique({
+      where: { id: optionId },
+      include: { quizQuestion: { include: { quiz_options: true } } }
+    })
+    if (!option) throw new NotFoundException(`Option ${optionId} not found`)
+
+    const question = option.quizQuestion
+
+    // Validate correct count for SINGLE_CHOICE if toggling is_correct
+    if (dto.is_correct === true && question.questionType === QuestionType.SINGLE_CHOICE) {
+      const otherCorrect = question.quiz_options.filter((o) => o.is_correct && o.id !== optionId)
+      if (otherCorrect.length >= 1) {
+        throw new BadRequestException('SINGLE_CHOICE can only have 1 correct answer. Unmark the existing one first.')
+      }
+    }
+
+    return this.prismaService.quizOption.update({
+      where: { id: optionId },
+      data: {
+        option_text: dto.option_text,
+        is_correct: dto.is_correct,
+        description: dto.description,
+        reason: dto.reason
+      }
+    })
+  }
+
+  // ─── Option: Delete ───────────────────────────────────────────────────────
+
+  async deleteOption(optionId: bigint) {
+    const option = await this.prismaService.quizOption.findUnique({
+      where: { id: optionId },
+      include: { quizQuestion: { include: { quiz_options: true } } }
+    })
+    if (!option) throw new NotFoundException(`Option ${optionId} not found`)
+
+    const question = option.quizQuestion
+
+    // Prevent removing last correct answer in MULTI_CHOICE
+    if (option.is_correct && question.questionType === QuestionType.MULTI_CHOICE) {
+      const correctCount = question.quiz_options.filter((o) => o.is_correct).length
+      if (correctCount <= 1) {
+        throw new BadRequestException('MULTI_CHOICE must retain at least 1 correct answer')
+      }
+    }
+
+    await this.prismaService.quizOption.delete({ where: { id: optionId } })
+    return { deleted: true, optionId }
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  private _validateOptions(type: QuestionType, options: { is_correct: boolean }[]) {
+    const correctCount = options.filter((o) => o.is_correct).length
+
+    if (type === QuestionType.SINGLE_CHOICE && correctCount !== 1) {
+      throw new BadRequestException('SINGLE_CHOICE must have exactly 1 correct answer')
+    }
+    if (type === QuestionType.MULTI_CHOICE && correctCount < 1) {
+      throw new BadRequestException('MULTI_CHOICE must have at least 1 correct answer')
+    }
   }
 
   // ─── Access ──────────────────────────────────────────────────────────────────
@@ -220,7 +445,7 @@ export class QuizRepository {
 
     return this.prismaService.quiz.findUnique({
       where: { id: quizId },
-      select: { id: true, title: true, description: true } // no time_limit (removed)
+      select: { id: true } // no time_limit (removed)
     })
   }
 
@@ -261,7 +486,7 @@ export class QuizRepository {
     return result
   }
 
-  async getQuizHistory(userId: string, chapterItemId: string, limit?: number, offset?: number) {
+  async getQuizHistory(userId: string, chapterItemId: string, limit: number = 10, offset: number = 0) {
     const quizId = await this.getQuizIdFromChapterItemId(chapterItemId)
 
     return this.prismaService.quizSession.findMany({

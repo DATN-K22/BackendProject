@@ -38,13 +38,16 @@ const SECRET_CACHE = new Map<string, CachedSecret>();
 const SECRET_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 function buildSmClient(config: ConfigService): SecretsManagerClient {
-  return new SecretsManagerClient({
-    region: config.getOrThrow<string>('AWS_REGION'),
-    credentials: {
-      accessKeyId: config.getOrThrow<string>('AWS_ACCESS_KEY'),
-      secretAccessKey: config.getOrThrow<string>('AWS_SECRET_KEY'),
-    },
-  });
+  const region = config.getOrThrow<string>('AWS_REGION');
+  const accessKeyId = config.get<string>('AWS_ACCESS_KEY');
+  const secretAccessKey = config.get<string>('AWS_SECRET_KEY');
+
+  const credentials =
+    accessKeyId && secretAccessKey
+      ? { accessKeyId, secretAccessKey }
+      : undefined;
+
+  return new SecretsManagerClient({ region, credentials });
 }
 
 function parseSecretString(raw: string): string {
@@ -85,6 +88,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
   const server = app.getHttpAdapter().getInstance();
+
+  server.get('/gateway/health', (_req, res) => {
+    res.status(200).json({ status: 'ok' });
+  });
 
   const redis = new Redis({
     host: config.get('REDIS_HOST'),
@@ -128,6 +135,7 @@ async function bootstrap() {
 
   const isPublicRoute = (path: string): boolean =>
     path.startsWith('/api/docs') ||
+    path.startsWith('/gateway/health') ||
     (path.startsWith('/api/users/auth') && !path.endsWith('/logout')) ||
     path.startsWith('/api/orchestrator/health') ||
     path.startsWith('/api/orchestrator/ready') ||

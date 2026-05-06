@@ -1,0 +1,39 @@
+{
+  "family": "datn-api-gateway",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::862087104858:role/ecsTaskExecutionRole",
+  "taskRoleArn":      "arn:aws:iam::862087104858:role/ecsTaskRole",
+  "containerDefinitions": [{
+    "name": "api-gateway",
+    "image": "862087104858.dkr.ecr.ap-southeast-1.amazonaws.com/datn-api-gateway:latest",
+    "portMappings": [
+      { "containerPort": 3000, "protocol": "tcp" }
+    ],
+    "environment": [
+      { "name": "NODE_ENV", "value": "production" },
+      { "name": "PORT", "value": "3000" },
+      { "name": "AWS_REGION", "value": "ap-southeast-1" },
+      { "name": "JWT_SECRET_NAME", "value": "arn:aws:secretsmanager:ap-southeast-1:688412149143:secret:/InnovationSandbox/myisb/Auth/JwtSecret-zOgQ1v" },
+      { "name": "REDIS_HOST", "value": "datn-redis.fqtx7c.0001.apse1.cache.amazonaws.com" },
+      { "name": "REDIS_PORT", "value": "6379" },
+      { "name": "REDIS_PASSWORD", "value": "" },
+      { "name": "COURSE_SERVICE_URL", "value": "http://placeholder" },
+      { "name": "IAM_SERVICE_URL", "value": "http://placeholder" },
+      { "name": "LAB_SERVICE_URL", "value": "http://placeholder" },
+      { "name": "MEDIA_SERVICE_URL", "value": "http://placeholder" },
+      { "name": "ORCHESTRATOR_SERVICE_URL", "value": "http://placeholder" }
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "/ecs/datn-api-gateway",
+        "awslogs-region": "ap-southeast-1",
+        "awslogs-stream-prefix": "ecs"
+      }
+    },
+    "essential": true
+  }]
+}

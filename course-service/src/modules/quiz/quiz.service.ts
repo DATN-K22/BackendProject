@@ -1,15 +1,3 @@
-// quiz.service.ts
-//
-// Learning model contract:
-//  1. takeQuiz      → returns current question (options only, no answers)
-//  2. submitAnswer  → returns full feedback: isCorrect, correctOptionId,
-//                     explanation for correct answer, reason for every option,
-//                     skill estimate, progress, and the NEXT question if any.
-//  3. getQuizOverview → returns quiz meta + history (no heavy analytics)
-//
-// The user never sees a timer or a score during the quiz.
-// Skill level is shown on completion or as a soft hint ("keep going!"), not as pressure.
-
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { QuizRepository } from './quiz.repository'
 import { RedisCacheService } from '../redis/redis-cache.service'

@@ -9,7 +9,7 @@ on:
       - "iam-service/Dockerfile"
       - "iam-service/package*.json"
       - "iam-service/prisma/**"
-      - "iam-service/task-definition-iam.json"
+      - "iam-service/task-definition-iam-service.json"
 
 env:
   AWS_REGION: ap-southeast-1
@@ -58,7 +58,7 @@ jobs:
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: iam-service/task-definition-iam.json
+          task-definition: iam-service/task-definition-iam-service.json
           container-name: ${{ env.CONTAINER_NAME }}
           image: ${{ steps.build-image.outputs.image }}
 

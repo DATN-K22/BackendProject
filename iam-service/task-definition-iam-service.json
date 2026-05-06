@@ -1,0 +1,48 @@
+{
+  "family": "datn-iam-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::862087104858:role/ecsTaskExecutionRole",
+  "taskRoleArn":      "arn:aws:iam::862087104858:role/ecsTaskRole",
+  "containerDefinitions": [{
+    "name": "iam-service",
+    "image": "862087104858.dkr.ecr.ap-southeast-1.amazonaws.com/datn-iam-service:latest",
+    "portMappings": [{ "containerPort": 3001, "protocol": "tcp" }],
+    "environment": [
+      { "name": "NODE_ENV",                          "value": "production" },
+      { "name": "PORT",                              "value": "3001" },
+      { "name": "AWS_REGION",                        "value": "ap-southeast-1" },
+      { "name": "DATABASE_URL",                      "value": "postgresql://dacn:LWarDs25qtfHCW5@datn-2026.postgres.database.azure.com:5432/datn?schema=iam_service&sslmode=require" },
+      { "name": "REDIS_HOST",                        "value": "datn-redis.fqtx7c.0001.apse1.cache.amazonaws.com" },
+      { "name": "REDIS_PORT",                        "value": "6379" },
+      { "name": "REDIS_PASSWORD",                    "value": "" },
+      { "name": "JWT_SECRET_NAME",                   "value": "arn:aws:secretsmanager:ap-southeast-1:688412149143:secret:/InnovationSandbox/myisb/Auth/JwtSecret-zOgQ1v" },
+      { "name": "JWT_ACCESS_TOKEN_SECRET",           "value": "SAME_AS_JWT_SECRET" },
+      { "name": "JWT_ACCESS_TOKEN_EXPIRATION",       "value": "15m" },
+      { "name": "JWT_REFRESH_TOKEN_SECRET",          "value": "YOUR_REFRESH_SECRET" },
+      { "name": "JWT_REFRESH_TOKEN_EXPIRATION",      "value": "7d" },
+      { "name": "JWT_REFRESH_TOKEN_EXPIRES_IN_SECONDS", "value": "604800" },
+      { "name": "MESSAGE_BROKER_PROVIDER",           "value": "rabbitmq" },
+      { "name": "MESSAGE_BROKER_URL",                "value": "amqps://sqvtiphg:llHMMroZ3pfRMpm6H5x6qSVnbQWkkZq2@chameleon.lmq.cloudamqp.com/sqvtiphg" },
+      { "name": "SECRET_MANAGEMENT_SERVICE",         "value": "aws-secrets-manager" }
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group":         "/ecs/datn-iam-service",
+        "awslogs-region":        "ap-southeast-1",
+        "awslogs-stream-prefix": "ecs"
+      }
+    },
+    "healthCheck": {
+      "command": ["CMD-SHELL", "wget -qO- http://localhost:3001/health-iam || exit 1"],
+      "interval": 30,
+      "timeout": 10,
+      "retries": 3,
+      "startPeriod": 60
+    },
+    "essential": true
+  }]
+}

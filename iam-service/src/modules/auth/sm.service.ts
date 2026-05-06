@@ -17,13 +17,13 @@ export class AwsSecretService implements OnModuleInit, ISecretManagementService 
   private cache = new Map<string, CachedSecret>()
 
   constructor(private readonly configService: ConfigService) {
-    this.client = new SecretsManagerClient({
-      region: this.configService.getOrThrow<string>('AWS_REGION'),
-      credentials: {
-        accessKeyId: this.configService.getOrThrow<string>('AWS_ACCESS_KEY'),
-        secretAccessKey: this.configService.getOrThrow<string>('AWS_SECRET_KEY')
-      }
-    })
+    const region = configService.getOrThrow<string>('AWS_REGION')
+    const accessKeyId = configService.get<string>('AWS_ACCESS_KEY')
+    const secretAccessKey = configService.get<string>('AWS_SECRET_KEY')
+
+    const credentials = accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : undefined
+
+    this.client = new SecretsManagerClient({ region, credentials })
   }
 
   async onModuleInit() {

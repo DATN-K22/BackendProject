@@ -1,0 +1,80 @@
+{
+    "Services": [
+        {
+            "Id": "srv-cutztehrtwyfx6wm",
+            "Arn": "arn:aws:servicediscovery:ap-southeast-1:862087104858:service/srv-cutztehrtwyfx6wm",
+            "Name": "course-service",
+            "Type": "DNS_HTTP",
+            "DnsConfig": {
+                "RoutingPolicy": "MULTIVALUE",
+                "DnsRecords": [
+                    {
+                        "Type": "A",
+                        "TTL": 10
+                    }
+                ]
+            },
+            "HealthCheckCustomConfig": {
+                "FailureThreshold": 1
+            },
+            "CreateDate": "2026-05-07T01:57:40.278000+00:00"
+        },
+        {
+            "Id": "srv-jdft3zz5gc6b6i3v",
+            "Arn": "arn:aws:servicediscovery:ap-southeast-1:862087104858:service/srv-jdft3zz5gc6b6i3v",
+            "Name": "api-gateway",
+            "Type": "DNS_HTTP",
+            "DnsConfig": {
+                "RoutingPolicy": "MULTIVALUE",
+                "DnsRecords": [
+                    {
+                        "Type": "A",
+                        "TTL": 10
+                    }
+                ]
+            },
+            "HealthCheckCustomConfig": {
+                "FailureThreshold": 1
+            },
+            "CreateDate": "2026-05-07T02:07:55.540000+00:00"
+        },
+        {
+            "Id": "srv-r2qagah7ikpn3jjl",
+            "Arn": "arn:aws:servicediscovery:ap-southeast-1:862087104858:service/srv-r2qagah7ikpn3jjl",
+            "Name": "iam-service",
+            "Type": "DNS_HTTP",
+            "DnsConfig": {
+                "RoutingPolicy": "MULTIVALUE",
+                "DnsRecords": [
+                    {
+                        "Type": "A",
+                        "TTL": 10
+                    }
+                ]
+            },
+            "HealthCheckCustomConfig": {
+                "FailureThreshold": 1
+            },
+            "CreateDate": "2026-05-07T01:57:28.867000+00:00"
+        },
+        {
+            "Id": "srv-zi6afwopmydqbg7n",
+            "Arn": "arn:aws:servicediscovery:ap-southeast-1:862087104858:service/srv-zi6afwopmydqbg7n",
+            "Name": "platform-service",
+            "Type": "DNS_HTTP",
+            "DnsConfig": {
+                "RoutingPolicy": "MULTIVALUE",
+                "DnsRecords": [
+                    {
+                        "Type": "A",
+                        "TTL": 10
+                    }
+                ]
+            },
+            "HealthCheckCustomConfig": {
+                "FailureThreshold": 1
+            },
+            "CreateDate": "2026-05-07T01:57:52.108000+00:00"
+        }
+    ]
+}

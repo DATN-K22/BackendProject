@@ -1,0 +1,90 @@
+{
+  "family": "datn-platform-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::862087104858:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::862087104858:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "platform-service",
+      "image": "862087104858.dkr.ecr.ap-southeast-1.amazonaws.com/datn-platform-service:latest",
+      "portMappings": [
+        {
+          "containerPort": 3003,
+          "protocol": "tcp"
+        }
+      ],
+     "environment": [
+        { "name": "AWS_REGION", "value": "ap-southeast-1" },
+
+        { "name": "AWS_S3_INPUT_BUCKET", "value": "" },
+        { "name": "AWS_S3_OUTPUT_BUCKET", "value": "" },
+
+        { "name": "CLIENT_URL", "value": "https://d24dddy9ciqfbd.cloudfront.net" },
+
+        { "name": "CLOUD_PROVIDER", "value": "aws" },
+
+        { "name": "CLOUDFRONT_DISTRIBUTION_DOMAIN", "value": "dgl3d69rlnsz4.cloudfront.net" },
+        { "name": "CLOUDFRONT_KEY_PAIR_ID", "value": "KQCWWBX9833I8" },
+        { "name": "CLOUDFRONT_PRIVATE_KEY", "value": "" },
+
+        { "name": "COURSE_SERVICE_URL", "value": "" },
+
+        {
+          "name": "DATABASE_URL",
+          "value": "postgresql://dacn:LWarDs25qtfHCW5@datn-2026.postgres.database.azure.com:5432/datn?schema=media_service&sslmode=require"
+        },
+
+        { "name": "EMAIL_PASS", "value": "uyaqgzideeatgutp" },
+        { "name": "EMAIL_USER", "value": "son.trannam.bku@gmail.com" },
+
+        { "name": "MESSAGE_BROKER_PROVVIDER", "value": "rabbitmq" },
+        {
+          "name": "MESSAGE_BROKER_URL",
+          "value": "amqps://sqvtiphg:llHMMroZ3pfRMpm6H5x6qSVnbQWkkZq2@chameleon.lmq.cloudamqp.com/sqvtiphg"
+        },
+
+        { "name": "NODE_ENV", "value": "production" },
+
+        { "name": "PAYMENT_PROVIDER", "value": "payos" },
+        { "name": "PAYOS_API_KEY", "value": "f0b7c44d-69d5-4f38-86d1-da97d3fe9cd9" },
+        {
+          "name": "PAYOS_CHECKSUM_KEY",
+          "value": "3f0264cba70631d3c98cc92577d2f957f861e118e3bd14ae76558ed834aca753"
+        },
+        { "name": "PAYOS_CLIENT_ID", "value": "925a33ad-d3fa-498e-86df-98b7d6e68845" },
+        {
+          "name": "PAYOS_WEBHOOK_URL",
+          "value": "https://potentially-participant-style-clarity.trycloudflare.com/payment/webhook"
+        },
+
+        { "name": "PORT", "value": "3003" },
+
+        {
+          "name": "REDIS_HOST",
+          "value": "datn-redis.fqtx7c.0001.apse1.cache.amazonaws.com"
+        },
+        { "name": "REDIS_PASSWORD", "value": "supersecret123" },
+        { "name": "REDIS_PORT", "value": "6379" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/datn-platform-service",
+          "awslogs-region": "ap-southeast-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:3003/ || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "essential": true
+    }
+  ]
+}

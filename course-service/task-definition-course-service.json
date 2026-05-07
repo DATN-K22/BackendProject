@@ -1,0 +1,41 @@
+{
+  "family": "datn-course-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::862087104858:role/ecsTaskExecutionRole",
+  "taskRoleArn":      "arn:aws:iam::862087104858:role/ecsTaskRole",
+  "containerDefinitions": [{
+    "name": "course-service",
+    "image": "862087104858.dkr.ecr.ap-southeast-1.amazonaws.com/datn-course-service:latest",
+    "portMappings": [{ "containerPort": 3002, "protocol": "tcp" }],
+    "environment": [
+      { "name": "NODE_ENV",                          "value": "production" },
+      { "name": "PORT",                              "value": "3002" },
+      { "name": "AWS_REGION",                        "value": "ap-southeast-1" },
+      { "name": "DATABASE_URL",                      "value": "postgresql://dacn:LWarDs25qtfHCW5@datn-2026.postgres.database.azure.com:5432/datn?schema=course_service&sslmode=require" },
+      { "name": "REDIS_HOST",                        "value": "datn-redis.fqtx7c.0001.apse1.cache.amazonaws.com" },
+      { "name": "REDIS_PORT",                        "value": "6379" },
+      { "name": "REDIS_PASSWORD",                    "value": "" },
+      { "name": "IAM_SERVICE_URL",                   "value": "http://172.31.27.1:3001" },
+      { "name": "MEDIA_SERVICE_URL",                 "value": "http://172.31.27.1:3001" }
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group":         "/ecs/datn-course-service",
+        "awslogs-region":        "ap-southeast-1",
+        "awslogs-stream-prefix": "ecs"
+      }
+    },
+    "healthCheck": {
+      "command": ["CMD-SHELL", "wget -qO- http://localhost:3002/health-course || exit 1"],
+      "interval": 30,
+      "timeout": 10,
+      "retries": 3,
+      "startPeriod": 60
+    },
+    "essential": true
+  }]
+}

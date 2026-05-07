@@ -2,9 +2,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as jwt from 'jsonwebtoken';
-import * as swaggerUi from 'swagger-ui-express';
 import { ConfigService } from '@nestjs/config';
-import { getMergedSwagger } from './config/swagger-aggregator';
 import Redis from 'ioredis';
 import { Logger } from '@nestjs/common';
 import { Role, roleRoutes } from './config/role-routes';
@@ -111,27 +109,6 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
-
-  const mergedDoc = await getMergedSwagger(config);
-
-  if (mergedDoc) {
-    mergedDoc.components = mergedDoc.components || {};
-    mergedDoc.components.securitySchemes = {
-      ...(mergedDoc.components.securitySchemes || {}),
-      bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-    };
-    mergedDoc.security = [{ bearerAuth: [] }];
-
-    server.use(
-      '/api/docs',
-      swaggerUi.serve,
-      swaggerUi.setup(mergedDoc, {
-        swaggerOptions: { persistAuthorization: true },
-      }),
-    );
-  } else {
-    Logger.error('Failed to load Swagger documentation', 'Gateway');
-  }
 
   const isPublicRoute = (path: string): boolean =>
     path.startsWith('/api/docs') ||

@@ -16,3 +16,5 @@ rag-ai/google-credentials.json
 recommendation-ai/google-credentials.json
 ingestion/.env
 ingestion/google-credentials.json
+CLAUDE.md
+orchestrator-ai/eval/implementation_plan.md

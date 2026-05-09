@@ -11,6 +11,8 @@ import { MediaModule } from './modules/media-service/media.module'
 import { McpModule } from '@rekog/mcp-nest'
 import { QuizModule } from './modules/quiz/quiz.module'
 import { RedisModule } from './modules/redis/redis.module'
+import { LabModule } from './modules/lab/lab.module'
+import { IsbModule } from './modules/innovation-sandbox/isb.module'
 
 @Module({
   imports: [
@@ -29,7 +31,9 @@ import { RedisModule } from './modules/redis/redis.module'
     IamModule,
     MediaModule,
     QuizModule,
-    RedisModule
+    RedisModule,
+    LabModule,
+    IsbModule
   ],
   controllers: [AppController],
   providers: [AppService]

@@ -14,18 +14,20 @@ import { AwsSecretService } from '../../modules/auth/sm.service'
 
 // ─── Mock ConfigService ───────────────────────────────────────────────────────
 
+const CONFIG: Record<string, string> = {
+  AWS_REGION: 'ap-southeast-1',
+  AWS_ACCESS_KEY: 'mock-access-key',
+  AWS_SECRET_KEY: 'mock-secret-key',
+  JWT_SECRET_NAME: 'jwt-secret'
+}
+
 const mockConfigService = {
   getOrThrow: jest.fn((key: string) => {
-    const config: Record<string, string> = {
-      AWS_REGION: 'ap-southeast-1',
-      AWS_ACCESS_KEY: 'mock-access-key',
-      AWS_SECRET_KEY: 'mock-secret-key',
-      JWT_SECRET_NAME: 'jwt-secret'
-    }
-    const value = config[key]
+    const value = CONFIG[key]
     if (!value) throw new Error(`Missing config: ${key}`)
     return value
-  })
+  }),
+  get: jest.fn((key: string) => CONFIG[key] ?? undefined)
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -95,7 +97,6 @@ describe('AwsSecretService', () => {
 
       const result = await service.getSecret('jwt-secret')
 
-      // jwt_secret absent → fallback to raw JSON string
       expect(result).toBe('{"other_key":"other-value"}')
     })
 
@@ -107,7 +108,7 @@ describe('AwsSecretService', () => {
       expect(result).toBe('plain-string-secret')
     })
 
-    it('should throw when SecretString is empty/undefined', async () => {
+    it('should throw when SecretString is undefined', async () => {
       mockSend.mockResolvedValue({ SecretString: undefined })
 
       await expect(service.getSecret('jwt-secret')).rejects.toThrow(
@@ -137,7 +138,7 @@ describe('AwsSecretService', () => {
       const first = await service.getSecret('jwt-secret')
       const second = await service.getSecret('jwt-secret')
 
-      expect(mockSend).toHaveBeenCalledTimes(1) // chỉ gọi AWS 1 lần
+      expect(mockSend).toHaveBeenCalledTimes(1)
       expect(first).toBe('cached-secret')
       expect(second).toBe('cached-secret')
     })
@@ -145,8 +146,7 @@ describe('AwsSecretService', () => {
     it('should re-fetch from AWS when cache is expired', async () => {
       mockSend.mockResolvedValue({ SecretString: '{"jwt_secret":"fresh-secret"}' })
 
-      // Seed cache với loadedAt đã hết hạn
-      const expiredLoadedAt = Date.now() - 31 * 24 * 60 * 60 * 1000 // 31 ngày trước
+      const expiredLoadedAt = Date.now() - 31 * 24 * 60 * 60 * 1000
       ;(service as any).cache.set('jwt-secret', {
         value: 'stale-secret',
         loadedAt: expiredLoadedAt
@@ -154,12 +154,11 @@ describe('AwsSecretService', () => {
 
       const result = await service.getSecret('jwt-secret')
 
-      expect(mockSend).toHaveBeenCalledTimes(1) // phải gọi lại AWS
+      expect(mockSend).toHaveBeenCalledTimes(1)
       expect(result).toBe('fresh-secret')
     })
 
     it('should NOT re-fetch when cache is still valid', async () => {
-      // Seed cache với loadedAt hợp lệ (1 ngày trước)
       ;(service as any).cache.set('jwt-secret', {
         value: 'valid-cached-secret',
         loadedAt: Date.now() - 24 * 60 * 60 * 1000
@@ -189,7 +188,6 @@ describe('AwsSecretService', () => {
 
   describe('invalidate', () => {
     it('should remove secret from cache', async () => {
-      // Seed cache trước
       ;(service as any).cache.set('jwt-secret', {
         value: 'cached-value',
         loadedAt: Date.now()
@@ -197,12 +195,10 @@ describe('AwsSecretService', () => {
 
       service.invalidate('jwt-secret')
 
-      const cached = (service as any).cache.get('jwt-secret')
-      expect(cached).toBeUndefined()
+      expect((service as any).cache.get('jwt-secret')).toBeUndefined()
     })
 
     it('should force re-fetch from AWS after invalidation', async () => {
-      // Seed cache
       ;(service as any).cache.set('jwt-secret', {
         value: 'old-secret',
         loadedAt: Date.now()
@@ -221,7 +217,7 @@ describe('AwsSecretService', () => {
       expect(() => service.invalidate('nonexistent-secret')).not.toThrow()
     })
 
-    it('should only invalidate the specified secret, not others', async () => {
+    it('should only invalidate the specified secret, not others', () => {
       ;(service as any).cache.set('secret-A', { value: 'value-A', loadedAt: Date.now() })
       ;(service as any).cache.set('secret-B', { value: 'value-B', loadedAt: Date.now() })
 

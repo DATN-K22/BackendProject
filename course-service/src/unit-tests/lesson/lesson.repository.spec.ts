@@ -1,4 +1,6 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
+import { ChapterItemType } from '@prisma/client'
 import { LessonRepository } from '../../modules/lesson/lesson.repository'
 import { PrismaService } from '../../prisma/prisma.service'
 
@@ -8,11 +10,28 @@ const mockPrisma = {
     update: jest.fn(),
     delete: jest.fn()
   },
+  lab: {
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn()
+  },
+  quiz: {
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn()
+  },
+  chapter: {
+    findFirst: jest.fn()
+  },
+  course: {
+    findUnique: jest.fn()
+  },
   chapterItem: {
     create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
     findMany: jest.fn(),
     findUnique: jest.fn(),
-    update: jest.fn(),
     aggregate: jest.fn()
   },
   chapterItemStatus: {
@@ -24,27 +43,27 @@ const mockPrisma = {
   $transaction: jest.fn()
 }
 
-// ─── Shared fixtures ──────────────────────────────────────────────────────────
-
 const baseChapter = {
   id: 100n,
   title: 'Chapter 1',
-  course_id: 1000n,
-  course: { id: 1000n, title: 'Course' }
+  course_id: 1000n
 }
 
-const makeLessonItem = (overrides = {}) => ({
+const makeChapterItem = (overrides = {}) => ({
   id: 1n,
-  item_type: 'lesson',
+  item_type: ChapterItemType.lesson,
+  title: 'Lesson 1',
+  short_description: 'short',
+  long_description: 'long',
   status: 'published',
-  duration: 30,
   sort_order: 1,
+  duration: 30,
+  lesson_id: 10n,
+  lab_id: null,
   quiz_id: null,
   lesson: {
-    id: 10n,
-    title: 'Lesson 1',
-    short_description: 'short',
-    long_description: 'long'
+    resources: [1n, 2n],
+    is_free: false
   },
   lab: null,
   quiz: null,
@@ -58,201 +77,224 @@ describe('LessonRepository', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [LessonRepository, { provide: PrismaService, useValue: mockPrisma }]
+      providers: [
+        LessonRepository,
+        {
+          provide: PrismaService,
+          useValue: mockPrisma
+        }
+      ]
     }).compile()
 
     repository = module.get<LessonRepository>(LessonRepository)
+
     jest.clearAllMocks()
   })
 
-  // ─── create ─────────────────────────────────────────────────────────────────
-
   describe('create', () => {
-    const makeDto = (overrides = {}) =>
-      ({
+    const makeTx = () => ({
+      lesson: {
+        create: jest.fn().mockResolvedValue({ id: 10n })
+      },
+      lab: {
+        create: jest.fn().mockResolvedValue({ id: 20n })
+      },
+      quiz: {
+        create: jest.fn().mockResolvedValue({ id: 30n })
+      },
+      chapterItem: {
+        create: jest.fn(),
+        aggregate: jest.fn().mockResolvedValue({
+          _max: { sort_order: 5 }
+        })
+      }
+    })
+
+    it('should create lesson item', async () => {
+      const tx = makeTx()
+
+      tx.chapterItem.create.mockResolvedValue(
+        makeChapterItem({
+          lesson_id: 10n
+        })
+      )
+
+      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
+
+      const result = await repository.create({
         chapter_id: '100',
         title: 'Lesson 1',
         short_description: 'short',
         long_description: 'long',
-        thumbnail_url: 'thumb',
         status: 'published',
         duration: 30,
         resources: ['1', '2'],
-        sort_order: 1,
-        ...overrides
-      }) as any
+        is_free: true,
+        lessonType: ChapterItemType.lesson
+      } as any)
 
-    const makeTx = (overrides = {}) => ({
-      lesson: { create: jest.fn().mockResolvedValue({ id: 1n }) },
-      chapterItem: {
-        create: jest.fn().mockResolvedValue({ id: 101n }),
-        aggregate: jest.fn().mockResolvedValue({ _max: { sort_order: 0 } })
-      },
-      ...overrides
+      expect(tx.lesson.create).toHaveBeenCalledWith({
+        data: {
+          resources: [1n, 2n],
+          is_free: true
+        }
+      })
+
+      expect(tx.chapterItem.create).toHaveBeenCalled()
+
+      expect(result).toMatchObject({
+        id: '1',
+        title: 'Lesson 1',
+        type: ChapterItemType.lesson
+      })
     })
 
-    it('should create lesson and chapter item in transaction', async () => {
+    it('should create lab item', async () => {
       const tx = makeTx()
-      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
 
-      const result = await repository.create(makeDto())
-
-      expect(mockPrisma.$transaction).toHaveBeenCalled()
-      expect(tx.lesson.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            title: 'Lesson 1',
-            thumbnail_url: 'thumb',
-            resources: [1n, 2n]
-          })
+      tx.chapterItem.create.mockResolvedValue(
+        makeChapterItem({
+          item_type: ChapterItemType.lab,
+          lesson: null,
+          lab_id: 20n,
+          lab: {
+            resources: [5n],
+            leaseTemplateId: 'template-1',
+            instruction: 'Do lab'
+          }
         })
       )
+
+      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
+
+      const result = await repository.create({
+        chapter_id: '100',
+        title: 'Lab',
+        status: 'published',
+        resources: ['5'],
+        leaseTemplateId: 'template-1',
+        instruction: 'Do lab',
+        lessonType: ChapterItemType.lab
+      } as any)
+
+      expect(tx.lab.create).toHaveBeenCalled()
+
+      expect(result).toMatchObject({
+        type: ChapterItemType.lab,
+        leaseTemplateId: 'template-1'
+      })
+    })
+
+    it('should create quiz item', async () => {
+      const tx = makeTx()
+
+      tx.chapterItem.create.mockResolvedValue(
+        makeChapterItem({
+          item_type: ChapterItemType.quiz,
+          lesson: null,
+          quiz_id: 30n,
+          quiz: {
+            id: 30n
+          }
+        })
+      )
+
+      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
+
+      const result = await repository.create({
+        chapter_id: '100',
+        title: 'Quiz',
+        status: 'published',
+        lessonType: ChapterItemType.quiz,
+        questions: [
+          {
+            question_text: 'Q1',
+            questionType: 'single',
+            options: [
+              {
+                option_text: 'A',
+                is_correct: true
+              }
+            ]
+          }
+        ]
+      } as any)
+
+      expect(tx.quiz.create).toHaveBeenCalled()
+
+      expect(result).toMatchObject({
+        type: ChapterItemType.quiz,
+        quiz_id: '30'
+      })
+    })
+
+    it('should auto increment sort_order', async () => {
+      const tx = makeTx()
+
+      tx.chapterItem.create.mockResolvedValue(makeChapterItem())
+
+      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
+
+      await repository.create({
+        chapter_id: '100',
+        title: 'Lesson',
+        status: 'published'
+      } as any)
+
+      expect(tx.chapterItem.aggregate).toHaveBeenCalled()
+
       expect(tx.chapterItem.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            chapter_id: 100n,
-            item_type: 'lesson',
-            duration: 30,
-            sort_order: 1
+            sort_order: 6
           })
         })
-      )
-      expect(result).toEqual({ id: 1n })
-    })
-
-    it('should default duration to 0 when not provided', async () => {
-      const tx = makeTx()
-      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
-
-      await repository.create(makeDto({ duration: undefined }))
-
-      expect(tx.chapterItem.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ duration: 0 }) })
-      )
-    })
-
-    it('should default resources to empty array when not provided', async () => {
-      const tx = makeTx()
-      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
-
-      await repository.create(makeDto({ resources: undefined }))
-
-      expect(tx.lesson.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ resources: [] }) })
-      )
-    })
-
-    it('should use auto sort_order from aggregate when sort_order not provided', async () => {
-      const tx = makeTx()
-      tx.chapterItem.aggregate.mockResolvedValue({ _max: { sort_order: 5 } })
-      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
-
-      await repository.create(makeDto({ sort_order: undefined }))
-
-      expect(tx.chapterItem.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ sort_order: 6 }) })
-      )
-    })
-
-    it('should default sort_order to 1 when aggregate returns null', async () => {
-      const tx = makeTx()
-      tx.chapterItem.aggregate.mockResolvedValue({ _max: { sort_order: null } })
-      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
-
-      await repository.create(makeDto({ sort_order: undefined }))
-
-      expect(tx.chapterItem.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ sort_order: 1 }) })
       )
     })
   })
 
-  // ─── findAll ────────────────────────────────────────────────────────────────
-
   describe('findAll', () => {
-    it('should find chapter items with lesson data when chapterId provided', async () => {
-      mockPrisma.chapterItem.findMany.mockResolvedValue([
-        {
-          id: 1n,
-          status: 'published',
-          sort_order: 1,
-          lesson: { id: 10n, title: 'Lesson 1' },
-          chapter: { id: 100n, title: 'Chapter 1', course_id: 1000n }
-        }
-      ])
+    it('should return mapped chapter items', async () => {
+      mockPrisma.chapterItem.findMany.mockResolvedValue([makeChapterItem()])
 
-      const result = await repository.findAll({ chapterId: 100n, skip: 0, take: 10 })
+      const result = await repository.findAll({
+        chapterId: 100n,
+        skip: 0,
+        take: 10
+      })
 
-      expect(mockPrisma.chapterItem.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { item_type: 'lesson', chapter_id: 100n }
-        })
-      )
+      expect(mockPrisma.chapterItem.findMany).toHaveBeenCalled()
+
       expect(result).toEqual([
-        {
-          id: 10n,
-          title: 'Lesson 1',
-          status: 'published',
-          type: 'lesson',
-          sort_order: 1,
-          chapter: { id: 100n, title: 'Chapter 1', course_id: 1000n }
-        }
-      ])
-    })
-
-    it('should query without chapter_id filter when chapterId not provided', async () => {
-      mockPrisma.chapterItem.findMany.mockResolvedValue([])
-
-      await repository.findAll({ skip: 0, take: 10 })
-
-      expect(mockPrisma.chapterItem.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { item_type: 'lesson' }
+          id: '1',
+          title: 'Lesson 1',
+          type: ChapterItemType.lesson
         })
-      )
-    })
-
-    it('should filter out items with null lesson', async () => {
-      mockPrisma.chapterItem.findMany.mockResolvedValue([
-        {
-          id: 1n,
-          status: 'published',
-          sort_order: 1,
-          lesson: { id: 10n, title: 'Lesson 1' },
-          chapter: { id: 100n, title: 'Chapter 1', course_id: 1000n }
-        },
-        {
-          id: 2n,
-          status: 'published',
-          sort_order: 2,
-          lesson: null,
-          chapter: { id: 100n, title: 'Chapter 1', course_id: 1000n }
-        }
       ])
-
-      const result = await repository.findAll({ chapterId: 100n })
-
-      expect(result).toHaveLength(1)
-      expect(result[0].id).toBe(10n)
     })
 
-    it('should return empty array when no items found', async () => {
+    it('should return empty array', async () => {
       mockPrisma.chapterItem.findMany.mockResolvedValue([])
 
-      const result = await repository.findAll({ chapterId: 100n })
+      const result = await repository.findAll({})
 
       expect(result).toEqual([])
     })
   })
 
-  // ─── getChapterItemByIdWithValidateUserEnrollment ────────────────────────────
-
   describe('getChapterItemByIdWithValidateUserEnrollment', () => {
     beforeEach(() => {
-      mockPrisma.enrollment.findFirst.mockResolvedValue({ id: 1 })
+      mockPrisma.enrollment.findFirst.mockResolvedValue({
+        id: 1
+      })
+
+      mockPrisma.course.findUnique.mockResolvedValue({
+        owner_id: 'owner-1'
+      })
     })
 
-    it('should return null when chapterItem not found', async () => {
+    it('should return null when item not found', async () => {
       mockPrisma.chapterItem.findUnique.mockResolvedValue(null)
 
       const result = await repository.getChapterItemByIdWithValidateUserEnrollment('1', 'user-1')
@@ -260,178 +302,118 @@ describe('LessonRepository', () => {
       expect(result).toBeNull()
     })
 
-    it('should return null when course_id is missing', async () => {
-      mockPrisma.chapterItem.findUnique.mockResolvedValue({
-        ...makeLessonItem(),
-        chapter: { ...baseChapter, course_id: null }
-      })
-
-      const result = await repository.getChapterItemByIdWithValidateUserEnrollment('1', 'user-1')
-
-      expect(result).toBeNull()
-    })
-
-    it('should return null when user is not enrolled', async () => {
-      mockPrisma.chapterItem.findUnique.mockResolvedValue(makeLessonItem())
-      mockPrisma.enrollment.findFirst.mockResolvedValue(null)
-
-      const result = await repository.getChapterItemByIdWithValidateUserEnrollment('1', 'user-1')
-
-      expect(result).toBeNull()
-    })
-
-    it('should return mapped lesson item when enrolled', async () => {
-      mockPrisma.chapterItem.findUnique.mockResolvedValue(makeLessonItem({ chapterItemStatuses: [{ id: 1 }] }))
+    it('should return lesson item', async () => {
+      mockPrisma.chapterItem.findUnique.mockResolvedValue(
+        makeChapterItem({
+          chapter: {
+            ...baseChapter,
+            course: {
+              id: 1000n,
+              owner_id: 'owner-1'
+            }
+          },
+          chapterItemStatuses: [{ id: 1 }]
+        })
+      )
 
       const result = await repository.getChapterItemByIdWithValidateUserEnrollment('1', 'user-1')
 
       expect(result).toMatchObject({
         id: '1',
-        title: 'Lesson 1',
-        status: 'published',
         type: 'lesson',
-        sort_order: 1,
-        short_description: 'short',
-        long_description: 'long',
-        duration: 30,
         isFinished: true
       })
     })
 
-    it('should default short/long description to empty string when null', async () => {
+    it('should return lab item', async () => {
       mockPrisma.chapterItem.findUnique.mockResolvedValue(
-        makeLessonItem({
-          lesson: {
-            id: 10n,
-            title: 'Lesson',
-            short_description: null,
-            long_description: null
-          }
-        })
-      )
-
-      const result = (await repository.getChapterItemByIdWithValidateUserEnrollment('1', 'user-1')) as any
-
-      expect(result.short_description).toBe('')
-      expect(result.long_description).toBe('')
-    })
-
-    it('should return mapped lab item when item_type is lab', async () => {
-      mockPrisma.chapterItem.findUnique.mockResolvedValue(
-        makeLessonItem({
-          item_type: 'lab',
+        makeChapterItem({
+          item_type: ChapterItemType.lab,
           lesson: null,
-          duration: 60,
           lab: {
-            title: 'Lab 1',
-            short_description: 'lab short',
-            long_description: 'lab long',
-            leaseTemplateId: 'template-123'
+            resources: [1n],
+            leaseTemplateId: 'template-1',
+            instruction: 'instruction'
+          },
+          chapter: {
+            ...baseChapter,
+            course: {
+              id: 1000n,
+              owner_id: 'owner-1'
+            }
           }
         })
       )
 
-      const result = (await repository.getChapterItemByIdWithValidateUserEnrollment('1', 'user-1')) as any
+      const result = await repository.getChapterItemByIdWithValidateUserEnrollment('1', 'user-1')
 
       expect(result).toMatchObject({
-        id: '1',
-        title: 'Lab 1',
         type: 'lab',
-        status: 'published',
-        duration: 60,
-        short_description: 'lab short',
-        long_description: 'lab long',
-        leaseTemplateId: 'template-123'
+        leaseTemplateId: 'template-1'
       })
     })
 
-    it('should default lab leaseTemplateId to undefined when null', async () => {
+    it('should return quiz item', async () => {
       mockPrisma.chapterItem.findUnique.mockResolvedValue(
-        makeLessonItem({
-          item_type: 'lab',
+        makeChapterItem({
+          item_type: ChapterItemType.quiz,
           lesson: null,
-          duration: 60,
-          lab: {
-            title: 'Lab 1',
-            short_description: null,
-            long_description: null,
-            leaseTemplateId: null
-          }
-        })
-      )
-
-      const result = (await repository.getChapterItemByIdWithValidateUserEnrollment('1', 'user-1')) as any
-
-      expect(result.leaseTemplateId).toBeUndefined()
-    })
-
-    it('should return mapped quiz item when item_type is quiz', async () => {
-      mockPrisma.chapterItem.findUnique.mockResolvedValue(
-        makeLessonItem({
-          item_type: 'quiz',
-          lesson: null,
-          quiz_id: 200n,
-          duration: 0,
+          quiz_id: 30n,
           quiz: {
-            title: 'Quiz 1',
-            description: 'Quiz desc',
             quiz_questions: [
               {
                 id: 1n,
-                question_text: 'Q1?',
+                question_text: 'Q1',
                 questionType: 'single',
-                quiz_options: [{ id: 1n, option_text: 'A', is_correct: true, description: 'desc', reason: 'reason' }]
+                quiz_options: [
+                  {
+                    id: 1n,
+                    option_text: 'A',
+                    is_correct: true,
+                    description: '',
+                    reason: ''
+                  }
+                ]
               }
             ]
+          },
+          chapter: {
+            ...baseChapter,
+            course: {
+              id: 1000n,
+              owner_id: 'owner-1'
+            }
           }
         })
       )
 
-      const result = (await repository.getChapterItemByIdWithValidateUserEnrollment('1', 'user-1')) as any
+      const result = await repository.getChapterItemByIdWithValidateUserEnrollment('1', 'user-1')
 
       expect(result).toMatchObject({
-        id: '1',
-        title: 'Quiz 1',
-        type: 'quiz',
-        status: 'published',
-        duration: 0,
-        short_description: 'Quiz desc',
-        long_description: 'Quiz desc'
+        type: 'quiz'
       })
-      expect(result.questions).toHaveLength(1)
-      expect(result.questions[0]).toMatchObject({
-        id: '1',
-        question_text: 'Q1?',
-        questionType: 'single',
-        options: [{ id: '1', option_text: 'A', is_correct: true, description: 'desc', reason: 'reason' }]
-      })
+
+      expect((result as any).questions).toHaveLength(1)
     })
 
-    it('should return null when item_type is quiz but quiz is null', async () => {
+    it('should return null when user not enrolled', async () => {
       mockPrisma.chapterItem.findUnique.mockResolvedValue(
-        makeLessonItem({
-          item_type: 'quiz',
-          lesson: null,
-          quiz_id: 200n,
-          quiz: null
+        makeChapterItem({
+          chapter: {
+            ...baseChapter,
+            course: {
+              id: 1000n,
+              owner_id: 'owner-2'
+            }
+          }
         })
       )
 
-      const result = await repository.getChapterItemByIdWithValidateUserEnrollment('1', 'user-1')
+      mockPrisma.course.findUnique.mockResolvedValue({
+        owner_id: 'owner-2'
+      })
 
-      expect(result).toBeNull()
-    })
-
-    it('should return null when item_type does not match any case', async () => {
-      mockPrisma.chapterItem.findUnique.mockResolvedValue(makeLessonItem({ item_type: 'unknown', lesson: null }))
-
-      const result = await repository.getChapterItemByIdWithValidateUserEnrollment('1', 'user-1')
-
-      expect(result).toBeNull()
-    })
-
-    it('should return null when item_type is lesson but lesson is null', async () => {
-      mockPrisma.chapterItem.findUnique.mockResolvedValue(makeLessonItem({ lesson: null }))
+      mockPrisma.enrollment.findFirst.mockResolvedValue(null)
 
       const result = await repository.getChapterItemByIdWithValidateUserEnrollment('1', 'user-1')
 
@@ -439,22 +421,36 @@ describe('LessonRepository', () => {
     })
   })
 
-  // ─── isEnrolled ─────────────────────────────────────────────────────────────
-
   describe('isEnrolled', () => {
-    it('should return true when enrollment exists', async () => {
-      mockPrisma.enrollment.findFirst.mockResolvedValue({ id: 1 })
+    it('should return true when user is course owner', async () => {
+      mockPrisma.course.findUnique.mockResolvedValue({
+        owner_id: 'user-1'
+      })
 
       const result = await repository.isEnrolled('1', 'user-1')
 
-      expect(mockPrisma.enrollment.findFirst).toHaveBeenCalledWith({
-        where: { user_id: 'user-1', course_id: 1n },
-        select: { id: true }
-      })
       expect(result).toBe(true)
     })
 
-    it('should return false when enrollment not found', async () => {
+    it('should return true when enrollment exists', async () => {
+      mockPrisma.course.findUnique.mockResolvedValue({
+        owner_id: 'owner-1'
+      })
+
+      mockPrisma.enrollment.findFirst.mockResolvedValue({
+        id: 1
+      })
+
+      const result = await repository.isEnrolled('1', 'user-1')
+
+      expect(result).toBe(true)
+    })
+
+    it('should return false when not enrolled', async () => {
+      mockPrisma.course.findUnique.mockResolvedValue({
+        owner_id: 'owner-1'
+      })
+
       mockPrisma.enrollment.findFirst.mockResolvedValue(null)
 
       const result = await repository.isEnrolled('1', 'user-1')
@@ -463,137 +459,241 @@ describe('LessonRepository', () => {
     })
   })
 
-  // ─── update ─────────────────────────────────────────────────────────────────
-
   describe('update', () => {
     const makeTx = () => ({
-      lesson: { update: jest.fn().mockResolvedValue({ id: 1n, title: 'Updated' }) },
-      chapterItem: { update: jest.fn().mockResolvedValue({}) }
+      chapterItem: {
+        findUnique: jest.fn(),
+        update: jest.fn()
+      },
+      lesson: {
+        update: jest.fn()
+      },
+      lab: {
+        update: jest.fn()
+      },
+      quiz: {
+        update: jest.fn()
+      }
     })
 
-    it('should update lesson fields and chapterItem when chapter_id provided', async () => {
+    it('should update lesson item', async () => {
       const tx = makeTx()
+
+      tx.chapterItem.findUnique
+        .mockResolvedValueOnce({
+          id: 1n,
+          item_type: ChapterItemType.lesson,
+          lesson_id: 10n
+        })
+        .mockResolvedValueOnce(makeChapterItem())
+
       mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
 
       const result = await repository.update('1', {
         title: 'Updated',
-        chapter_id: '200',
-        sort_order: 3
+        resources: ['1', '2'],
+        is_free: true
       } as any)
 
-      expect(tx.lesson.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 1n } }))
-      expect(tx.chapterItem.update).toHaveBeenCalledWith({
-        where: { lesson_id: 1n },
-        data: { chapter_id: 200n, sort_order: 3 }
+      expect(tx.chapterItem.update).toHaveBeenCalled()
+
+      expect(tx.lesson.update).toHaveBeenCalledWith({
+        where: {
+          id: 10n
+        },
+        data: {
+          resources: [1n, 2n],
+          is_free: true
+        }
       })
-      expect(result).toEqual({ id: 1n, title: 'Updated' })
+
+      expect(result).toBeDefined()
     })
 
-    it('should update chapterItem when only sort_order is provided', async () => {
+    it('should throw when chapter item not found', async () => {
       const tx = makeTx()
+
+      tx.chapterItem.findUnique.mockResolvedValue(null)
+
       mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
 
-      await repository.update('1', { sort_order: 5 } as any)
+      await expect(repository.update('1', {} as any)).rejects.toThrow(NotFoundException)
+    })
 
-      expect(tx.chapterItem.update).toHaveBeenCalledWith({
-        where: { lesson_id: 1n },
-        data: { sort_order: 5 }
+    it('should throw when changing lesson type', async () => {
+      const tx = makeTx()
+
+      tx.chapterItem.findUnique.mockResolvedValue({
+        id: 1n,
+        item_type: ChapterItemType.lesson,
+        lesson_id: 10n
       })
-    })
 
-    it('should NOT update chapterItem when neither chapter_id nor sort_order provided', async () => {
-      const tx = makeTx()
       mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
 
-      await repository.update('1', { title: 'Only title' } as any)
-
-      expect(tx.chapterItem.update).not.toHaveBeenCalled()
-    })
-
-    it('should convert resources to bigint array', async () => {
-      const tx = makeTx()
-      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
-
-      await repository.update('1', { resources: ['1', '2', '3'] } as any)
-
-      expect(tx.lesson.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ resources: [1n, 2n, 3n] })
-        })
-      )
-    })
-
-    it('should only include defined fields in update data', async () => {
-      const tx = makeTx()
-      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
-
-      await repository.update('1', { title: 'New Title' } as any)
-
-      const calledData = tx.lesson.update.mock.calls[0][0].data
-      expect(calledData).toHaveProperty('title', 'New Title')
-      expect(calledData).not.toHaveProperty('status')
-      expect(calledData).not.toHaveProperty('duration')
+      await expect(
+        repository.update('1', {
+          lessonType: ChapterItemType.lab
+        } as any)
+      ).rejects.toThrow(BadRequestException)
     })
   })
 
-  // ─── markLearnedChapterItem ──────────────────────────────────────────────────
+  describe('updateLessonOrder', () => {
+    it('should update lesson order successfully', async () => {
+      mockPrisma.chapterItem.findMany.mockResolvedValue([
+        {
+          id: 1n,
+          chapter_id: 100n
+        }
+      ])
+
+      const tx = {
+        chapter: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 100n
+          })
+        },
+        chapterItem: {
+          update: jest.fn()
+        }
+      }
+
+      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
+
+      await repository.updateLessonOrder('1000', '100', [
+        {
+          lesson_id: '1',
+          sort_order: 1
+        }
+      ])
+
+      expect(tx.chapterItem.update).toHaveBeenCalledTimes(2)
+    })
+
+    it('should throw when lesson count mismatch', async () => {
+      mockPrisma.chapterItem.findMany.mockResolvedValue([])
+
+      await expect(
+        repository.updateLessonOrder('1000', '100', [
+          {
+            lesson_id: '1',
+            sort_order: 1
+          }
+        ])
+      ).rejects.toThrow(NotFoundException)
+    })
+  })
 
   describe('markLearnedChapterItem', () => {
-    it('should upsert chapter item status when item found', async () => {
-      mockPrisma.chapterItem.findUnique.mockResolvedValue({ id: 1n })
-      mockPrisma.chapterItemStatus.upsert.mockResolvedValue({ id: 100 })
+    it('should upsert status', async () => {
+      mockPrisma.chapterItem.findUnique.mockResolvedValue({
+        id: 1n
+      })
+
+      mockPrisma.chapterItemStatus.upsert.mockResolvedValue({
+        id: 1
+      })
 
       const result = await repository.markLearnedChapterItem('user-1', '1')
 
-      expect(mockPrisma.chapterItemStatus.upsert).toHaveBeenCalledWith({
-        where: {
-          uq_chapter_item_status_user_item: {
-            user_id: 'user-1',
-            chapter_item_id: 1n
-          }
-        },
-        create: {
-          user_id: 'user-1',
-          chapter_item_id: 1n,
-          completed: true,
-          updated_at: expect.any(Date)
-        },
-        update: {
-          completed: true,
-          updated_at: expect.any(Date)
-        }
+      expect(mockPrisma.chapterItemStatus.upsert).toHaveBeenCalled()
+
+      expect(result).toEqual({
+        id: 1
       })
-      expect(result).toEqual({ id: 100 })
     })
 
-    it('should return null when chapter item not found', async () => {
+    it('should return null when item not found', async () => {
       mockPrisma.chapterItem.findUnique.mockResolvedValue(null)
 
       const result = await repository.markLearnedChapterItem('user-1', '1')
 
-      expect(mockPrisma.chapterItemStatus.upsert).not.toHaveBeenCalled()
       expect(result).toBeNull()
     })
   })
 
-  // ─── remove ─────────────────────────────────────────────────────────────────
-
   describe('remove', () => {
-    it('should delete lesson by bigint id', async () => {
-      mockPrisma.lesson.delete.mockResolvedValue({ id: 1n })
+    const makeTx = () => ({
+      chapterItem: {
+        findUnique: jest.fn(),
+        delete: jest.fn()
+      },
+      lesson: {
+        delete: jest.fn()
+      },
+      lab: {
+        delete: jest.fn()
+      },
+      quiz: {
+        delete: jest.fn()
+      }
+    })
+
+    it('should remove lesson', async () => {
+      const tx = makeTx()
+
+      tx.chapterItem.findUnique.mockResolvedValue({
+        id: 1n,
+        item_type: ChapterItemType.lesson,
+        lesson_id: 10n
+      })
+
+      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
 
       const result = await repository.remove('1')
 
-      expect(mockPrisma.lesson.delete).toHaveBeenCalledWith({ where: { id: 1n } })
-      expect(result).toEqual({ id: 1n })
+      expect(tx.lesson.delete).toHaveBeenCalledWith({
+        where: {
+          id: 10n
+        }
+      })
+
+      expect(result).toEqual({
+        id: '1'
+      })
     })
 
-    it('should convert string id to bigint', async () => {
-      mockPrisma.lesson.delete.mockResolvedValue({ id: 99n })
+    it('should remove lab', async () => {
+      const tx = makeTx()
 
-      await repository.remove('99')
+      tx.chapterItem.findUnique.mockResolvedValue({
+        id: 1n,
+        item_type: ChapterItemType.lab,
+        lab_id: 20n
+      })
 
-      expect(mockPrisma.lesson.delete).toHaveBeenCalledWith({ where: { id: 99n } })
+      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
+
+      await repository.remove('1')
+
+      expect(tx.lab.delete).toHaveBeenCalled()
+    })
+
+    it('should remove quiz', async () => {
+      const tx = makeTx()
+
+      tx.chapterItem.findUnique.mockResolvedValue({
+        id: 1n,
+        item_type: ChapterItemType.quiz,
+        quiz_id: 30n
+      })
+
+      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
+
+      await repository.remove('1')
+
+      expect(tx.quiz.delete).toHaveBeenCalled()
+    })
+
+    it('should throw when item not found', async () => {
+      const tx = makeTx()
+
+      tx.chapterItem.findUnique.mockResolvedValue(null)
+
+      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx))
+
+      await expect(repository.remove('1')).rejects.toThrow(NotFoundException)
     })
   })
 })

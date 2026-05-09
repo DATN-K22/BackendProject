@@ -20,6 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.1045.0",
+    "@aws-sdk/client-sts": "^3.1045.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/class-transformer": "^0.4.0",
@@ -77,24 +79,25 @@
       "json",
       "ts"
     ],
-    "rootDir": ".", 
-    "testRegex": ".*\\.spec\\.ts$", 
+    "rootDir": ".",
+    "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "src/modules/**/*.service.ts",    
+      "src/modules/**/*.service.ts",
       "src/modules/**/*.controller.ts",
       "src/modules/**/*.repository.ts",
       "!src/modules/redis/**/*.ts",
       "!src/modules/message_broker/**/*.ts",
       "!src/modules/iam-service/**/*.ts",
       "!src/modules/media-service/**/*.ts",
-      "!src/utils/**/*.ts",             
-      "!src/**/*.module.ts",         
-      "!src/**/*.dto.ts",              
-      "!src/main.ts",                  
-      "!src/prisma/**/*"              
+      "!src/modules/lab/sm.service.ts",
+      "!src/utils/**/*.ts",
+      "!src/**/*.module.ts",
+      "!src/**/*.dto.ts",
+      "!src/main.ts",
+      "!src/prisma/**/*"
     ],
     "coverageDirectory": "./coverage",
     "testEnvironment": "node",

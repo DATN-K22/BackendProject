@@ -9,12 +9,7 @@ import {
   MinLength
 } from 'class-validator'
 import { Type } from 'class-transformer'
-
-export enum QuestionType {
-  SINGLE_CHOICE = 'SINGLE_CHOICE',
-  MULTI_CHOICE = 'MULTI_CHOICE',
-  FILL_BLANK = 'FILL_BLANK'
-}
+import { QuestionType } from '@prisma/client'
 
 // DTO: Create Option (nested inside question)
 export class CreateOptionDto {

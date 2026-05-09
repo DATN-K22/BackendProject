@@ -2,7 +2,7 @@
 import { CloudStorageConfig } from './CloudStorageConfig';
 import { S3Client } from '@aws-sdk/client-s3';
 import { S3RequestPresigner } from '@aws-sdk/s3-request-presigner';
-import { Credentials } from '@aws-sdk/types';
+import { AwsCredentialIdentity, AwsCredentialIdentityProvider } from '@aws-sdk/types';
 
 export class S3Config implements CloudStorageConfig {
   private client: S3Client | null = null;
@@ -11,24 +11,26 @@ export class S3Config implements CloudStorageConfig {
   constructor(
     private readonly region: string,
     private readonly accessKey: string,
-    private readonly secretKey: string,
+    private readonly secretKey: string
   ) {}
 
   configure(): void {
-    const credentials: Credentials = {
+    // Determine credentials strategy
+    const credentials: AwsCredentialIdentity | AwsCredentialIdentityProvider = {
+      // Local development: use explicit credentials
       accessKeyId: this.accessKey,
-      secretAccessKey: this.secretKey,
+      secretAccessKey: this.secretKey
     };
 
     this.client = new S3Client({
       region: this.region,
-      credentials,
+      credentials
     });
 
     this.presigner = new S3RequestPresigner({
       region: this.region,
       credentials,
-      sha256: this.client.config.sha256,
+      sha256: this.client.config.sha256
     });
   }
 
@@ -44,5 +46,10 @@ export class S3Config implements CloudStorageConfig {
       throw new Error('S3Presigner is not initialized. Call configure() first.');
     }
     return this.presigner;
+  }
+
+  // Helper method để kiểm tra credential mode
+  isUsingIAMRole(): boolean {
+    return !this.accessKey && !this.secretKey;
   }
 }

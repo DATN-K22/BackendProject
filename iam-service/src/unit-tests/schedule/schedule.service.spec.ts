@@ -141,6 +141,24 @@ describe('ScheduleService', () => {
       await expect(service.createEvent(invalidDto, userId)).rejects.toThrow('Start time must be before the end time')
     })
 
+    it('should throw duplicate UID error when prisma returns P2002', async () => {
+      mockRepository.createEvent.mockRejectedValue({ code: 'P2002' })
+
+      await expect(service.createEvent(dto, userId)).rejects.toThrow('Event with this UID already exists')
+    })
+
+    it('should throw referenced resource error when prisma returns P2003', async () => {
+      mockRepository.createEvent.mockRejectedValue({ code: 'P2003' })
+
+      await expect(service.createEvent(dto, userId)).rejects.toThrow('Referenced resource not found')
+    })
+
+    it('should throw generic create error', async () => {
+      mockRepository.createEvent.mockRejectedValue(new Error('Unexpected'))
+
+      await expect(service.createEvent(dto, userId)).rejects.toThrow('Failed to create event')
+    })
+
     it('should throw BadRequestException for invalid RRULE format', async () => {
       const invalidDto: CreateEventDto = {
         ...dto,
@@ -179,6 +197,57 @@ describe('ScheduleService', () => {
       expect(mockRepository.findEventById).toHaveBeenCalledWith(1n)
       expect(mockRepository.updateEvent).toHaveBeenCalledWith(1n, expect.objectContaining({ title: 'Updated Title' }))
       expect(result.event.title).toBe('Updated Title')
+    })
+
+    it('should throw BadRequestException for invalid update RRULE', async () => {
+      mockRepository.findEventById.mockResolvedValue(mockEvent)
+
+      const invalidDto: UpdateEventDto = {
+        rrule_string: 'FREQ=DAILY'
+      } as UpdateEventDto
+
+      await expect(service.updateEvent(invalidDto, userId, 1n)).rejects.toThrow(
+        'Invalid RRULE format: must start with "RRULE:"'
+      )
+    })
+
+    it('should convert recurrence_id string to Date', async () => {
+      const recurrenceDate = '2024-02-01T10:00:00Z'
+
+      mockRepository.findEventById.mockResolvedValue(mockEvent)
+      mockRepository.updateEvent.mockResolvedValue({
+        ...mockEvent,
+        recurrence_id: new Date(recurrenceDate)
+      })
+
+      await service.updateEvent(
+        {
+          recurrence_id: recurrenceDate
+        } as UpdateEventDto,
+        userId,
+        1n
+      )
+
+      expect(mockRepository.updateEvent).toHaveBeenCalledWith(
+        1n,
+        expect.objectContaining({
+          recurrence_id: new Date(recurrenceDate)
+        })
+      )
+    })
+
+    it('should throw not found when prisma returns P2025', async () => {
+      mockRepository.findEventById.mockResolvedValue(mockEvent)
+      mockRepository.updateEvent.mockRejectedValue({ code: 'P2025' })
+
+      await expect(service.updateEvent(dto, userId, 1n)).rejects.toThrow('Event not found')
+    })
+
+    it('should throw generic update error', async () => {
+      mockRepository.findEventById.mockResolvedValue(mockEvent)
+      mockRepository.updateEvent.mockRejectedValue(new Error('Unknown'))
+
+      await expect(service.updateEvent(dto, userId, 1n)).rejects.toThrow('Failed to update event')
     })
 
     it('should throw NotFoundException when event does not exist', async () => {
@@ -229,6 +298,27 @@ describe('ScheduleService', () => {
       expect(result).toMatchObject({ id: 10n, event_id: 1n })
     })
 
+    it('should throw duplicate exception date error', async () => {
+      mockRepository.findEventById.mockResolvedValue(mockEvent)
+      mockRepository.addExceptionDate.mockRejectedValue({ code: 'P2002' })
+
+      await expect(service.addExDate(dto, userId)).rejects.toThrow('Exception date already exists for this event')
+    })
+
+    it('should throw event not found when prisma returns P2003', async () => {
+      mockRepository.findEventById.mockResolvedValue(mockEvent)
+      mockRepository.addExceptionDate.mockRejectedValue({ code: 'P2003' })
+
+      await expect(service.addExDate(dto, userId)).rejects.toThrow('Event not found')
+    })
+
+    it('should throw generic add exception error', async () => {
+      mockRepository.findEventById.mockResolvedValue(mockEvent)
+      mockRepository.addExceptionDate.mockRejectedValue(new Error('Unknown'))
+
+      await expect(service.addExDate(dto, userId)).rejects.toThrow('Failed to add exception date')
+    })
+
     it('should throw NotFoundException when event not found', async () => {
       mockRepository.findEventById.mockResolvedValue(null)
 
@@ -270,6 +360,20 @@ describe('ScheduleService', () => {
       expect(mockRepository.deleteEvent).toHaveBeenCalledWith(1n)
     })
 
+    it('should throw event not found when delete prisma returns P2025', async () => {
+      mockRepository.findEventById.mockResolvedValue(mockEvent)
+      mockRepository.deleteEvent.mockRejectedValue({ code: 'P2025' })
+
+      await expect(service.deleteEvent(1n, userId)).rejects.toThrow('Event not found')
+    })
+
+    it('should throw generic delete error', async () => {
+      mockRepository.findEventById.mockResolvedValue(mockEvent)
+      mockRepository.deleteEvent.mockRejectedValue(new Error('Unknown'))
+
+      await expect(service.deleteEvent(1n, userId)).rejects.toThrow('Failed to delete event')
+    })
+
     it('should throw NotFoundException when event not found', async () => {
       mockRepository.findEventById.mockResolvedValue(null)
 
@@ -303,6 +407,55 @@ describe('ScheduleService', () => {
         })
       )
       expect(result).toEqual(newEvent)
+    })
+
+    it('should throw invalid RRULE format in modifyThisAndFollow', async () => {
+      mockRepository.findEventById.mockResolvedValueOnce(mockEvent).mockResolvedValueOnce(mockEvent)
+
+      await expect(
+        service.modifyThisAndFollow(
+          1n,
+          recurrenceId,
+          {
+            rrule_string: 'FREQ=DAILY'
+          } as UpdateEventDto,
+          userId
+        )
+      ).rejects.toThrow('Invalid RRULE format: must start with "RRULE:"')
+    })
+
+    it('should throw invalid time range when splitting series', async () => {
+      mockRepository.findEventById.mockResolvedValueOnce(mockEvent).mockResolvedValueOnce(mockEvent)
+
+      await expect(
+        service.modifyThisAndFollow(
+          1n,
+          recurrenceId,
+          {
+            time_start: '2024-02-01T12:00:00Z',
+            time_end: '2024-02-01T10:00:00Z'
+          } as UpdateEventDto,
+          userId
+        )
+      ).rejects.toThrow('Start time must be before the end time')
+    })
+
+    it('should throw not found when splitRecurringSeries returns P2025', async () => {
+      mockRepository.findEventById.mockResolvedValueOnce(mockEvent).mockResolvedValueOnce(mockEvent)
+
+      mockRepository.splitRecurringSeries.mockRejectedValue({ code: 'P2025' })
+
+      await expect(service.modifyThisAndFollow(1n, recurrenceId, updateDto, userId)).rejects.toThrow('Event not found')
+    })
+
+    it('should throw generic modify series error', async () => {
+      mockRepository.findEventById.mockResolvedValueOnce(mockEvent).mockResolvedValueOnce(mockEvent)
+
+      mockRepository.splitRecurringSeries.mockRejectedValue(new Error('Unknown'))
+
+      await expect(service.modifyThisAndFollow(1n, recurrenceId, updateDto, userId)).rejects.toThrow(
+        'Failed to modify this and future events'
+      )
     })
 
     it('should use parent event when currentEvent is a child instance', async () => {

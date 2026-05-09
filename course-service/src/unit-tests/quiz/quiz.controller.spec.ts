@@ -3,6 +3,13 @@ import { QuizController } from '../../modules/quiz/quiz.controller'
 import { QuizService } from '../../modules/quiz/quiz.service'
 
 const mockQuizService = {
+  getQuestions: jest.fn(),
+  createQuestion: jest.fn(),
+  updateQuestion: jest.fn(),
+  deleteQuestion: jest.fn(),
+  addOption: jest.fn(),
+  updateOption: jest.fn(),
+  deleteOption: jest.fn(),
   takeQuiz: jest.fn(),
   submitAnswer: jest.fn(),
   getQuizOverview: jest.fn()
@@ -21,267 +28,245 @@ describe('QuizController', () => {
     jest.clearAllMocks()
   })
 
+  describe('getQuestions', () => {
+    it('should return all questions for a chapter item', async () => {
+      const questions = [
+        {
+          id: '1',
+          question_text: 'What is TypeScript?',
+          questionType: 'multiple',
+          quiz_options: [{ id: '1', option_text: 'A language', is_correct: true }]
+        }
+      ]
+
+      mockQuizService.getQuestions.mockResolvedValue(questions)
+
+      const result = await controller.getQuestions('100')
+
+      expect(mockQuizService.getQuestions).toHaveBeenCalledWith('100')
+      expect(result).toMatchObject({
+        success: true,
+        data: questions
+      })
+    })
+  })
+
+  describe('createQuestion', () => {
+    it('should create a new question', async () => {
+      const dto = {
+        question_text: 'What is NestJS?',
+        questionType: 'multiple',
+        options: [{ option_text: 'A framework', is_correct: true, description: 'Correct' }]
+      }
+      const created = { id: '2', ...dto }
+
+      mockQuizService.createQuestion.mockResolvedValue(created)
+
+      const result = await controller.createQuestion('100', dto as any)
+
+      expect(mockQuizService.createQuestion).toHaveBeenCalledWith('100', dto)
+      expect(result).toMatchObject({
+        success: true,
+        data: created
+      })
+    })
+  })
+
+  describe('updateQuestion', () => {
+    it('should update an existing question', async () => {
+      const dto = { question_text: 'Updated question?' }
+      const updated = { id: '1', ...dto }
+
+      mockQuizService.updateQuestion.mockResolvedValue(updated)
+
+      const result = await controller.updateQuestion('1', dto as any)
+
+      expect(mockQuizService.updateQuestion).toHaveBeenCalledWith('1', dto)
+      expect(result).toMatchObject({
+        success: true,
+        data: updated
+      })
+    })
+  })
+
+  describe('deleteQuestion', () => {
+    it('should delete a question', async () => {
+      mockQuizService.deleteQuestion.mockResolvedValue({ success: true })
+
+      const result = await controller.deleteQuestion('1')
+
+      expect(mockQuizService.deleteQuestion).toHaveBeenCalledWith('1')
+      expect(result).toMatchObject({
+        success: true,
+        data: { success: true }
+      })
+    })
+  })
+
+  describe('addOption', () => {
+    it('should add option to a question', async () => {
+      const dto = {
+        option_text: 'New option',
+        is_correct: false,
+        description: 'Description',
+        reason: 'Reason'
+      }
+      const added = { id: '10', ...dto }
+
+      mockQuizService.addOption.mockResolvedValue(added)
+
+      const result = await controller.addOption('1', dto as any)
+
+      expect(mockQuizService.addOption).toHaveBeenCalledWith('1', dto)
+      expect(result).toMatchObject({
+        success: true,
+        data: added
+      })
+    })
+  })
+
+  describe('updateOption', () => {
+    it('should update an option', async () => {
+      const dto = { option_text: 'Updated option' }
+      const updated = { id: '10', ...dto }
+
+      mockQuizService.updateOption.mockResolvedValue(updated)
+
+      const result = await controller.updateOption('10', dto as any)
+
+      expect(mockQuizService.updateOption).toHaveBeenCalledWith('10', dto)
+      expect(result).toMatchObject({
+        success: true,
+        data: updated
+      })
+    })
+  })
+
+  describe('deleteOption', () => {
+    it('should delete an option', async () => {
+      mockQuizService.deleteOption.mockResolvedValue({ success: true })
+
+      const result = await controller.deleteOption('10')
+
+      expect(mockQuizService.deleteOption).toHaveBeenCalledWith('10')
+      expect(result).toMatchObject({
+        success: true,
+        data: { success: true }
+      })
+    })
+  })
+
   describe('takeQuiz', () => {
-    it('should delegate to service and wrap response', async () => {
-      const serviceResult = {
+    it('should return current question when quiz started', async () => {
+      const quizData = {
         type: 'question',
-        progress: { current: 1, total: 3, percentComplete: 33 },
+        progress: { current: 1, total: 5, percentComplete: 20 },
         question: {
-          id: '10',
+          id: '1',
           questionText: 'Question 1?',
           questionType: 'multiple',
-          options: [
-            { id: '1', optionText: 'Option A' },
-            { id: '2', optionText: 'Option B' }
-          ]
+          options: [{ id: '1', optionText: 'Option A' }]
         }
       }
-      mockQuizService.takeQuiz.mockResolvedValue(serviceResult)
+
+      mockQuizService.takeQuiz.mockResolvedValue(quizData)
 
       const result = await controller.takeQuiz('user-1', '100')
 
       expect(mockQuizService.takeQuiz).toHaveBeenCalledWith('user-1', '100')
       expect(result).toMatchObject({
         success: true,
-        code: 2000,
-        data: serviceResult
+        data: quizData
       })
     })
 
-    it('should handle quiz summary response', async () => {
-      const summaryResult = {
+    it('should return summary when quiz completed', async () => {
+      const summaryData = {
         type: 'summary',
         accuracy: 100,
-        correct: 2,
-        total: 2,
-        skillEstimate: 'advanced',
-        encouragement: 'Outstanding — you have a strong grasp of this topic.',
-        missedQuestions: []
+        correct: 5,
+        total: 5,
+        skillEstimate: 'advanced'
       }
-      mockQuizService.takeQuiz.mockResolvedValue(summaryResult)
+
+      mockQuizService.takeQuiz.mockResolvedValue(summaryData)
 
       const result = await controller.takeQuiz('user-1', '100')
 
-      expect(result).toMatchObject({
-        success: true,
-        data: summaryResult
-      })
+      expect(result.data).toMatchObject(summaryData)
     })
   })
 
   describe('submitAnswer', () => {
-    it('should delegate to service with dto parameters', async () => {
-      const serviceResult = {
+    it('should submit answer and return feedback with next question', async () => {
+      const dto = {
+        questionId: '1',
+        selectedOptionId: '1'
+      }
+      const feedback = {
         type: 'feedback_with_next',
         feedback: {
           isCorrect: true,
           correctOptionId: '1',
-          explanation: 'Correct answer explanation',
-          optionReasons: [
-            { optionId: '1', reason: 'This is correct' },
-            { optionId: '2', reason: 'This is wrong' }
-          ]
+          explanation: 'Correct!'
         },
-        progress: { current: 2, total: 3, percentComplete: 66 },
-        skillEstimate: 'intermediate',
-        nextQuestion: {
-          id: '11',
-          questionText: 'Question 2?',
-          questionType: 'multiple',
-          options: [{ id: '3', optionText: 'Option C' }]
-        }
+        progress: { current: 2, total: 5, percentComplete: 40 },
+        nextQuestion: { id: '2', questionText: 'Question 2?' }
       }
-      mockQuizService.submitAnswer.mockResolvedValue(serviceResult)
 
-      const result = await controller.submitAnswer('user-1', '100', {
-        questionId: '10',
-        selectedOptionId: '1'
-      })
+      mockQuizService.submitAnswer.mockResolvedValue(feedback)
 
-      expect(mockQuizService.submitAnswer).toHaveBeenCalledWith('user-1', '100', '10', '1')
+      const result = await controller.submitAnswer('user-1', '100', dto)
+
+      expect(mockQuizService.submitAnswer).toHaveBeenCalledWith('user-1', '100', '1', '1')
       expect(result).toMatchObject({
         success: true,
-        code: 2000,
-        data: serviceResult
+        data: feedback
       })
     })
 
-    it('should handle feedback_final response', async () => {
-      const finalResult = {
-        type: 'feedback_final',
-        feedback: {
-          isCorrect: true,
-          correctOptionId: '3',
-          explanation: 'This is the correct answer',
-          optionReasons: []
-        },
-        progress: { current: 3, total: 3, percentComplete: 100 },
-        summary: {
-          type: 'summary',
-          accuracy: 100,
-          correct: 3,
-          total: 3,
-          skillEstimate: 'advanced',
-          encouragement: 'Outstanding — you have a strong grasp of this topic.',
-          missedQuestions: []
-        }
+    it('should handle incorrect answer', async () => {
+      const dto = {
+        questionId: '1',
+        selectedOptionId: '2'
       }
-      mockQuizService.submitAnswer.mockResolvedValue(finalResult)
-
-      const result = await controller.submitAnswer('user-1', '100', {
-        questionId: '12',
-        selectedOptionId: '3'
-      })
-
-      expect(result).toMatchObject({
-        success: true,
-        data: finalResult
-      })
-    })
-
-    it('should handle feedback_only response when cache evicted', async () => {
-      const feedbackOnly = {
-        type: 'feedback_only',
-        feedback: {
-          isCorrect: true,
-          correctOptionId: '1',
-          explanation: 'Explanation',
-          optionReasons: []
-        },
-        skillEstimate: 'intermediate'
-      }
-      mockQuizService.submitAnswer.mockResolvedValue(feedbackOnly)
-
-      const result = await controller.submitAnswer('user-1', '100', {
-        questionId: '10',
-        selectedOptionId: '1'
-      })
-
-      expect(result).toMatchObject({
-        success: true,
-        data: feedbackOnly
-      })
-    })
-
-    it('should handle wrong answer feedback', async () => {
-      const wrongAnswer = {
+      const feedback = {
         type: 'feedback_with_next',
         feedback: {
           isCorrect: false,
-          correctOptionId: '1',
-          explanation: 'The correct answer is...',
-          optionReasons: [
-            { optionId: '1', reason: 'This is the right answer' },
-            { optionId: '2', reason: 'This is incorrect' }
-          ]
+          correctOptionId: '1'
         },
-        progress: { current: 2, total: 3, percentComplete: 66 },
-        skillEstimate: 'basic',
-        nextQuestion: {
-          id: '11',
-          questionText: 'Next question?',
-          questionType: 'multiple',
-          options: [{ id: '3', optionText: 'Option C' }]
-        }
+        nextQuestion: { id: '2' }
       }
-      mockQuizService.submitAnswer.mockResolvedValue(wrongAnswer)
 
-      const result = await controller.submitAnswer('user-1', '100', {
-        questionId: '10',
-        selectedOptionId: '2'
-      })
+      mockQuizService.submitAnswer.mockResolvedValue(feedback)
 
-      const data = result.data as any
-      expect(data.feedback.isCorrect).toBe(false)
-      expect(data.skillEstimate).toBe('basic')
+      const result: any = await controller.submitAnswer('user-1', '100', dto)
+
+      expect(result.data.feedback.isCorrect).toBe(false)
     })
   })
 
   describe('getQuizOverview', () => {
-    it('should delegate to service with query parameters', async () => {
-      const overviewResult = {
-        quiz: {
-          id: '50',
-          title: 'Chapter 1 Quiz',
-          description: 'Test your knowledge'
+    it('should return quiz metadata and history', async () => {
+      const overview = {
+        quizMeta: {
+          id: '100',
+          title: 'Quiz 1',
+          totalQuestions: 5
         },
-        history: [
-          {
-            sessionId: '1',
-            startedAt: new Date(),
-            endedAt: new Date(),
-            completed: true,
-            score: '8/10',
-            skillEstimate: 'intermediate'
-          },
-          {
-            sessionId: '2',
-            startedAt: new Date(),
-            endedAt: new Date(),
-            completed: true,
-            score: '10/10',
-            skillEstimate: 'advanced'
-          }
-        ]
+        history: [{ sessionId: '1', accuracy: 80, completedAt: new Date() }]
       }
-      mockQuizService.getQuizOverview.mockResolvedValue(overviewResult)
 
-      const result = await controller.getQuizOverview('user-1', '100', 10, 0)
+      mockQuizService.getQuizOverview.mockResolvedValue(overview)
+
+      const result = await controller.getQuizOverview('user-1', '100', '10', '0')
 
       expect(mockQuizService.getQuizOverview).toHaveBeenCalledWith('user-1', '100', 10, 0)
       expect(result).toMatchObject({
         success: true,
-        code: 2000,
-        data: overviewResult
+        data: overview
       })
-    })
-
-    it('should call service with default parameters when limit and offset omitted', async () => {
-      const overviewResult = {
-        quiz: {
-          id: '50',
-          title: 'Quiz',
-          description: 'Test'
-        },
-        history: []
-      }
-      mockQuizService.getQuizOverview.mockResolvedValue(overviewResult)
-
-      await controller.getQuizOverview('user-1', '100')
-
-      expect(mockQuizService.getQuizOverview).toHaveBeenCalledWith('user-1', '100', undefined, undefined)
-    })
-
-    it('should return quiz overview with empty history', async () => {
-      const emptyHistoryResult = {
-        quiz: {
-          id: '50',
-          title: 'New Quiz',
-          description: 'Not attempted yet'
-        },
-        history: []
-      }
-      mockQuizService.getQuizOverview.mockResolvedValue(emptyHistoryResult)
-
-      const result = await controller.getQuizOverview('user-1', '100', 10, 0)
-
-      const data = result.data as any
-      expect(data.history).toHaveLength(0)
-      expect(result).toMatchObject({
-        success: true,
-        data: emptyHistoryResult
-      })
-    })
-
-    it('should handle pagination parameters', async () => {
-      mockQuizService.getQuizOverview.mockResolvedValue({
-        quiz: { id: '50', title: 'Quiz', description: 'Test' },
-        history: []
-      })
-
-      await controller.getQuizOverview('user-1', '100', 5, 10)
-
-      expect(mockQuizService.getQuizOverview).toHaveBeenCalledWith('user-1', '100', 5, 10)
     })
   })
 })

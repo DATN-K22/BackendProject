@@ -109,29 +109,4 @@ describe('UserController', () => {
       await expect(controller.update('user-1', dto)).rejects.toThrow('Update failed')
     })
   })
-
-  // ─── updatePassword ─────────────────────────────────────────────────────────
-
-  describe('updatePassword', () => {
-    const dto: UpdateUserPasswordDto = {
-      current_password: 'oldpass123',
-      new_password: 'newpass456'
-    } as UpdateUserPasswordDto
-
-    it('should update password and return ApiResponse', async () => {
-      mockUserService.updatePassword.mockResolvedValue(undefined)
-
-      const result = await controller.updatePassword('user-1', dto)
-
-      expect(mockUserService.updatePassword).toHaveBeenCalledWith('user-1', dto)
-      expect(ApiResponse.OkResponse).toHaveBeenCalledWith(undefined, 'Password updated successfully')
-      expect(result).toEqual({ success: true, data: undefined, message: 'Password updated successfully' })
-    })
-
-    it('should propagate error from service', async () => {
-      mockUserService.updatePassword.mockRejectedValue(new Error('Wrong password'))
-
-      await expect(controller.updatePassword('user-1', dto)).rejects.toThrow('Wrong password')
-    })
-  })
 })

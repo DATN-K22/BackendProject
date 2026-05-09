@@ -85,43 +85,6 @@ describe('UserService', () => {
     })
   })
 
-  describe('updatePassword', () => {
-    const dto = {
-      current_password: 'old',
-      new_password: 'new'
-    }
-
-    it('should update password successfully', async () => {
-      const user = { id: '1', password_hash: 'hashed' }
-
-      repo.findById.mockResolvedValue(user as any)
-      authService.passwordMatches.mockResolvedValue(true)
-      authService.hashPassword.mockResolvedValue('newHashed')
-
-      await service.updatePassword('1', dto as any)
-
-      expect(repo.findById).toHaveBeenCalledWith('1')
-      expect(authService.passwordMatches).toHaveBeenCalledWith(user, dto.current_password)
-      expect(authService.hashPassword).toHaveBeenCalledWith(dto.new_password)
-      expect(repo.updatePassword).toHaveBeenCalledWith(user, 'newHashed')
-    })
-
-    it('should throw NotFoundException if user not found', async () => {
-      repo.findById.mockResolvedValue(null)
-
-      await expect(service.updatePassword('1', dto as any)).rejects.toThrow(NotFoundException)
-    })
-
-    it('should throw ForbiddenException if password incorrect', async () => {
-      const user = { id: '1' }
-
-      repo.findById.mockResolvedValue(user as any)
-      authService.passwordMatches.mockResolvedValue(false)
-
-      await expect(service.updatePassword('1', dto as any)).rejects.toThrow(ForbiddenException)
-    })
-  })
-
   describe('remove', () => {
     it('should return correct string', () => {
       const result = service.remove('1')

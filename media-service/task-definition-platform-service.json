@@ -19,8 +19,8 @@
      "environment": [
         { "name": "AWS_REGION", "value": "ap-southeast-1" },
 
-        { "name": "AWS_S3_INPUT_BUCKET", "value": "" },
-        { "name": "AWS_S3_OUTPUT_BUCKET", "value": "" },
+        { "name": "AWS_S3_INPUT_BUCKET", "value": "amzn-s3-bucket-datn-input" },
+        { "name": "AWS_S3_OUTPUT_BUCKET", "value": "amzn-s3-bucket-datn-output" },
 
         { "name": "CLIENT_URL", "value": "https://d24dddy9ciqfbd.cloudfront.net" },
 
@@ -30,7 +30,7 @@
         { "name": "CLOUDFRONT_KEY_PAIR_ID", "value": "KQCWWBX9833I8" },
         { "name": "CLOUDFRONT_PRIVATE_KEY", "value": "" },
 
-        { "name": "COURSE_SERVICE_URL", "value": "" },
+        { "name": "COURSE_SERVICE_URL", "value": "http://course-service.local:3002" },
 
         {
           "name": "DATABASE_URL",
@@ -66,7 +66,7 @@
           "name": "REDIS_HOST",
           "value": "datn-redis.fqtx7c.0001.apse1.cache.amazonaws.com"
         },
-        { "name": "REDIS_PASSWORD", "value": "supersecret123" },
+        { "name": "REDIS_PASSWORD", "value": "" },
         { "name": "REDIS_PORT", "value": "6379" }
       ],
       "logConfiguration": {

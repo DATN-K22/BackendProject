@@ -31,6 +31,7 @@ from google.adk.a2a.converters.request_converter import (
     AgentRunRequest,
     convert_a2a_request_to_agent_run_request,
 )
+from google.adk.apps.app import EventsCompactionConfig, App
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -65,7 +66,7 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8080"))
-APP_NAME = "edu-assistant"
+APP_NAME = "course_schedule_helper"
 
 def _convert_request_with_state_bridge(request: RequestContext, part_converter) -> AgentRunRequest:
     run_request = convert_a2a_request_to_agent_run_request(request, part_converter)
@@ -173,9 +174,16 @@ def build_app() -> Starlette:
         redis_password=REDIS_PASSWORD,
     )
     session_backend = "redis"
-
-
     root_agent = create_root_agent()
+
+    app = App(
+        name=APP_NAME,
+        root_agent=root_agent,
+        events_compaction_config=EventsCompactionConfig(
+            compaction_interval=6,  # Trigger compaction every 6 new invocations.
+            overlap_size=2          # Include last invocation from the previous window.
+        )
+    )
 
     runner = Runner(
         agent=root_agent,
@@ -199,7 +207,7 @@ def build_app() -> Starlette:
     async def _setup_a2a(app: Starlette) -> None:
         card_builder = AgentCardBuilder(
             agent=root_agent,
-            rpc_url=f"http://localhost:{PORT}/",
+            rpc_url=f"http://{HOST}:{PORT}/",
         )
         agent_card = await card_builder.build()
         A2AStarletteApplication(

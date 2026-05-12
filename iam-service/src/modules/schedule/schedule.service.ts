@@ -218,14 +218,57 @@ export class ScheduleService {
    */
   async addExDate(dto: CreateEventExceptionDto, user_id: string): Promise<EventExceptionResponseDto> {
     try {
-      const originalEvent = await this.scheduleRepository.findEventById(dto.event_id)
+      const originalEvent = await this.prisma.event.findUnique({
+        where: { id: dto.event_id }
+      })
       await this.AuthorizeEvent(originalEvent, user_id)
       if (!originalEvent?.rrule_string) {
         throw new BadRequestException('Cannot create exception for non-recurring event')
       }
-      return await this.scheduleRepository.addExceptionDate(dto)
-    } catch (error: any) {
-      this.logger.error('Error adding exception date:', error)
+
+      const exceptionDate = new Date(dto.exception_date)
+      return await this.prisma.$transaction(async (tx) => {
+        const modifiedInstance = await tx.event.findFirst({
+          where: {
+            original_event_id: dto.event_id,
+            recurrence_id: exceptionDate
+          }
+        })
+
+        if (modifiedInstance) {
+          await tx.event.delete({
+            where: { id: modifiedInstance.id }
+          })
+        }
+
+        const exDate = await tx.eventExceptionDate.create({
+          data: {
+            exception_date: exceptionDate,
+            reason: dto.reason,
+            event: {
+              connect: { id: dto.event_id }
+            }
+          }
+        })
+        await tx.event.update({
+          where: { id: dto.event_id },
+          data: {
+            sequence: { increment: 1 },
+            updated_at: new Date()
+          }
+        })
+
+        // Normalize nullable fields to match EventExceptionResponseDto
+        return {
+          id: exDate.id,
+          exception_date: exDate.exception_date,
+          // convert null -> undefined for compatibility with DTO
+          reason: exDate.reason ?? undefined,
+          event_id: exDate.event_id
+        } as EventExceptionResponseDto
+      })
+    } catch (error) {
+      console.error('Error adding exception date:', error)
       if (
         error instanceof BadRequestException ||
         error instanceof NotFoundException ||

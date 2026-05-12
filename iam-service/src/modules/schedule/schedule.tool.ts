@@ -96,7 +96,7 @@ function expandOccurrences(
     event: any,
     windowStart: Date,
     windowEnd: Date
-): { start: Date; end: Date; title: string; [key: string]: any }[] {
+): { start: Date; end: Date; title: string;[key: string]: any }[] {
     const duration = new Date(event.time_end).getTime() - new Date(event.time_start).getTime();
 
     if (!event.rrule_string) {
@@ -122,19 +122,20 @@ function expandOccurrences(
     return rule
         .between(windowStart, windowEnd, true)
         .filter(start => !exDates.has(start.toISOString()))
-        .map(start => ({ id: event.id,
-                         title: event.title, 
-                         start, 
-                         end: new Date(start.getTime() + duration) ,
-                         rrule: event.rrule_string
-                      
+        .map(start => ({
+            id: event.id,
+            title: event.title,
+            start,
+            end: new Date(start.getTime() + duration),
+            rrule: event.rrule_string
+
         }));
 }
 
 
 @Injectable()
 export class ScheduleTool {
-    constructor(private readonly scheduleService: ScheduleService){}
+    constructor(private readonly scheduleService: ScheduleService) { }
 
     private requireMutationApproval(approvalStatus: string | undefined): string | null {
         if (!approvalStatus || approvalStatus.toLowerCase() !== "approved") {
@@ -152,7 +153,7 @@ export class ScheduleTool {
             timeZone: z.string().default("Asia/Ho_Chi_Minh")
         }),
     })
-    async getEvents({today, endDate, timeZone}: { today: string; endDate?: string; timeZone: string }, context: any, req: any){
+    async getEvents({ today, endDate, timeZone }: { today: string; endDate?: string; timeZone: string }, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
         const events = await this.scheduleService.getMySchedule(userId);
         const startDateStr = normalizeDateInput(today, timeZone);
@@ -186,12 +187,12 @@ export class ScheduleTool {
                 "Provide exactly one of eventName or eventId"
             ),
     })
-    async getEvent({eventName, eventId}: { eventName?: string; eventId?: string }, context: any, req: any){
+    async getEvent({ eventName, eventId }: { eventName?: string; eventId?: string }, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
         let event: any;
         if (eventId) {
             event = await this.scheduleService.getEventById(BigInt(eventId), userId);
-        } 
+        }
         else if (eventName) {
             event = await this.scheduleService.getEventsByName(eventName, userId)
         }
@@ -223,7 +224,7 @@ export class ScheduleTool {
             original_event_id: z.string().optional().describe("Parent event ID for exception instances"),
         }),
     })
-    async createEvent({approval_status, original_event_id, ...dto }: any, context: any, req: any) {
+    async createEvent({ approval_status, original_event_id, ...dto }: any, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
         const approvalError = this.requireMutationApproval(approval_status);
         if (approvalError) {
@@ -261,7 +262,7 @@ export class ScheduleTool {
             recurrence_id: z.string().optional(),
         }),
     })
-    async updateEvent({approval_status, eventId, userId: _userId, ...dto }: any, context: any, req: any) {
+    async updateEvent({ approval_status, eventId, userId: _userId, ...dto }: any, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
         const approvalError = this.requireMutationApproval(approval_status);
         if (approvalError) {
@@ -284,7 +285,7 @@ export class ScheduleTool {
             eventId: z.string().describe("The numeric ID of the event to delete"),
         }),
     })
-    async deleteEvent({approval_status, eventId }: any, context: any, req: any) {
+    async deleteEvent({ approval_status, eventId }: any, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
         const approvalError = this.requireMutationApproval(approval_status);
         if (approvalError) {
@@ -309,7 +310,7 @@ export class ScheduleTool {
             reason: z.string().optional().describe("Optional reason for skipping this occurrence"),
         }),
     })
-    async addExDate({approval_status, eventId, exception_date, reason }: any, context: any, req: any) {
+    async addExDate({ approval_status, eventId, exception_date, reason }: any, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
         const approvalError = this.requireMutationApproval(approval_status);
         if (approvalError) {
@@ -364,21 +365,16 @@ export class ScheduleTool {
             };
         }
 
-        // Suppress the original occurrence so it doesn't appear alongside the exception event
-        await this.scheduleService.addExDate(
-            { event_id: parentId, exception_date: recurrence_id },
-            userId
-        );
 
         const exceptionEvent = await this.scheduleService.createEvent(
             {
-                title:        updates.title       ?? parent.title,
-                time_start:   updates.time_start  ?? recurrence_id,
-                time_end:     updates.time_end     ?? this.shiftEnd(parent, recurrence_id),
-                description:  updates.description ?? parent.description,
-                location:     updates.location    ?? parent.location,
-                status:       updates.status      ?? parent.status,
-                timezone:     updates.timezone    ?? parent.timezone,
+                title: updates.title ?? parent.title,
+                time_start: updates.time_start ?? recurrence_id,
+                time_end: updates.time_end ?? this.shiftEnd(parent, recurrence_id),
+                description: updates.description ?? parent.description,
+                location: updates.location ?? parent.location,
+                status: updates.status ?? parent.status,
+                timezone: updates.timezone ?? parent.timezone,
                 recurrence_id,
                 original_event_id: parentId,
             } as any,
@@ -414,7 +410,7 @@ export class ScheduleTool {
             rrule_string: z.string().optional(),
         }),
     })
-    async modifyThisAndFollowing({approval_status, eventId, recurrence_id, ...updates }: any, context: any, req: any) {
+    async modifyThisAndFollowing({ approval_status, eventId, recurrence_id, ...updates }: any, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
         const approvalError = this.requireMutationApproval(approval_status);
         if (approvalError) {
@@ -502,7 +498,7 @@ export class ScheduleTool {
                 .filter(occ => occ.start < dayEnd && occ.end > dayStart)
                 .map(occ => ({
                     start: Math.max(occ.start.getTime(), dayStart.getTime()),
-                    end:   Math.min(occ.end.getTime(),   dayEnd.getTime())
+                    end: Math.min(occ.end.getTime(), dayEnd.getTime())
                 }))
                 .sort((a, b) => a.start - b.start);
 

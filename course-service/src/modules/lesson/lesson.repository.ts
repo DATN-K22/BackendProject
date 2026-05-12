@@ -208,9 +208,10 @@ export class LessonRepository {
     const chapter = chapterItem.chapter
 
     if (chapterItem.item_type === 'lesson' && chapterItem.lesson) {
-      const lesson = chapterItem.lesson
       return {
         id: chapterItem.id.toString(),
+        title: chapterItem.title,
+        status: chapterItem.status,
         title: chapterItem.title,
         status: chapterItem.status,
         type: 'lesson' as const,
@@ -226,9 +227,10 @@ export class LessonRepository {
     }
 
     if (chapterItem.item_type === 'lab' && chapterItem.lab) {
-      const lab = chapterItem.lab
       return {
         id: chapterItem.id.toString(),
+        title: chapterItem.title,
+        status: chapterItem.status,
         title: chapterItem.title,
         status: chapterItem.status,
         type: 'lab' as const,
@@ -253,8 +255,13 @@ export class LessonRepository {
         id: chapterItem.id.toString(),
         title: chapterItem.title,
         status: chapterItem.status,
+        title: chapterItem.title,
+        status: chapterItem.status,
         type: 'quiz' as const,
         sort_order: chapterItem.sort_order,
+        short_description: chapterItem.short_description ?? '',
+        long_description: chapterItem.long_description ?? '',
+        duration: chapterItem.duration,
         short_description: chapterItem.short_description ?? '',
         long_description: chapterItem.long_description ?? '',
         duration: chapterItem.duration,

@@ -22,8 +22,7 @@ from google.adk.events.event_actions import EventActions
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.sessions.database_session_service import DatabaseSessionService
-
-
+from google.adk.apps.app import EventsCompactionConfig, App
 # LangSmith
 from langsmith.integrations.google_adk import configure_google_adk
 from langsmith import Client
@@ -64,7 +63,7 @@ REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8080"))
-APP_NAME = "edu-assistant"
+APP_NAME = "edu_assistant"
 LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "default")
 
 # ---------------------------------------------------------------------------
@@ -276,9 +275,17 @@ def build_app() -> Starlette:
 
     root_agent = create_root_agent()
 
+    app = App(
+        name=APP_NAME,
+        root_agent=root_agent,
+        events_compaction_config=EventsCompactionConfig(
+            compaction_interval=8,  # Trigger compaction every 8 new invocations.
+            overlap_size=3          # Include last invocation from the previous window.
+        )
+    )
+
     runner = Runner(
-        agent=root_agent,
-        app_name=APP_NAME,
+        app=app,
         session_service=session_service,
         artifact_service=InMemoryArtifactService(),
     )
@@ -287,7 +294,7 @@ def build_app() -> Starlette:
         root_agent,
         port=PORT,
         runner=runner,
-        lifespan=app_lifespan
+        lifespan=app_lifespan,
     )
     logger.info("to_a2a() wrapped root_agent as A2A Starlette app.")
 

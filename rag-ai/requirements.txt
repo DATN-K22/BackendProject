@@ -1,6 +1,7 @@
 google-adk[a2a,extensions]>=1.27.0
 langchain>=0.3.0
 langchain-openai>=0.2.0
+langchain-google-genai>=2.0.0
 langchain-qdrant>=0.2.0
 qdrant-client>=1.10.0
 redis>=5.0.0
@@ -17,3 +18,4 @@ tqdm>=4.0.0
 ipython>=9.0.0
 google-cloud-aiplatform[agent_engines]>=1.111.0
 requests>=2.32.0
+sentence_transformers>=5.4.1

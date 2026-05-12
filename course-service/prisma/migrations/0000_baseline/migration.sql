@@ -56,6 +56,7 @@ CREATE TABLE "course_service"."ChapterItem" (
     "quiz_id" BIGINT,
     "lab_id" BIGINT,
     "sort_order" INTEGER NOT NULL,
+<<<<<<< HEAD
     "title" VARCHAR(255) NOT NULL,
     "short_description" TEXT,
     "long_description" TEXT,
@@ -70,6 +71,22 @@ CREATE TABLE "course_service"."Lesson" (
     "id" BIGSERIAL NOT NULL,
     "resources" BIGINT[],
     "is_free" BOOLEAN NOT NULL DEFAULT false,
+=======
+    "duration" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "status" "course_service"."ContentStatus" NOT NULL DEFAULT 'published',
+
+    CONSTRAINT "ChapterItem_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "course_service"."Lesson" (
+    "id" BIGSERIAL NOT NULL,
+    "title" VARCHAR(255) NOT NULL,
+    "short_description" TEXT,
+    "long_description" TEXT,
+    "thumbnail_url" VARCHAR(255),
+    "resources" BIGINT[],
+>>>>>>> b32df0eb184bd21114a57a6a46ce9b6aeeb5de00
 
     CONSTRAINT "Lesson_pkey" PRIMARY KEY ("id")
 );
@@ -77,9 +94,17 @@ CREATE TABLE "course_service"."Lesson" (
 -- CreateTable
 CREATE TABLE "course_service"."Lab" (
     "id" BIGSERIAL NOT NULL,
+<<<<<<< HEAD
     "leaseTemplateId" VARCHAR(255),
     "resources" BIGINT[],
     "instruction" TEXT,
+=======
+    "title" VARCHAR(255) NOT NULL,
+    "short_description" TEXT,
+    "long_description" TEXT,
+    "leaseTemplateId" VARCHAR(255),
+    "resources" BIGINT[],
+>>>>>>> b32df0eb184bd21114a57a6a46ce9b6aeeb5de00
 
     CONSTRAINT "Lab_pkey" PRIMARY KEY ("id")
 );
@@ -109,6 +134,11 @@ CREATE TABLE "course_service"."Enrollment" (
 -- CreateTable
 CREATE TABLE "course_service"."Quiz" (
     "id" BIGSERIAL NOT NULL,
+<<<<<<< HEAD
+=======
+    "title" VARCHAR(255) NOT NULL,
+    "description" TEXT,
+>>>>>>> b32df0eb184bd21114a57a6a46ce9b6aeeb5de00
 
     CONSTRAINT "Quiz_pkey" PRIMARY KEY ("id")
 );

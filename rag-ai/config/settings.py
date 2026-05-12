@@ -36,7 +36,7 @@ def load_settings() -> Settings:
         redis_url = redis_url.replace("redis://", f"redis://:{quote(redis_password, safe='')}@", 1)
 
     return Settings(
-        app_name=os.getenv("APP_NAME", "rag-assistant"),
+        app_name=os.getenv("APP_NAME", "rag_assistant"),
         host=os.getenv("HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", "8090")),
         redis_url=redis_url,

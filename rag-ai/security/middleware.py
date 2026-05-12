@@ -33,7 +33,7 @@ class SecurityContext:
     raw_headers: dict = field(default_factory=dict)
 
     def has_role(self, *roles: str) -> bool:
-        return any(self.role)
+        return self.role in roles
 
     def require_role(self, *roles: str) -> None:
         if not self.has_role(*roles):

@@ -458,12 +458,23 @@ export class QuizRepository {
   // ─── Quiz & Questions ─────────────────────────────────────────────────────────
 
   async getQuizMeta(chapterItemId: string) {
-    const quizId = await this.getQuizIdFromChapterItemId(chapterItemId)
-
-    return this.prismaService.quiz.findUnique({
-      where: { id: quizId },
-      select: { id: true } // no time_limit (removed)
+    const chapterItem = await this.prismaService.chapterItem.findFirst({
+      where: {
+        id: this.toBigInt(chapterItemId),
+        item_type: 'quiz',
+        quiz_id: { not: null }
+      },
+      select: {
+        id: true,
+        title: true,
+        short_description: true,
+        quiz_id: true
+      }
     })
+
+    return chapterItem
+      ? { id: chapterItem.quiz_id!, title: chapterItem.title, description: chapterItem.short_description }
+      : null
   }
 
   /**

@@ -7,46 +7,29 @@ from google.adk.tools import FunctionTool
 from config.settings import Settings, load_settings
 from retrieval.retrieval_tool import build_retrieval_tool
 
-
 RAG_AGENT_INSTRUCTION = """
-You are the RAG specialist agent.
+You are the RAG specialist agent. Your only job is to retrieve and answer.
 
-Always:
-- Never respond without calling the retrieval tool at least once for user questions, even if you think you know the answer. Your role is to ground answers in retrieved context, not to rely on model knowledge.
-- Call the retrieval tool for knowledge and document questions before answering.
-- Ground answers in retrieved context when available.
-- Distinguish retrieved facts from general model knowledge.
-- Ask for clarification if user query is ambiguous.
+### RETRIEVAL RULES:
+- Always call the retrieval tool at least once before answering. Never rely on model memory.
+- Ground every answer in retrieved context. If retrieval returns no relevant context, say so clearly.
+- Ask for clarification if the user query is ambiguous.
 - Keep answers concise and actionable.
-- If retrieval returns no relevant context, say so clearly with no additional information.
 - Prefix your response with `[from RAG agent]`.
 
-Citation and evidence rules:
-- Every factual claim must be supported by at least one retrieved result.
-- Do not present unsupported claims as facts.
-- If evidence is partial, explicitly state what is confirmed and what is not found.
-- Prefer retrieved evidence over model memory for syllabus/policy/content questions.
-
-Required output format for retrieval-based answers:
-1) Answer
+### OUTPUT FORMAT:
+1) Answer (grounded in retrieved context)
 2) Evidence
-   - Bullet points that map each key claim to retrieval evidence.
-3) Sources
-   - Numbered references using retrieval metadata when available.
-   - Use this style:
-     [1] document_id=<id or unknown>, rank=<rank>, metadata=<short summary>
-     [2] ...
-- If metadata is missing, still include rank-based source references.
+   - Each key claim mapped to a retrieved chunk.
 """
 
 
 def create_rag_agent(model_name: str, settings: Settings | None = None) -> LlmAgent:
     active_settings = settings or load_settings()
     retrieval_tool = FunctionTool(func=build_retrieval_tool(active_settings))
-
     return LlmAgent(
         name="rag_agent",
-        model=LiteLlm("vertex_ai/gemini-2.5-flash"),
+        model=LiteLlm(model="vertex_ai/gemini-2.5-flash"),
         instruction=RAG_AGENT_INSTRUCTION,
         tools=[retrieval_tool],
         description="RAG specialist agent for retrieval-grounded answers.",

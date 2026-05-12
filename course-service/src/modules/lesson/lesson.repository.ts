@@ -13,12 +13,6 @@ export class LessonRepository {
       const chapterId = BigInt(dto.chapter_id)
       const lesson = await tx.lesson.create({
         data: {
-          title: dto.title,
-          short_description: dto.short_description,
-          long_description: dto.long_description,
-          thumbnail_url: dto.thumbnail_url,
-          status: dto.status,
-          duration: dto.duration ?? 0,
           resources: dto.resources ? dto.resources.map((r) => BigInt(r)) : []
         }
       })
@@ -30,7 +24,12 @@ export class LessonRepository {
           chapter_id: chapterId,
           item_type: 'lesson',
           lesson_id: lesson.id,
-          sort_order: dto.sort_order ?? nextSortOrder
+          sort_order: dto.sort_order ?? nextSortOrder,
+          title: dto.title,
+          short_description: dto.short_description,
+          long_description: dto.long_description,
+          status: dto.status,
+          duration: dto.duration ?? 0
         }
       })
 
@@ -112,33 +111,31 @@ export class LessonRepository {
     const chapter = chapterItem.chapter
 
     if (chapterItem.item_type === 'lesson' && chapterItem.lesson) {
-      const lesson = chapterItem.lesson
       return {
         id: chapterItem.id.toString(),
-        title: lesson.title,
-        status: lesson.status,
+        title: chapterItem.title,
+        status: chapterItem.status,
         type: 'lesson' as const,
         sort_order: chapterItem.sort_order,
-        short_description: lesson.short_description ?? '',
-        long_description: lesson.long_description ?? '',
-        duration: lesson.duration,
+        short_description: chapterItem.short_description ?? '',
+        long_description: chapterItem.long_description ?? '',
+        duration: chapterItem.duration,
         chapter,
         isFinished
       }
     }
 
     if (chapterItem.item_type === 'lab' && chapterItem.lab) {
-      const lab = chapterItem.lab
       return {
         id: chapterItem.id.toString(),
-        title: lab.title,
-        status: lab.status,
+        title: chapterItem.title,
+        status: chapterItem.status,
         type: 'lab' as const,
         sort_order: chapterItem.sort_order,
-        short_description: lab.short_description ?? '',
-        long_description: lab.long_description ?? '',
-        duration: lab.duration,
-        leaseTemplateId: lab.leaseTemplateId ?? undefined,
+        short_description: chapterItem.short_description ?? '',
+        long_description: chapterItem.long_description ?? '',
+        duration: chapterItem.duration,
+        leaseTemplateId: chapterItem.lab.leaseTemplateId ?? undefined,
         chapter,
         isFinished
       }
@@ -151,13 +148,13 @@ export class LessonRepository {
 
       return {
         id: chapterItem.id.toString(),
-        title: quiz.title,
-        status: 'published' as const,
+        title: chapterItem.title,
+        status: chapterItem.status,
         type: 'quiz' as const,
         sort_order: chapterItem.sort_order,
-        short_description: quiz.description ?? '',
-        long_description: quiz.description ?? '',
-        duration: 0,
+        short_description: chapterItem.short_description ?? '',
+        long_description: chapterItem.long_description ?? '',
+        duration: chapterItem.duration,
         chapter,
         isFinished,
         questions: quiz.quiz_questions.map((q) => ({
@@ -193,28 +190,29 @@ export class LessonRepository {
 
   update(id: string, dto: UpdateLessonDto) {
     return this.prismaService.$transaction(async (tx) => {
-      const data: Prisma.LessonUpdateInput = {
-        ...(dto.title !== undefined ? { title: dto.title } : {}),
-        ...(dto.short_description !== undefined ? { short_description: dto.short_description } : {}),
-        ...(dto.long_description !== undefined ? { long_description: dto.long_description } : {}),
-        ...(dto.thumbnail_url !== undefined ? { thumbnail_url: dto.thumbnail_url } : {}),
-        ...(dto.status !== undefined ? { status: dto.status } : {}),
-        ...(dto.duration !== undefined ? { duration: dto.duration } : {}),
+      const lessonData: Prisma.LessonUpdateInput = {
         ...(dto.resources ? { resources: dto.resources.map((r) => BigInt(r)) } : {})
       }
 
       const lesson = await tx.lesson.update({
         where: { id: BigInt(id) },
-        data
+        data: lessonData
       })
 
-      if (dto.chapter_id || dto.sort_order !== undefined) {
+      const chapterItemPatch: Prisma.ChapterItemUpdateInput = {
+        ...(dto.title !== undefined ? { title: dto.title } : {}),
+        ...(dto.short_description !== undefined ? { short_description: dto.short_description } : {}),
+        ...(dto.long_description !== undefined ? { long_description: dto.long_description } : {}),
+        ...(dto.status !== undefined ? { status: dto.status } : {}),
+        ...(dto.duration !== undefined ? { duration: dto.duration } : {}),
+        ...(dto.chapter_id ? { chapter: { connect: { id: BigInt(dto.chapter_id) } } } : {}),
+        ...(dto.sort_order !== undefined ? { sort_order: dto.sort_order } : {})
+      }
+
+      if (Object.keys(chapterItemPatch).length > 0) {
         await tx.chapterItem.update({
           where: { lesson_id: BigInt(id) },
-          data: {
-            ...(dto.chapter_id ? { chapter_id: BigInt(dto.chapter_id) } : {}),
-            ...(dto.sort_order !== undefined ? { sort_order: dto.sort_order } : {})
-          }
+          data: chapterItemPatch
         })
       }
 

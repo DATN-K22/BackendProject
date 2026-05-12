@@ -1,0 +1,16 @@
+{
+  "judge_model": "gemini-2.5-pro",
+  "a2a_endpoint": "http://localhost:3007/",
+  "dataset": "eval/data/hitl_eval_dataset.jsonl",
+  "total_rows": 16,
+  "judged_rows": 16,
+  "failed_rows": 0,
+  "output_jsonl": "eval/out/course21_eval_langsmith.jsonl",
+  "answer_correctness_avg": 4.5625,
+  "answer_correctness_pass_rate": 0.875,
+  "p95_latency_s": 52.2276,
+  "avg_latency_s": 28.7862,
+  "tool_name_match_avg": 1,
+  "tool_parameter_kv_match_avg": 1.0,
+  "tool_call_valid_avg": 1.0
+}

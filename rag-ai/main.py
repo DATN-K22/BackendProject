@@ -23,6 +23,9 @@ from a2a.server.apps import A2AStarletteApplication
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryPushNotificationConfigStore, InMemoryTaskStore
 from a2a.server.agent_execution.context import RequestContext
+from a2a.types import AgentSkill
+from google.adk.apps.app import EventsCompactionConfig, App
+
 
 # Starlette
 from starlette.applications import Starlette
@@ -119,11 +122,19 @@ def build_app() -> Starlette:
         redis_password=settings.redis_password,
     )
     session_backend = "redis"
-
     root_agent = create_root_agent(settings.chat_model, settings=settings)
+    app = App(
+        name=settings.app_name,
+        root_agent=root_agent,
+        events_compaction_config=EventsCompactionConfig(
+            compaction_interval=5,  # Trigger compaction every 5 new invocations.
+            overlap_size=2          # Include last invocation from the previous window.
+        )
+    )
+
+
     runner = Runner(
-        agent=root_agent,
-        app_name=settings.app_name,
+        app=app,
         session_service=session_service,
         artifact_service=InMemoryArtifactService(),
     )
@@ -143,7 +154,7 @@ def build_app() -> Starlette:
     async def _setup_a2a(app: Starlette) -> None:
         card_builder = AgentCardBuilder(
             agent=root_agent,
-            rpc_url=f"http://localhost:{settings.port}/",
+            rpc_url=f"http://{settings.host}:{settings.port}/",
         )
         agent_card = await card_builder.build()
         A2AStarletteApplication(

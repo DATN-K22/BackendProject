@@ -66,8 +66,6 @@ def create_root_agent() -> LlmAgent:
     root_agent = LlmAgent(
         name="edu_assistant",
         model=LiteLlm(model="vertex_ai/gemini-2.5-flash"),
-
-
         instruction="""You are EduAssistant, the main AI coordinator for an educational platform.
 
 You have two specialist sub-agents and context:

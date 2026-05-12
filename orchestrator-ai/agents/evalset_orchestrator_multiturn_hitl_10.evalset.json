@@ -1,0 +1,1554 @@
+{
+  "eval_set_id": "orchestrator_multiturn_hitl_10",
+  "name": "orchestrator_multiturn_hitl_10",
+  "eval_cases": [
+    {
+      "eval_id": "mt_hitl_01_reschedule_with_approval",
+      "conversation": [
+        {
+          "invocation_id": "e-a911b89d-36ea-4135-9043-e908178db42c",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Please move my AWS study session from Monday 8pm to Tuesday 9pm"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_b434a972442842eaa6bb38f6",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_b434a972442842eaa6bb38f6",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_b434a972442842eaa6bb38f6",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828432.846295
+        },
+        {
+          "invocation_id": "e-7f7f39e2-8cfe-48a0-8399-48b4de4c4583",
+          "user_content": {
+            "parts": [
+              {
+                "text": "I found a conflict on Tuesday 9pm. Would you like Tuesday 7pm instead?"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "I found a conflict on Tuesday 9pm. Would you like Tuesday 7pm instead?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {},
+          "creation_timestamp": 1777828433.846295
+        },
+        {
+          "invocation_id": "e-215cdd94-4b6a-4bf0-b202-f71732f5a164",
+          "user_content": {
+            "parts": [
+              {
+                "text": "approve"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_c9d5052a4d9449ddbb5320ff",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_c9d5052a4d9449ddbb5320ff",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_c9d5052a4d9449ddbb5320ff",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828434.846295
+        }
+      ],
+      "session_input": {
+        "app_name": "agents",
+        "user_id": "user"
+      },
+      "creation_timestamp": 1777828532.846295
+    },
+    {
+      "eval_id": "mt_hitl_02_explicit_approval_id",
+      "conversation": [
+        {
+          "invocation_id": "e-7882d8fc-e0d1-4cd3-870a-d5d6d7c66baf",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Add a weekend crash-course session for Solutions Architect"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_dc26e83abd5240fdb48a50b8",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_dc26e83abd5240fdb48a50b8",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_dc26e83abd5240fdb48a50b8",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828435.846295
+        },
+        {
+          "invocation_id": "e-f0df5ffe-a006-4b0d-9a0c-2316b232ff8a",
+          "user_content": {
+            "parts": [
+              {
+                "text": "I can add it on Sunday 10:00 AM and need approval. Reply approve sch_10021 or reject sch_10021."
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "I can add it on Sunday 10:00 AM and need approval. Reply approve sch_10021 or reject sch_10021."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {},
+          "creation_timestamp": 1777828436.846295
+        },
+        {
+          "invocation_id": "e-c07321dc-cc8e-46dc-911f-1085caeb5fe8",
+          "user_content": {
+            "parts": [
+              {
+                "text": "approve sch_10021"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_f85013a8cf314da8a4f38d20",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_f85013a8cf314da8a4f38d20",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_f85013a8cf314da8a4f38d20",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828437.846295
+        }
+      ],
+      "session_input": {
+        "app_name": "agents",
+        "user_id": "user"
+      },
+      "creation_timestamp": 1777828533.846295
+    },
+    {
+      "eval_id": "mt_hitl_03_reject_short_word",
+      "conversation": [
+        {
+          "invocation_id": "e-5be34193-e33d-4bf2-80b1-6c0b59b643e2",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Book me for the advanced EKS lab this Friday"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_eda28c91f38540fdaf7f2e19",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_eda28c91f38540fdaf7f2e19",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_eda28c91f38540fdaf7f2e19",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828438.846295
+        },
+        {
+          "invocation_id": "e-a7e527c5-5fd8-4880-a208-1dfc9c8f0595",
+          "user_content": {
+            "parts": [
+              {
+                "text": "The only slot is Friday 10:00 PM. Should I proceed?"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "The only slot is Friday 10:00 PM. Should I proceed?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {},
+          "creation_timestamp": 1777828439.846295
+        },
+        {
+          "invocation_id": "e-f365c12a-2816-4cc3-8fec-221e4a96772c",
+          "user_content": {
+            "parts": [
+              {
+                "text": "reject"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_1bb85b8cfdc24c48a55e886d",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_1bb85b8cfdc24c48a55e886d",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_1bb85b8cfdc24c48a55e886d",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828440.846295
+        }
+      ],
+      "session_input": {
+        "app_name": "agents",
+        "user_id": "user"
+      },
+      "creation_timestamp": 1777828534.846295
+    },
+    {
+      "eval_id": "mt_hitl_04_topic_shift_to_rag",
+      "conversation": [
+        {
+          "invocation_id": "e-7c90cc0b-17b9-40a6-9a09-33606d46863c",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Recommend a DevOps learning path for 2 months"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_22dbfa1a02cd457592ce732c",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_22dbfa1a02cd457592ce732c",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_22dbfa1a02cd457592ce732c",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828441.846295
+        },
+        {
+          "invocation_id": "e-2af74ac5-fa15-4193-ba54-379dcaf44e3a",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Suggested path drafted. Do you want a deeper explanation of why this sequence works?"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Suggested path drafted. Do you want a deeper explanation of why this sequence works?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {},
+          "creation_timestamp": 1777828442.846295
+        },
+        {
+          "invocation_id": "e-7b0ead43-5d3d-4d84-bd26-8abb6b29e522",
+          "user_content": {
+            "parts": [
+              {
+                "text": "yes, explain why this sequence works"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_5dea3ad6b1c4463283325c07",
+                  "args": {
+                    "agent_name": "rag_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_5dea3ad6b1c4463283325c07",
+                        "args": {
+                          "agent_name": "rag_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_5dea3ad6b1c4463283325c07",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828443.846295
+        }
+      ],
+      "session_input": {
+        "app_name": "agents",
+        "user_id": "user"
+      },
+      "creation_timestamp": 1777828535.846295
+    },
+    {
+      "eval_id": "mt_hitl_05_rag_followup_same_topic",
+      "conversation": [
+        {
+          "invocation_id": "e-078a958b-8a48-4c2f-a44c-bfad07fdcb47",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Explain eventual consistency with DynamoDB examples"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_d071553f55cb439f803c20c1",
+                  "args": {
+                    "agent_name": "rag_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_d071553f55cb439f803c20c1",
+                        "args": {
+                          "agent_name": "rag_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_d071553f55cb439f803c20c1",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828444.846295
+        },
+        {
+          "invocation_id": "e-67419220-783f-41d7-b442-cea1dda9168a",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Do you want a comparison with strong consistency and cost impact?"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Do you want a comparison with strong consistency and cost impact?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {},
+          "creation_timestamp": 1777828445.846295
+        },
+        {
+          "invocation_id": "e-39ff74bc-4d12-4f56-be12-01ab641c8d41",
+          "user_content": {
+            "parts": [
+              {
+                "text": "yes compare with cost impact"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_05e9f46da50a43f091860cbb",
+                  "args": {
+                    "agent_name": "rag_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_05e9f46da50a43f091860cbb",
+                        "args": {
+                          "agent_name": "rag_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_05e9f46da50a43f091860cbb",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828446.846295
+        }
+      ],
+      "session_input": {
+        "app_name": "agents",
+        "user_id": "user"
+      },
+      "creation_timestamp": 1777828536.846295
+    },
+    {
+      "eval_id": "mt_hitl_06_approved_synonym",
+      "conversation": [
+        {
+          "invocation_id": "e-99f05e17-bc85-4fd9-a773-ddfa369c5b32",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Set up a study plan with 4 sessions this week"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_4b4bf095bb52439e82c63959",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_4b4bf095bb52439e82c63959",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_4b4bf095bb52439e82c63959",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828447.846295
+        },
+        {
+          "invocation_id": "e-85c54381-929b-4e78-8d57-b93d34f80d1d",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Plan ready. Confirm with approved plan_7788 or rejected plan_7788."
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Plan ready. Confirm with approved plan_7788 or rejected plan_7788."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {},
+          "creation_timestamp": 1777828448.846295
+        },
+        {
+          "invocation_id": "e-860bc055-acdc-4d8e-bf32-b4890d485dc1",
+          "user_content": {
+            "parts": [
+              {
+                "text": "approved plan_7788"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_6dc14c157a93437285b79353",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_6dc14c157a93437285b79353",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_6dc14c157a93437285b79353",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828449.846295
+        }
+      ],
+      "session_input": {
+        "app_name": "agents",
+        "user_id": "user"
+      },
+      "creation_timestamp": 1777828537.846295
+    },
+    {
+      "eval_id": "mt_hitl_07_relay_then_user_answer",
+      "conversation": [
+        {
+          "invocation_id": "e-fd3afe5f-f467-4993-83d7-8c864ed75400",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Find AWS security courses with labs"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_b5fff66b761d48e49bf1d6e5",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_b5fff66b761d48e49bf1d6e5",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_b5fff66b761d48e49bf1d6e5",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828450.846295
+        },
+        {
+          "invocation_id": "e-5d4b75d3-a344-4d7d-a6ca-0d68f23568e7",
+          "user_content": {
+            "parts": [
+              {
+                "text": "I found 3 options. Would you like beginner-only or mixed-level recommendations?"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "I found 3 options. Would you like beginner-only or mixed-level recommendations?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {},
+          "creation_timestamp": 1777828451.846295
+        },
+        {
+          "invocation_id": "e-072ee320-9d51-4dca-a513-e58c83a39f88",
+          "user_content": {
+            "parts": [
+              {
+                "text": "beginner only"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_480cd4ec3fb143c0af9732bd",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_480cd4ec3fb143c0af9732bd",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_480cd4ec3fb143c0af9732bd",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828452.846295
+        }
+      ],
+      "session_input": {
+        "app_name": "agents",
+        "user_id": "user"
+      },
+      "creation_timestamp": 1777828538.846295
+    },
+    {
+      "eval_id": "mt_hitl_08_shift_to_meta_direct",
+      "conversation": [
+        {
+          "invocation_id": "e-d6420099-3a69-46bc-be45-d1fb407e4636",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Suggest a cloud practitioner prep plan"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_eb1d279cdbb04a8cb577d9dc",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_eb1d279cdbb04a8cb577d9dc",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_eb1d279cdbb04a8cb577d9dc",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828453.846295
+        },
+        {
+          "invocation_id": "e-6ea9b69b-6cb8-4ac5-b789-89f942db20ea",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Plan drafted. Want me to include mock exam sessions?"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Plan drafted. Want me to include mock exam sessions?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {},
+          "creation_timestamp": 1777828454.846295
+        },
+        {
+          "invocation_id": "e-a1e25a72-7bac-4fdf-93d1-622014a5ee7f",
+          "user_content": {
+            "parts": [
+              {
+                "text": "what can you do besides planning"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "I can coordinate course discovery, scheduling, and deep study explanations through specialist assistants."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {},
+          "creation_timestamp": 1777828455.846295
+        }
+      ],
+      "session_input": {
+        "app_name": "agents",
+        "user_id": "user"
+      },
+      "creation_timestamp": 1777828539.846295
+    },
+    {
+      "eval_id": "mt_hitl_09_approval_case_variant",
+      "conversation": [
+        {
+          "invocation_id": "e-cd9f21b0-0fed-4823-9c74-225d8237b26e",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Please arrange an exam prep session"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_2632c41adc4c4a49b4092eed",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_2632c41adc4c4a49b4092eed",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_2632c41adc4c4a49b4092eed",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828456.846295
+        },
+        {
+          "invocation_id": "e-ad2723a2-838e-4b24-ab06-cb1e77adbf7c",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Ready to book. Reply approve EXAM_4451 to confirm."
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Ready to book. Reply approve EXAM_4451 to confirm."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {},
+          "creation_timestamp": 1777828457.846295
+        },
+        {
+          "invocation_id": "e-5c79eab2-3c2e-4497-9c2e-7bedee96952f",
+          "user_content": {
+            "parts": [
+              {
+                "text": "approve EXAM_4451"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_8576d7c8d8d046b9a4346290",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_8576d7c8d8d046b9a4346290",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_8576d7c8d8d046b9a4346290",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828458.846295
+        }
+      ],
+      "session_input": {
+        "app_name": "agents",
+        "user_id": "user"
+      },
+      "creation_timestamp": 1777828540.846295
+    },
+    {
+      "eval_id": "mt_hitl_10_mixed_followup_schedule_first",
+      "conversation": [
+        {
+          "invocation_id": "e-25bc6b93-2a0a-4cf8-90bf-ce338bb35842",
+          "user_content": {
+            "parts": [
+              {
+                "text": "I need courses for EKS and also explain pod disruption budgets"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_20fc9169244148e08fedc10c",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_20fc9169244148e08fedc10c",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_20fc9169244148e08fedc10c",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828459.846295
+        },
+        {
+          "invocation_id": "e-95abcd5a-aa49-47bf-8503-887bd5bd2088",
+          "user_content": {
+            "parts": [
+              {
+                "text": "I can shortlist EKS courses first. Do you want beginner or intermediate?"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "I can shortlist EKS courses first. Do you want beginner or intermediate?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {},
+          "creation_timestamp": 1777828460.846295
+        },
+        {
+          "invocation_id": "e-d61546b1-6916-4cfa-be08-07b81a381025",
+          "user_content": {
+            "parts": [
+              {
+                "text": "intermediate and explain pod disruption budgets too"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "function_call": {
+                  "id": "call_69235cc4f9ad455ea38b91da",
+                  "args": {
+                    "agent_name": "course_schedule_agent"
+                  },
+                  "name": "transfer_to_agent"
+                }
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "invocation_events": [
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "call_69235cc4f9ad455ea38b91da",
+                        "args": {
+                          "agent_name": "course_schedule_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "edu_assistant",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "call_69235cc4f9ad455ea38b91da",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              }
+            ]
+          },
+          "creation_timestamp": 1777828461.846295
+        }
+      ],
+      "session_input": {
+        "app_name": "agents",
+        "user_id": "user"
+      },
+      "creation_timestamp": 1777828541.846295
+    }
+  ],
+  "creation_timestamp": 1777828431.846295
+}

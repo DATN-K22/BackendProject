@@ -172,7 +172,7 @@ def build_retrieval_tool(settings: Settings):
 
         # ── 4. Tenant filter ──────────────────────────────────────────────
         # Ưu tiên: tham số tenant_id > header x-tenant-id từ middleware
-        effective_tenant = tenant_id
+        effective_tenant = None
         if effective_tenant is None:
             headers = FORWARDED_IDENTITY_HEADERS.get()
             if headers:

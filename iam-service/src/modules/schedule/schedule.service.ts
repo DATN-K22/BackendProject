@@ -290,7 +290,7 @@ export class ScheduleService {
                 where: { id: dto.event_id }
             });
             await this.AuthorizeEvent(originalEvent, user_id);
-            if (!originalEvent.rrule_string) {
+            if (!originalEvent?.rrule_string) {
                 throw new BadRequestException('Cannot create exception for non-recurring event');
             }
 

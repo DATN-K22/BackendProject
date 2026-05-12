@@ -51,7 +51,14 @@ export class ChapterRepository {
       lessons: chapter.chapterItems
         .filter((item) => item.lesson)
         .map((item) => ({
-          ...item.lesson,
+          id: item.id.toString(),
+          title: item.title,
+          status: item.status,
+          duration: item.duration,
+          short_description: item.short_description,
+          long_description: item.long_description,
+          resources: item.lesson!.resources,
+          is_free: item.lesson!.is_free,
           type: 'lesson',
           sort_order: item.sort_order,
           isFinished: false
@@ -89,7 +96,14 @@ export class ChapterRepository {
       lessons: chapter.chapterItems
         .filter((item) => item.lesson)
         .map((item) => ({
-          ...item.lesson,
+          id: item.id.toString(),
+          title: item.title,
+          status: item.status,
+          duration: item.duration,
+          short_description: item.short_description,
+          long_description: item.long_description,
+          resources: item.lesson!.resources,
+          is_free: item.lesson!.is_free,
           type: 'lesson',
           sort_order: item.sort_order,
           isFinished: false
@@ -169,8 +183,8 @@ export class ChapterRepository {
           if (isOwner) return true
 
           if (item.item_type === 'quiz') return item.quiz !== null
-          if (item.item_type === 'lesson') return item.lesson?.status === 'published'
-          if (item.item_type === 'lab') return item.lab?.status === 'published'
+          if (item.item_type === 'lesson') return item.status === 'published'
+          if (item.item_type === 'lab') return item.status === 'published'
 
           return false
         })
@@ -178,14 +192,14 @@ export class ChapterRepository {
           if (item.item_type === 'lesson' && item.lesson) {
             return {
               id: item.id.toString(),
-              title: item.lesson.title,
-              status: item.lesson.status,
+              title: item.title,
+              status: item.status,
               type: 'lesson',
               sort_order: item.sort_order,
-              duration: item.lesson.duration,
+              duration: item.duration,
               isFinished: item.chapterItemStatuses.length > 0,
-              short_description: item.lesson.short_description ?? '',
-              long_description: item.lesson.long_description ?? '',
+              short_description: item.short_description ?? '',
+              long_description: item.long_description ?? '',
               resources: item.lesson.resources.map((resourceId) => resourceId.toString())
             }
           }
@@ -193,14 +207,14 @@ export class ChapterRepository {
           if (item.item_type === 'quiz' && item.quiz) {
             return {
               id: item.id.toString(),
-              title: item.quiz.title,
-              status: 'published',
+              title: item.title,
+              status: item.status,
               type: 'quiz',
               sort_order: item.sort_order,
-              duration: 0,
+              duration: item.duration,
               isFinished: item.chapterItemStatuses.length > 0,
-              short_description: item.quiz.description ?? '',
-              long_description: item.quiz.description ?? '',
+              short_description: item.short_description ?? '',
+              long_description: item.long_description ?? '',
               resources: []
             }
           }
@@ -208,14 +222,14 @@ export class ChapterRepository {
           if (item.item_type === 'lab' && item.lab) {
             return {
               id: item.id.toString(),
-              title: item.lab.title,
-              status: item.lab.status,
+              title: item.title,
+              status: item.status,
               type: 'lab',
               sort_order: item.sort_order,
-              duration: item.lab.duration,
+              duration: item.duration,
               isFinished: item.chapterItemStatuses.length > 0,
-              short_description: item.lab.short_description ?? '',
-              long_description: item.lab.long_description ?? '',
+              short_description: item.short_description ?? '',
+              long_description: item.long_description ?? '',
               resources: item.lab.resources.map((resourceId) => resourceId.toString())
             }
           }

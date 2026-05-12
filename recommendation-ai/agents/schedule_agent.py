@@ -9,6 +9,9 @@ from google.adk.tools import LongRunningFunctionTool, FunctionTool
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools.tool_context import ToolContext
 from google.genai import types
+from google.adk.agents.callback_context import CallbackContext
+from google.adk.agents.readonly_context import ReadonlyContext
+from google.adk.models.llm_request import LlmRequest
 from mcptools.toolset_factory import SCHEDULE_MCP_CONFIG, build_toolset
 from agents.course_schedule_state_tools import (
     get_course_study_plan_from_state,
@@ -17,7 +20,7 @@ from agents.course_schedule_state_tools import (
 
 from datetime import datetime, timedelta
 
-TODAY = datetime.now().date()
+
 # SCHEDULE_AGENT_INSTRUCTION = f"""
 # You are the Schedule Recommendation Agent for an educational platform.
 
@@ -123,36 +126,43 @@ async def request_schedule_approval(proposed_changes: dict,  tool_context: ToolC
         "approval_id": approval_id,
         "changes": proposed_changes
     }
-
-
+    
 approval_tool = LongRunningFunctionTool(func=request_schedule_approval)
 get_course_plan_tool = FunctionTool(func=get_course_study_plan_from_state)
 clear_course_plan_tool = FunctionTool(func=clear_course_estimated_commitment_state)
 
-
-def create_schedule_agent() -> LlmAgent:
-    mcp_toolset = build_toolset(SCHEDULE_MCP_CONFIG)
-    tools = [approval_tool, get_course_plan_tool, clear_course_plan_tool] + ([mcp_toolset] if mcp_toolset else [])
-
-    return LlmAgent(
-        name="schedule_agent",
-        model=LiteLlm(model="vertex_ai/gemini-2.5-flash"),
-        instruction=f"""
+def get_schedule_instruction(ctx: ReadonlyContext) -> str:
+    today = datetime.now().date().isoformat()
+    course_id = ctx.state.get("course_id", "unknown")
+    timezone = ctx.state.get("timezone", "UTC")
+    return f"""
             You are the Schedule Recommendation Agent.
 
             Scope:
             - Manage user schedule only (view, suggest, add, modify, delete).
             - Do not answer course-content/syllabus questions directly.
-            - This course id that user are currently accessing is {{course_id?}}, and their timezone is {{timezone?}}.
-            - Today is {TODAY}. Use this as the current date reference for all scheduling decisions.
+            - This course id that user are currently accessing is {course_id}, and their timezone is {timezone}.
+            - Today is {today}. Use this as the current date reference for all scheduling decisions.
 
             Core rules:
             1) Always call tools before returning schedule facts.
             2) Never mutate schedule without explicit user approval.
             3) For recurring weekly events, each event must have exactly one BYDAY.
             4) For multi-day recurring requests, create one event per day.
-            5) Prefer get-events-by-name-or-id when user specifies event name/id.
+            5) Prefer get-events-by-name-or-id when user specifies event name/id. get_course_study_plan_from_state only for the Course-plan state integration flow, not for normal recommendation.
             6) Only call get-free-time when user asks for availability/suggestions.
+            7) When asked to find a free slot, do not list all possible dates. Instead, actively propose 1-2 specific time slots (e.g., the earliest available) and ask the user to confirm if they work with their personal schedule.
+            
+            Unambiguous schedule recommendation:
+            1) Always check for existing events for 90 days before and ahead, extract some of key details (common time slots, common event durations, number of existing events) and use those as context for your recommendation.
+            2) Give schedule recommendations in a clear, concise format. For example:
+            "I found that you usually study on Monday and Wednesday evenings for about 2 hours. Based on that and your current schedule, I recommend adding a new study session for this course on Monday from 7-9pm. This will create a recurring weekly event every Monday at that time. Does that work for you?"
+            Examples of unambiguous requests:
+             - User: Recommend a time for a new study session
+             - Assistant: I see you usually study on Tuesday and Thursday mornings for 1-2 hours (usually from 7h or 9h). Would you like to add a new session on that kind of time slot?
+             - User: Yes, that works. Please add it.
+             - Assistant: Great, I will add a new recurring event every Tuesday from 7-9am. Does that sound good?
+             - User: Yes, please go ahead.
 
             Course-plan state integration:
             1) Before scheduling “current/this course”, call get_course_study_plan_from_state.
@@ -163,16 +173,17 @@ def create_schedule_agent() -> LlmAgent:
             5) After a successful schedule mutation based on that plan, call clear_course_estimated_commitment_state to remove stale data.
 
             Approval protocol:
-            1) Summarize exact proposed changes first.
-            2) Call request_schedule_approval once per proposal.
-            3) Accept decision only when:
+            1) Check if there any event existed in the schedule that matches the proposed changes. If yes, notified user about the conflict and ask them to adjust the proposed changes until there is no conflict, then proceed to request approval. You can call get-events or get-events-by-name-or-id to get the existing schedule.
+            2) Summarize exact proposed changes first.
+            3) Call request_schedule_approval once per proposal.
+            4) Accept decision only when:
             - pending approval exists, and
             - message contains matching approval_id
             (fallback: exact single-word approved/rejected with exactly one pending approval).
-            4) If approved, all mutation tools must include:
+            5) If approved, all mutation tools must include:
             - approval_id=<pending_approval_id>
             - approval_status="approved"
-            5) If rejected, do not mutate; ask how to adjust.
+            6) If rejected, do not mutate; ask how to adjust.
 
             Mutation tool mapping:
             - Modify one occurrence -> modify-this-only
@@ -186,7 +197,15 @@ def create_schedule_agent() -> LlmAgent:
             - Concise, user-friendly.
             - For schedule summaries, use markdown table (event, time, conflict).
 
-""",
+"""
+
+def create_schedule_agent() -> LlmAgent:
+    mcp_toolset = build_toolset(SCHEDULE_MCP_CONFIG)
+    tools = [approval_tool, get_course_plan_tool, clear_course_plan_tool] + ([mcp_toolset] if mcp_toolset else [])
+    return LlmAgent(
+        name="schedule_agent",
+        model=LiteLlm(model="vertex_ai/gemini-2.5-flash"),
+        instruction=get_schedule_instruction,
         tools=tools,
         description=(
             "Manages and recommends course schedules. "

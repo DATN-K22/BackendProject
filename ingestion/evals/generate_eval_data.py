@@ -18,9 +18,9 @@ REPO_PY_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_PY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_PY_ROOT))
 
-from ingestion.chunking.text_chunker import FixedWindowChunker  # noqa: E402
-from ingestion.file_loader import FileLoader  # noqa: E402
-from ingestion.models.document import DocumentBlob, TextChunk  # noqa: E402
+from chunking.text_chunker import FixedWindowChunker  # noqa: E402
+from file_loader import FileLoader  # noqa: E402
+from models.document import DocumentBlob, TextChunk  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -281,6 +281,12 @@ def _generate_for_course(
         {
             "inputs": {"question": row.question},
             "outputs": {"answer": row.answer},
+            "reference_trajectory": [
+                {
+                    "tool_name": "rag_agent",
+                    "tool_input": {}
+                }
+            ],
             "metadata": {
                 "course_id": row.course_id,
                 "source_doc": row.source_doc,
@@ -419,13 +425,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mock-file-root",
         type=Path,
-        default=Path("./ingestion/mock_file"),
+        default=Path("./mock_file"),
         help="Root directory containing course_* subdirectories.",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("rag-ai/evals/output"),
+        default=Path("./evals/output"),
     )
     parser.add_argument(
         "--course-ids",

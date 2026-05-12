@@ -38,14 +38,15 @@ export class LabController {
   }
 
   @Post('start')
-  async startLab(@Body() leaseData: {leaseTemplateUuid: string, userId: string}) {
+  async startLab(@Body() leaseData: { labId: string; leaseTemplateUuid: string; userId: string }) {
     const result = await this.labService.startLab(leaseData)
     return ApiResponse.OkResponse(result)
   }
 
-  @Post('terminate')
-  async terminateLab(@Body() leaseData: {leaseId: string}) {
-    const result = await this.labService.terminateLab(leaseData)
+  @Post('leases/:leaseId/terminate')
+  async terminateLab(@Param('leaseId') leaseId: string, @Body() body: { userId: string; labId: string }) {
+    const result = await this.labService.terminateLab(leaseId, body)
+
     return ApiResponse.OkResponse(result)
   }
 }

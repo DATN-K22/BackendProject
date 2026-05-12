@@ -22,8 +22,26 @@ jest.mock('@aws-sdk/client-sts', () => {
     AssumeRoleCommand
   }
 })
+jest.mock('@aws-sdk/client-iam', () => {
+  class PutRolePolicyCommand {
+    input: any
+
+    constructor(input: any) {
+      this.input = input
+    }
+  }
+
+  return {
+    IAMClient: jest.fn().mockImplementation(() => ({
+      send: jest.fn()
+    })),
+    PutRolePolicyCommand
+  }
+})
 const mockLabRepository = {
-  getLabSessionByUserIdAndLeaseTemplateId: jest.fn()
+  getLabSessionByUserIdAndLeaseTemplateId: jest.fn(),
+  getLabSessionWithLab: jest.fn(),
+  createLabSession: jest.fn()
 }
 
 const mockJwtService = {
@@ -42,7 +60,8 @@ const mockAwsSecret = {
 const mockIsbClient = {
   findLeaseById: jest.fn(),
   startSession: jest.fn(),
-  findLeasesByUserEmail: jest.fn()
+  findLeasesByUserEmail: jest.fn(),
+  terminateLease: jest.fn()
 }
 
 const mockStsClient = {
@@ -107,7 +126,7 @@ describe('LabService', () => {
       expect(mockJwtService.signAsync).toHaveBeenCalledWith(
         {
           user: {
-            displayName: 'Son Tran',
+            displayName: '',
             userName: 'lab.user',
             email: 'lab.user@example.com',
             roles: ['Admin']
@@ -146,7 +165,7 @@ describe('LabService', () => {
         }
       })
 
-      const result = await service.startLab({ leaseTemplateUuid: 'template-1', userId: 'user-1' })
+      const result = await service.startLab({ labId: '42', leaseTemplateUuid: 'template-1', userId: 'user-1' })
 
       expect(mockIsbClient.startSession).toHaveBeenCalledWith(
         'template-1',
@@ -162,6 +181,83 @@ describe('LabService', () => {
           'utf8'
         ).toString('base64')
       })
+    })
+  })
+
+  describe('terminateLab', () => {
+    it('should terminate a lab session and revoke AWS access', async () => {
+      mockLabRepository.getLabSessionWithLab.mockResolvedValue({
+        lease_id: 'lease-db-1',
+        lab: {
+          IAMRoleName: 'LabRole'
+        }
+      })
+      mockIsbClient.terminateLease.mockResolvedValue({})
+      jest.spyOn(service, 'generateLabToken').mockResolvedValue({ access_token: 'signed-token' } as any)
+      jest.spyOn(service, 'getLeaseById').mockResolvedValue({ awsAccountId: '123456789012' } as any)
+      jest.spyOn(service as any, 'revokeActiveSession').mockResolvedValue(undefined)
+
+      const result = await service.terminateLab('lease-1', { userId: 'user-1', labId: '42' })
+
+      expect(mockLabRepository.getLabSessionWithLab).toHaveBeenCalledWith('user-1', BigInt(42))
+      expect(mockIsbClient.terminateLease).toHaveBeenCalledWith('lease-1', 'signed-token')
+      expect((service as any).revokeActiveSession).toHaveBeenCalledWith('123456789012', 'LabRole')
+      expect(result).toEqual({ leaseId: 'lease-db-1' })
+    })
+
+    it('should throw BadRequestException when lab session is not found', async () => {
+      mockLabRepository.getLabSessionWithLab.mockResolvedValue(null)
+
+      await expect(service.terminateLab('lease-1', { userId: 'user-1', labId: '42' })).rejects.toThrow(
+        BadRequestException
+      )
+      expect(mockIsbClient.terminateLease).not.toHaveBeenCalled()
+    })
+
+    it('should throw BadRequestException when IAMRoleName is missing', async () => {
+      mockLabRepository.getLabSessionWithLab.mockResolvedValue({
+        lease_id: 'lease-db-1',
+        lab: {
+          IAMRoleName: ''
+        }
+      })
+
+      await expect(service.terminateLab('lease-1', { userId: 'user-1', labId: '42' })).rejects.toThrow(
+        BadRequestException
+      )
+      expect(mockIsbClient.terminateLease).not.toHaveBeenCalled()
+    })
+
+    it('should throw BadRequestException when awsAccountId cannot be resolved', async () => {
+      mockLabRepository.getLabSessionWithLab.mockResolvedValue({
+        lease_id: 'lease-db-1',
+        lab: {
+          IAMRoleName: 'LabRole'
+        }
+      })
+      jest.spyOn(service, 'generateLabToken').mockResolvedValue({ access_token: 'signed-token' } as any)
+      jest.spyOn(service, 'getLeaseById').mockResolvedValue({} as any)
+
+      await expect(service.terminateLab('lease-1', { userId: 'user-1', labId: '42' })).rejects.toThrow(
+        BadRequestException
+      )
+      expect(mockIsbClient.terminateLease).not.toHaveBeenCalled()
+    })
+
+    it('should wrap ISB terminate errors as internal server error', async () => {
+      mockLabRepository.getLabSessionWithLab.mockResolvedValue({
+        lease_id: 'lease-db-1',
+        lab: {
+          IAMRoleName: 'LabRole'
+        }
+      })
+      jest.spyOn(service, 'generateLabToken').mockResolvedValue({ access_token: 'signed-token' } as any)
+      jest.spyOn(service, 'getLeaseById').mockResolvedValue({ awsAccountId: '123456789012' } as any)
+      mockIsbClient.terminateLease.mockRejectedValue(new Error('network error'))
+
+      await expect(service.terminateLab('lease-1', { userId: 'user-1', labId: '42' })).rejects.toThrow(
+        InternalServerErrorException
+      )
     })
   })
 
@@ -824,9 +920,9 @@ describe('LabService', () => {
       it('should throw InternalServerErrorException when isbClient.startSession fails', async () => {
         mockIsbClient.startSession.mockRejectedValue(new Error('session error'))
 
-        await expect(service.startLab({ leaseTemplateUuid: 'template-1', userId: 'user-1' })).rejects.toThrow(
-          InternalServerErrorException
-        )
+        await expect(
+          service.startLab({ labId: '42', leaseTemplateUuid: 'template-1', userId: 'user-1' })
+        ).rejects.toThrow(InternalServerErrorException)
       })
     })
 

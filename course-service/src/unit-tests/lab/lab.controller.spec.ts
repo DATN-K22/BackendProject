@@ -13,7 +13,8 @@ const mockLabService = {
   getLabHistory: jest.fn(),
   getConsoleUrl: jest.fn(),
   getLeaseById: jest.fn(),
-  startLab: jest.fn()
+  startLab: jest.fn(),
+  terminateLab: jest.fn()
 }
 
 describe('LabController', () => {
@@ -87,13 +88,27 @@ describe('LabController', () => {
 
   describe('startLab', () => {
     it('should start lab and wrap response', async () => {
-      const payload = { leaseTemplateUuid: 'template-1', userId: 'user-1' }
+      const payload = { labId: '42', leaseTemplateUuid: 'template-1', userId: 'user-1' }
       const serviceResult = { leaseId: 'encoded-lease-id' }
       mockLabService.startLab.mockResolvedValue(serviceResult)
 
       const result = await controller.startLab(payload)
 
       expect(mockLabService.startLab).toHaveBeenCalledWith(payload)
+      expect(ApiResponse.OkResponse).toHaveBeenCalledWith(serviceResult)
+      expect(result).toEqual({ success: true, data: serviceResult, message: undefined })
+    })
+  })
+
+  describe('terminateLab', () => {
+    it('should forward terminate payload to service and wrap response', async () => {
+      const body = { userId: 'user-1', labId: '42' }
+      const serviceResult = { leaseId: 'lease-1' }
+      mockLabService.terminateLab.mockResolvedValue(serviceResult)
+
+      const result = await controller.terminateLab('lease-1', body)
+
+      expect(mockLabService.terminateLab).toHaveBeenCalledWith('lease-1', body)
       expect(ApiResponse.OkResponse).toHaveBeenCalledWith(serviceResult)
       expect(result).toEqual({ success: true, data: serviceResult, message: undefined })
     })

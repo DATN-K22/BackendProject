@@ -47,4 +47,19 @@ export class IsbHttpClient implements IsbClient {
     )
     return response.data
   }
+
+  async terminateLease(leaseId: string, token: string) {
+    const response = await firstValueFrom(
+      this.httpService.post(
+        `/leases/${leaseId}/terminate`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
+    )
+    return response.data
+  }
 }

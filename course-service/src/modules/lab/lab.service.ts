@@ -7,6 +7,7 @@ import { LabRepository } from './lab.repository'
 import { ISecretManagementService } from './secret-management.interface'
 import { IsbClient } from '../innovation-sandbox/IsbClient'
 import { ConsoleUrlResponse, Lease } from './dto/get-console-url.dto'
+import { IAMClient, PutRolePolicyCommand } from '@aws-sdk/client-iam'
 
 @Injectable()
 export class LabService {
@@ -50,7 +51,7 @@ export class LabService {
 
     const payload = {
       user: {
-        displayName: 'Son Tran',
+        displayName: '',
         userName: this.labUserEmail.split('@')[0],
         email: this.labUserEmail,
         roles: ['Admin']
@@ -78,7 +79,7 @@ export class LabService {
     }
   }
 
-  async startLab(leaseData: { leaseTemplateUuid: string; userId: string }) {
+  async startLab(leaseData: { labId: string; leaseTemplateUuid: string; userId: string }) {
     const token = await this.generateLabToken()
     try {
       const response = await this.isbClient.startSession(
@@ -87,9 +88,11 @@ export class LabService {
         this.labUserEmail,
         token.access_token
       )
+      const leaseId = this.base64EncodeCompositeKey({ uuid: response.data.uuid, userEmail: this.labUserEmail }) || ''
+      await this.labRepository.createLabSession(leaseData.userId, leaseId, leaseData.labId)
       return {
         ...response.data,
-        leaseId: this.base64EncodeCompositeKey({ uuid: response.data.uuid, userEmail: this.labUserEmail })
+        leaseId: leaseId
       }
     } catch (error) {
       this.logger.error(`Failed to start lab session`, error)
@@ -102,7 +105,7 @@ export class LabService {
     const labSessions = await this.labRepository.getLabSessionByUserIdAndLeaseTemplateId(
       userId,
       leaseTemplateId,
-      pageSize
+      +pageSize
     )
 
     // 2. Generate internal JWT
@@ -135,6 +138,139 @@ export class LabService {
         result: [],
         nextPageIdentifier: null
       }
+    }
+  }
+
+  async terminateLab(leaseId: string, body: { userId: string; labId: string }) {
+    const { userId, labId } = body
+
+    // 1. Lấy LabSession kèm Lab để có IAMRoleName
+    const labSession = await this.labRepository.getLabSessionWithLab(userId, BigInt(labId))
+    if (!labSession) {
+      throw new BadRequestException(`Lab session not found for labId: ${labId}, userId: ${userId}`)
+    }
+
+    const iamRoleName = labSession.lab.IAMRoleName
+    if (!iamRoleName) {
+      throw new BadRequestException(`Lab ${labId} has no IAMRoleName configured`)
+    }
+
+    const token = await this.generateLabToken()
+
+    const lease = await this.getLeaseById(leaseId)
+    if (!lease?.awsAccountId) {
+      throw new BadRequestException('Cannot resolve awsAccountId from lease')
+    }
+
+    // 3. Terminate lease trên ISB
+    try {
+      await this.isbClient.terminateLease(leaseId, token.access_token)
+      this.logger.log(`Lease ${leaseId} terminated on ISB`)
+    } catch (error) {
+      this.logger.error(`Failed to terminate lease on ISB: ${leaseId}`, error)
+      throw new InternalServerErrorException('Failed to terminate lease on ISB')
+    }
+
+    // 4. Revoke active AWS session
+    await this.revokeActiveSession(lease.awsAccountId, iamRoleName)
+
+    return { leaseId: labSession.lease_id }
+  }
+
+  private async revokeActiveSession(awsAccountId: string, roleName: string): Promise<void> {
+    // Assume role trung gian từ env (runner role có quyền attach policy)
+    const runnerRoleArn = this.configService.getOrThrow<string>('LAB_RUNNER_ROLE_ARN')
+
+    let runnerCredentials: Credentials
+    try {
+      const res = await this.stsClient.send(
+        new AssumeRoleCommand({
+          RoleArn: runnerRoleArn,
+          RoleSessionName: `terminate-runner-${Date.now()}`,
+          DurationSeconds: 900 // 15 phút là đủ
+        })
+      )
+
+      if (!res.Credentials) {
+        throw new InternalServerErrorException('Failed to assume runner role')
+      }
+      runnerCredentials = res.Credentials
+    } catch (error) {
+      this.logger.error(`Failed to assume runner role: ${runnerRoleArn}`, error)
+      throw new InternalServerErrorException('Failed to assume runner role for termination')
+    }
+
+    // Dùng runner credentials để assume role của lab account
+    const labRoleArn = this.buildRoleArn(awsAccountId, roleName)
+    let labCredentials: Credentials
+    try {
+      const labStsClient = new STSClient({
+        region: this.configService.get<string>('AWS_REGION', 'us-east-1'),
+        credentials: {
+          accessKeyId: runnerCredentials.AccessKeyId!,
+          secretAccessKey: runnerCredentials.SecretAccessKey!,
+          sessionToken: runnerCredentials.SessionToken!
+        }
+      })
+
+      const res = await labStsClient.send(
+        new AssumeRoleCommand({
+          RoleArn: labRoleArn,
+          RoleSessionName: `terminate-lab-${Date.now()}`,
+          DurationSeconds: 900
+        })
+      )
+
+      if (!res.Credentials) {
+        throw new InternalServerErrorException('Failed to assume lab role')
+      }
+      labCredentials = res.Credentials
+    } catch (error) {
+      this.logger.error(`Failed to assume lab role: ${labRoleArn}`, error)
+      throw new InternalServerErrorException('Failed to assume lab role for termination')
+    }
+
+    // Attach inline deny policy để revoke tất cả session được issue trước thời điểm hiện tại
+    const revokeTime = new Date().toISOString()
+    const denyPolicy = {
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Sid: 'RevokeOldSessions',
+          Effect: 'Deny',
+          Action: '*',
+          Resource: '*',
+          Condition: {
+            DateLessThan: {
+              'aws:TokenIssueTime': revokeTime
+            }
+          }
+        }
+      ]
+    }
+
+    try {
+      const iamClient = new IAMClient({
+        region: this.configService.get<string>('AWS_REGION', 'us-east-1'),
+        credentials: {
+          accessKeyId: labCredentials.AccessKeyId!,
+          secretAccessKey: labCredentials.SecretAccessKey!,
+          sessionToken: labCredentials.SessionToken!
+        }
+      })
+
+      await iamClient.send(
+        new PutRolePolicyCommand({
+          RoleName: roleName,
+          PolicyName: 'RevokeActiveSessionsPolicy',
+          PolicyDocument: JSON.stringify(denyPolicy)
+        })
+      )
+
+      this.logger.log(`Successfully revoked sessions for role ${roleName} before ${revokeTime}`)
+    } catch (error) {
+      this.logger.error(`Failed to attach revoke policy to role ${roleName}`, error)
+      throw new InternalServerErrorException('Failed to revoke active sessions')
     }
   }
 

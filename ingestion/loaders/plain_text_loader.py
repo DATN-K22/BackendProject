@@ -25,5 +25,5 @@ class PlainTextDataLoader(DataLoader):
             document_id=blob.document_id,
             source_uri=blob.source_uri,
             pages=[page],
-            metadata={**blob.metadata, "loader": "text"},
+            metadata={**blob.metadata, "filename": blob.filename, "loader": "text"},
         )

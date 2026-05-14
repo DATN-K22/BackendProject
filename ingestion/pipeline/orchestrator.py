@@ -64,10 +64,8 @@ class IngestionOrchestrator:
                 vector=vector,
                 text=chunk.text,
                 payload={
-                    **chunk.metadata,
                     "document_id": chunk.document_id,
-                    "chunk_id": chunk.chunk_id,
-                    "text": chunk.text,
+                    **chunk.metadata,
                 },
                 sparse_indices=sparse_vector.indices,
                 sparse_values=sparse_vector.values,

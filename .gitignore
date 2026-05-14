@@ -18,3 +18,4 @@ ingestion/.env
 ingestion/google-credentials.json
 CLAUDE.md
 orchestrator-ai/eval/implementation_plan.md
+orchestrator-ai/task-definition-orchestrator-ai.json

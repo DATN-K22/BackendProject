@@ -98,11 +98,12 @@ def _get_role(event) -> str:
 
 def _extract_text(event) -> str:
     """Extract text content from event."""
+    resultText = ""
     if event.content and event.content.parts:
         for part in event.content.parts:
             if part.text:
-                return part.text
-    return ""
+                resultText = part.text
+    return resultText if resultText else ""
 
 
 def _extract_approval_info(a2a_response: dict) -> Optional[dict]:

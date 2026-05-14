@@ -104,6 +104,7 @@ class QdrantVectorStore(VectorStore):
         qdrant_points: list[PointStruct] = []
         for point in points:
             payload = dict(point.payload)
+            payload["text"] = point.text
             if namespace:
                 payload["namespace"] = namespace
             qdrant_points.append(

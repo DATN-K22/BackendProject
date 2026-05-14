@@ -36,5 +36,5 @@ class PyPDFDataLoader(DataLoader):
             document_id=blob.document_id,
             source_uri=blob.source_uri,
             pages=pages,
-            metadata={**blob.metadata, "loader": "pypdf"},
+            metadata={**blob.metadata, "filename": blob.filename, "loader": "pypdf"},
         )

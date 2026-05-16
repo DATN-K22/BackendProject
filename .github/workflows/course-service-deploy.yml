@@ -6,6 +6,7 @@ on:
       - "*"
     paths:
       - "course-service/src/**"
+      - "course-service/tsconfig.json"
       - "course-service/Dockerfile"
       - "course-service/package*.json"
       - "course-service/prisma/**"

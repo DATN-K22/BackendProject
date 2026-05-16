@@ -47,7 +47,7 @@
       },
       {
           "name": "ORCHESTRATOR_SERVICE_URL",
-          "value": "http://placeholder"
+          "value": "http://orchestrator-ai.local:3005"
       },
       {
           "name": "MEDIA_SERVICE_URL",

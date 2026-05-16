@@ -78,6 +78,10 @@
         {
           "name": "JWT_ACCESS_TOKEN_EXPIRATION",
           "value": "15m"
+        },
+        {
+          "name": "CROSS_ACCOUNT_IAM_READER_ROLE_ARN",
+          "value": "arn:aws:iam::688412149143:role/CrossAccountIamReadRole"
         }
       ],
     "logConfiguration": {

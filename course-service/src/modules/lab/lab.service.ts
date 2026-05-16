@@ -616,12 +616,44 @@ export class LabService {
   }
 
   async getIamRoles(keyword: string): Promise<{ roleName: string; roleArn: string }[]> {
-    const iamClient = new IAMClient({
-      region: this.configService.get<string>('AWS_REGION', 'us-east-1')
-    })
-
     try {
-      const allRoles: { roleName: string; roleArn: string }[] = []
+      const region = this.configService.get<string>('AWS_REGION', 'us-east-1')
+      const runnerRoleArn = this.configService.getOrThrow<string>('CROSS_ACCOUNT_IAM_READER_ROLE_ARN')
+      const stsClient = new STSClient({
+        region
+      })
+
+      const assumedRole = await stsClient.send(
+        new AssumeRoleCommand({
+          RoleArn: runnerRoleArn || 'arn:aws:iam::688412149143:role/CrossAccountIamReadRole',
+          RoleSessionName: 'ecs-cross-account-session'
+        })
+      )
+
+      if (!assumedRole.Credentials) {
+        throw new Error('Failed to assume role')
+      }
+
+      const { AccessKeyId, SecretAccessKey, SessionToken } = assumedRole.Credentials
+
+      if (!AccessKeyId || !SecretAccessKey) {
+        throw new Error('Assumed role credentials are incomplete')
+      }
+
+      const iamClient = new IAMClient({
+        region,
+        credentials: {
+          accessKeyId: AccessKeyId,
+          secretAccessKey: SecretAccessKey,
+          sessionToken: SessionToken
+        }
+      })
+
+      const allRoles: {
+        roleName: string
+        roleArn: string
+      }[] = []
+
       let marker: string | undefined = undefined
 
       do {
@@ -633,9 +665,7 @@ export class LabService {
 
         const response: ListRolesCommandOutput = await iamClient.send(command)
 
-        this.logger.debug(
-          `Page fetched: ${response.Roles?.length ?? 0} roles, IsTruncated: ${response.IsTruncated}, NextMarker: ${response.Marker}`
-        )
+        this.logger.debug(`Page fetched: ${response.Roles?.length ?? 0} roles`)
 
         const roles = (response.Roles ?? [])
           .filter((role: Role) => role.RoleName?.startsWith('keep-'))
@@ -650,11 +680,10 @@ export class LabService {
         marker = response.IsTruncated ? response.Marker : undefined
       } while (marker)
 
-      this.logger.debug(`Total roles fetched across all pages: ${allRoles.length}`)
-
       return allRoles
     } catch (error) {
       this.logger.error(`Failed to fetch IAM roles: ${error}`)
+
       throw new InternalServerErrorException('Failed to fetch IAM roles')
     }
   }

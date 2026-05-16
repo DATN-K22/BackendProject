@@ -8,10 +8,14 @@ import {
   UpdateEventDto
 } from './dto'
 import { ScheduleRepository } from './schedule.repository'
+import { PrismaService } from '../../prisma/prisma.service'
 
 @Injectable()
 export class ScheduleService {
-  constructor(private readonly scheduleRepository: ScheduleRepository) {}
+  constructor(
+    private readonly scheduleRepository: ScheduleRepository,
+    private readonly prisma: PrismaService
+  ) {}
   private readonly logger = new Logger(ScheduleService.name)
 
   private async AuthorizeEvent(event: { user_id: string } | null, user_id: string): Promise<void> {
@@ -267,7 +271,7 @@ export class ScheduleService {
           event_id: exDate.event_id
         } as EventExceptionResponseDto
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding exception date:', error)
       if (
         error instanceof BadRequestException ||

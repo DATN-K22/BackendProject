@@ -38,7 +38,7 @@ export class LabController {
   }
 
   @Post('start')
-  async startLab(@Body() leaseData: { labId: string; leaseTemplateUuid: string; userId: string }) {
+  async startLab(@Body() leaseData: { chapterItemId: string; leaseTemplateUuid: string; userId: string }) {
     const result = await this.labService.startLab(leaseData)
     return ApiResponse.OkResponse(result)
   }
@@ -48,5 +48,15 @@ export class LabController {
     const result = await this.labService.terminateLab(leaseId, body)
 
     return ApiResponse.OkResponse(result)
+  }
+
+  @Get('lease-templates')
+  async getLeaseTemplates(@Query('keyword') keyword: string) {
+    return ApiResponse.OkResponse(await this.labService.getLeaseTemplates(keyword))
+  }
+
+  @Get('iam-roles')
+  async getIamRoles(@Query('keyword') keyword: string) {
+    return ApiResponse.OkResponse(await this.labService.getIamRoles(keyword))
   }
 }

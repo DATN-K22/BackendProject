@@ -7,7 +7,8 @@ import { LabRepository } from './lab.repository'
 import { ISecretManagementService } from './secret-management.interface'
 import { IsbClient } from '../innovation-sandbox/IsbClient'
 import { ConsoleUrlResponse, Lease } from './dto/get-console-url.dto'
-import { IAMClient, PutRolePolicyCommand } from '@aws-sdk/client-iam'
+import { IAMClient, ListRolesCommand, ListRolesCommandOutput, PutRolePolicyCommand, Role } from '@aws-sdk/client-iam'
+import { response } from 'express'
 
 @Injectable()
 export class LabService {
@@ -79,8 +80,14 @@ export class LabService {
     }
   }
 
-  async startLab(leaseData: { labId: string; leaseTemplateUuid: string; userId: string }) {
+  async startLab(leaseData: { chapterItemId: string; leaseTemplateUuid: string; userId: string }) {
     const token = await this.generateLabToken()
+    const lab = await this.labRepository.getLabByChapterItemId(leaseData.chapterItemId)
+    if (!lab) {
+      throw new BadRequestException(`No lab found for chapter item ID: ${leaseData.chapterItemId}`)
+    }
+    const labSession = await this.labRepository.createLabSession(leaseData.userId, '', lab.id)
+
     try {
       const response = await this.isbClient.startSession(
         leaseData.leaseTemplateUuid,
@@ -88,34 +95,42 @@ export class LabService {
         this.labUserEmail,
         token.access_token
       )
-      const leaseId = this.base64EncodeCompositeKey({ uuid: response.data.uuid, userEmail: this.labUserEmail }) || ''
-      await this.labRepository.createLabSession(leaseData.userId, leaseId, leaseData.labId)
+
+      const leaseId =
+        this.base64EncodeCompositeKey({
+          uuid: response.data.uuid,
+          userEmail: this.labUserEmail
+        }) || ''
+
+      await this.labRepository.updateLabSessionLeaseId(labSession.id, leaseId)
+
       return {
         ...response.data,
-        leaseId: leaseId
+        leaseId
       }
     } catch (error) {
+      await this.labRepository
+        .deleteLabSession(labSession.id)
+        .catch((err) => this.logger.error(`Failed to rollback lab session ${labSession.id}`, err))
+
       this.logger.error(`Failed to start lab session`, error)
       throw new InternalServerErrorException('Failed to start lab session')
     }
   }
 
   async getLabHistory(userId: string, leaseTemplateId: string, pageSize: number) {
-    // 1. Get lab sessions from DB
     const labSessions = await this.labRepository.getLabSessionByUserIdAndLeaseTemplateId(
       userId,
       leaseTemplateId,
       +pageSize
     )
-
-    // 2. Generate internal JWT
     const token = await this.generateLabToken()
 
     try {
       const response = await this.isbClient.findLeasesByUserEmail(this.labUserEmail, token.access_token)
 
       const leases = response.data?.result ?? []
-
+      this.logger.debug(`Fetched ${leases.length} leases from ISB ${JSON.stringify(leases)}`)
       const sessionLeaseIds = new Set(labSessions.map((session) => session.lease_id))
 
       const filteredLeases = leases
@@ -125,10 +140,11 @@ export class LabService {
         .sort((a: any, b: any) => new Date(b.meta?.createdTime).getTime() - new Date(a.meta?.createdTime).getTime())
         .slice(0, pageSize)
 
-      // 6. Return provider-like response
+      this.logger.debug(
+        `Filtered down to ${filteredLeases.length} leases after matching with DB sessions ${JSON.stringify(filteredLeases)}`
+      )
       return {
         result: filteredLeases,
-        // result: leases,
         nextPageIdentifier: null
       }
     } catch (error) {
@@ -145,7 +161,7 @@ export class LabService {
     const { userId, labId } = body
 
     // 1. Lấy LabSession kèm Lab để có IAMRoleName
-    const labSession = await this.labRepository.getLabSessionWithLab(userId, BigInt(labId))
+    const labSession = await this.labRepository.getLabSessionWithLab(userId, BigInt(labId), leaseId)
     if (!labSession) {
       throw new BadRequestException(`Lab session not found for labId: ${labId}, userId: ${userId}`)
     }
@@ -581,5 +597,65 @@ export class LabService {
 
     const jsonStr = JSON.stringify(key)
     return Buffer.from(jsonStr, 'utf8').toString('base64')
+  }
+
+  async getLeaseTemplates(keyword: string): Promise<LeaseTemplateSummary[]> {
+    const token = await this.generateLabToken()
+
+    try {
+      const response: LeaseTemplateResponse = await this.isbClient.findLeaseTemplates(token.access_token)
+      const templates: LeaseTemplate[] = response.data.result
+
+      return templates
+        .filter((template) => template.name.toLowerCase().includes(keyword.toLowerCase()))
+        .map(({ uuid, name, description }) => ({ uuid, name, description }))
+    } catch (error) {
+      this.logger.error(`Failed to fetch lease templates: ${error}`)
+      throw new InternalServerErrorException('Failed to fetch lease templates')
+    }
+  }
+
+  async getIamRoles(keyword: string): Promise<{ roleName: string; roleArn: string }[]> {
+    const iamClient = new IAMClient({
+      region: this.configService.get<string>('AWS_REGION', 'us-east-1')
+    })
+
+    try {
+      const allRoles: { roleName: string; roleArn: string }[] = []
+      let marker: string | undefined = undefined
+
+      do {
+        const command = new ListRolesCommand({
+          PathPrefix: '/',
+          Marker: marker,
+          MaxItems: 100
+        })
+
+        const response: ListRolesCommandOutput = await iamClient.send(command)
+
+        this.logger.debug(
+          `Page fetched: ${response.Roles?.length ?? 0} roles, IsTruncated: ${response.IsTruncated}, NextMarker: ${response.Marker}`
+        )
+
+        const roles = (response.Roles ?? [])
+          .filter((role: Role) => role.RoleName?.startsWith('keep-'))
+          .filter((role: Role) => !keyword || role.RoleName?.toLowerCase().includes(keyword.toLowerCase()))
+          .map((role: Role) => ({
+            roleName: role.RoleName ?? '',
+            roleArn: role.Arn ?? ''
+          }))
+
+        allRoles.push(...roles)
+
+        marker = response.IsTruncated ? response.Marker : undefined
+      } while (marker)
+
+      this.logger.debug(`Total roles fetched across all pages: ${allRoles.length}`)
+
+      return allRoles
+    } catch (error) {
+      this.logger.error(`Failed to fetch IAM roles: ${error}`)
+      throw new InternalServerErrorException('Failed to fetch IAM roles')
+    }
   }
 }

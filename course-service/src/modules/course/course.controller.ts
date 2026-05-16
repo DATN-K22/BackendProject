@@ -16,7 +16,7 @@ import { SearchCourseResponseDto } from './dto/response/search-course-response.d
 @Controller('course')
 @ApiTags('Course Management APIsl')
 export class CourseController {
-  constructor(private readonly courseService: CourseService) { }
+  constructor(private readonly courseService: CourseService) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new course' })
@@ -60,11 +60,68 @@ export class CourseController {
     )
   }
 
+  @Post('enroll')
+  @ApiOperation({ summary: 'Enroll a user in a course' })
+  @ApiBody({
+    schema: {
+      example: {
+        userId: 'Uuid. E.g: ',
+        courseId: 'Uuid. E.g: '
+      }
+    }
+  })
+  async enrollUserInCourse(@Body() body: { userId: string; courseId: string }) {
+    return ApiResponse.OkResponse(
+      await this.courseService.enrollUserInCourse(body.userId, body.courseId),
+      'Enroll user in course successfully'
+    )
+  }
+
   @Get('/search')
   @ApiOperation({ summary: 'Search courses' })
   @ApiOkResponse({ type: SearchCourseResponseDto })
   async searchCourses(@Query() filters: FilterOptionDto) {
     return ApiResponse.OkResponse(await this.courseService.searchCourses(filters), 'Search courses successfully')
+  }
+
+  @Get('/recommendation')
+  @ApiOperation({ summary: 'Get courses that is recommended for user' })
+  async getRecommendationCourses(@Query('offset') offset: string = '0', @Query('limit') limit: string = '10') {
+    return ApiResponse.OkResponse(
+      await this.courseService.getRecommendationCourses(+offset, +limit),
+      `Get recommendation courses successfully`
+    )
+  }
+
+  @Get('/me/:id/latest-incomplete')
+  @ApiOperation({ summary: "Get all the latest courses that user hasn't finished yet" })
+  @ApiParam({ name: 'id', description: 'The ID of the user' })
+  @ApiOkResponse({ type: [IncompleteCourse] })
+  @UseGuards(OwnershipGuard)
+  async getLatestIncompleteCourseForUser(
+    @Query('offset') offset: string = '0',
+    @Query('limit') limit: string = '10',
+    @Param('id') userId: string
+  ) {
+    return ApiResponse.OkResponse(
+      await this.courseService.getLatestIncompleteCourseForUser(userId, +offset, +limit),
+      'Get latest incomplete course for user successfully'
+    )
+  }
+
+  @Get('/me/:id/enrolled')
+  @ApiOperation({ summary: 'Get courses that user has enrolled in' })
+  @ApiParam({ name: 'id', description: 'The ID of the user' })
+  @UseGuards(OwnershipGuard)
+  async getEnrolledCourses(
+    @Param('id') userId: string,
+    @Query('offset') offset: string = '0',
+    @Query('limit') limit: string = '10'
+  ) {
+    return ApiResponse.OkResponse(
+      await this.courseService.getEnrolledCourses(userId, +offset, +limit),
+      'Get enrolled courses successfully'
+    )
   }
 
   @Get(':id')
@@ -114,47 +171,6 @@ export class CourseController {
     return ApiResponse.OkResponse(await this.courseService.update(+id, updateCourseDto), 'Update course successfully')
   }
 
-  @Get('/me/:id/latest-incomplete')
-  @ApiOperation({ summary: "Get all the latest courses that user hasn't finished yet" })
-  @ApiParam({ name: 'id', description: 'The ID of the user' })
-  @ApiOkResponse({ type: [IncompleteCourse] })
-  @UseGuards(OwnershipGuard)
-  async getLatestIncompleteCourseForUser(
-    @Query('offset') offset: string = '0',
-    @Query('limit') limit: string = '10',
-    @Param('id') userId: string
-  ) {
-    return ApiResponse.OkResponse(
-      await this.courseService.getLatestIncompleteCourseForUser(userId, +offset, +limit),
-      'Get latest incomplete course for user successfully'
-    )
-  }
-
-  @Get('/me/recommendation')
-  @ApiOperation({ summary: 'Get courses that is recommended for user' })
-  async getRecommendationCourses(@Query('offset') offset: string = '0', @Query('limit') limit: string = '10') {
-    return ApiResponse.OkResponse(
-      await this.courseService.getRecommendationCourses(+offset, +limit),
-      `Get recommendation courses successfully`
-    )
-  }
-
-
-  @Get('/me/:id/enrolled')
-  @ApiOperation({ summary: 'Get courses that user has enrolled in' })
-  @ApiParam({ name: 'id', description: 'The ID of the user' })
-  @UseGuards(OwnershipGuard)
-  async getEnrolledCourses(
-    @Param('id') userId: string,
-    @Query('offset') offset: string = '0',
-    @Query('limit') limit: string = '10'
-  ) {
-    return ApiResponse.OkResponse(
-      await this.courseService.getEnrolledCourses(userId, +offset, +limit),
-      'Get enrolled courses successfully'
-    )
-  }
-
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a course by id' })
   @ApiOkResponse({
@@ -175,22 +191,5 @@ export class CourseController {
     // remove(@Param('id') id: string) {
     //   return this.courseService.remove(+id)
     // }
-  }
-
-  @Post('enroll')
-  @ApiOperation({ summary: 'Enroll a user in a course' })
-  @ApiBody({
-    schema: {
-      example: {
-        userId: 'Uuid. E.g: ',
-        courseId: 'Uuid. E.g: '
-      }
-    }
-  })
-  async enrollUserInCourse(@Body() body: { userId: string; courseId: string }) {
-    return ApiResponse.OkResponse(
-      await this.courseService.enrollUserInCourse(body.userId, body.courseId),
-      'Enroll user in course successfully'
-    )
   }
 }

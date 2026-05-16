@@ -3,4 +3,5 @@ export interface IsbClient {
   findLeaseById(leaseId: string, token: string): Promise<any>
   startSession(leaseTemplateId: string, userId: string, userEmail: string, token: string): Promise<any>
   terminateLease(leaseId: string, token: string): Promise<any>
+  findLeaseTemplates(token: string): Promise<LeaseTemplateResponse>
 }

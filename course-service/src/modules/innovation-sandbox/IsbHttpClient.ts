@@ -62,4 +62,15 @@ export class IsbHttpClient implements IsbClient {
     )
     return response.data
   }
+
+  async findLeaseTemplates(token: string) {
+    const response = await firstValueFrom(
+      this.httpService.get(`/leaseTemplates`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+    )
+    return response.data
+  }
 }

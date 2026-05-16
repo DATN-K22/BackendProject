@@ -118,7 +118,8 @@ async function bootstrap() {
     path.startsWith('/api/orchestrator/ready') ||
     path.startsWith('/api/orchestrator/docs') ||
     path.startsWith('/api/orchestrator/openapi.json') ||
-    path.startsWith('/api/courses/mcp');
+    path.startsWith('/api/courses/mcp') ||
+    path.startsWith('/api/courses/course/recommendation'); // Allow public access to course details
 
   server.use(async (req, res, next) => {
     Logger.debug(`Incoming: ${req.method} ${req.originalUrl}`);

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service'
 
 @Injectable()
@@ -21,26 +21,47 @@ export class LabRepository {
       },
       take: pageSize
     })
+
     return labSessions
   }
 
-  async createLabSession(userId: string, leaseId: string, labId: string) {
+  async getLabByChapterItemId(chapterItemId: string) {
+    return this.prisma.lab.findFirst({
+      where: { chapterItem: { id: BigInt(chapterItemId) } }
+    })
+  }
+
+  async createLabSession(userId: string, leaseId: string, labId: bigint) {
     const labSession = await this.prisma.labSession.create({
       data: {
         user_id: userId,
-        lab_id: BigInt(labId),
+        lab_id: labId,
         lease_id: leaseId
       }
     })
     return labSession
   }
 
-  async getLabSessionWithLab(userId: string, labId: bigint) {
+  async updateLabSessionLeaseId(sessionId: bigint, leaseId: string) {
+    return this.prisma.labSession.update({
+      where: { id: sessionId },
+      data: { lease_id: leaseId }
+    })
+  }
+
+  async deleteLabSession(sessionId: bigint) {
+    return this.prisma.labSession.delete({
+      where: { id: sessionId }
+    })
+  }
+
+  async getLabSessionWithLab(userId: string, labId: bigint, leaseId: string) {
     return this.prisma.labSession.findUnique({
       where: {
-        lab_id_user_id: {
+        uq_lab_session_lab_user: {
           lab_id: labId,
-          user_id: userId
+          user_id: userId,
+          lease_id: leaseId
         }
       },
       include: {

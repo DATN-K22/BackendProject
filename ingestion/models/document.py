@@ -18,6 +18,7 @@ class DocumentBlob:
 class ParsedPage:
     page_number: int
     text: str
+    filename: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 

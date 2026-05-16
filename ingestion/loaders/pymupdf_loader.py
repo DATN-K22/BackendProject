@@ -5,8 +5,10 @@ from models.document import DocumentBlob, ParsedDocument, ParsedPage
 
 try:
     import pymupdf
+    import pymupdf4llm
 except ImportError:  # pragma: no cover
     pymupdf = None  # type: ignore[assignment]
+    pymupdf4llm = None  # type: ignore[assignment]
 
 
 class PyMuPDFDataLoader(DataLoader):
@@ -16,25 +18,35 @@ class PyMuPDFDataLoader(DataLoader):
         return "pdf" in content_type or filename.endswith(".pdf")
 
     def load(self, blob: DocumentBlob) -> ParsedDocument:
-        if pymupdf is None:
-            raise RuntimeError("PyMuPDFDataLoader requires `pymupdf` package.")
+        if pymupdf is None or pymupdf4llm is None:
+            raise RuntimeError("PyMuPDFDataLoader requires `pymupdf` and `pymupdf4llm` packages.")
 
         pages: list[ParsedPage] = []
         with pymupdf.open(stream=blob.content, filetype="pdf") as doc:
-            for page_num in range(doc.page_count):
-                page = doc.load_page(page_num)
-                text = page.get_text("text").strip()
+            md_output = pymupdf4llm.to_markdown(doc, page_chunks=True)
+            
+            if isinstance(md_output, str):
                 pages.append(
                     ParsedPage(
-                        page_number=page_num + 1,
-                        text=text,
-                        metadata={"loader": "pymupdf"},
+                        page_number=1,
+                        text=md_output.strip(),
+                        metadata={"loader": "pymupdf4llm"},
                     )
                 )
+            else:
+                for idx, chunk in enumerate(md_output):
+                    page_num = chunk.get("metadata", {}).get("page", idx + 1)
+                    pages.append(
+                        ParsedPage(
+                            page_number=page_num,
+                            text=chunk.get("text", "").strip(),
+                            metadata={"loader": "pymupdf4llm"},
+                        )
+                    )
 
         return ParsedDocument(
             document_id=blob.document_id,
             source_uri=blob.source_uri,
             pages=pages,
-            metadata={**blob.metadata, "loader": "pymupdf"},
+            metadata={**blob.metadata, "filename": blob.filename, "loader": "pymupdf4llm"},
         )

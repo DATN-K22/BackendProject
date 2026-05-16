@@ -1,7 +1,9 @@
 recommendation-ai/.env
 orchestrator-ai/.env
 rag-ai/.env
-
+rag-ai/task-definition-rag-ai.json
+ingestion/task-definition-rag-ai.json
+rag-ai/google-credentials.json
 .venv/
 
 # Python cache files
@@ -18,3 +20,4 @@ ingestion/.env
 ingestion/google-credentials.json
 CLAUDE.md
 orchestrator-ai/eval/implementation_plan.md
+orchestrator-ai/task-definition-orchestrator-ai.json

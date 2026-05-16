@@ -72,3 +72,5 @@ dmypy.json
 
 # Profiling data
 *.prof
+
+google-credentials.json

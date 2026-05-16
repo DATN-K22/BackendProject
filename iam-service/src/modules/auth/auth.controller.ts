@@ -36,7 +36,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
-  async signup(@Body() dto: AuthSignUpDto, @Res({ passthrough: true }) res: Response) {
+  @HttpCode(HttpStatus.OK)
+  async signup(@Body() dto: AuthSignUpDto) {
     return ApiResponse.OkResponse(await this.authService.signup(dto), 'Signup successfully')
   }
 
@@ -67,7 +68,7 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post('signin')
-  async signin(@Body() dto: AuthSignInDto, @Res({ passthrough: true }) res: Response) {
+  async signin(@Body() dto: AuthSignInDto) {
     const { tokens, user } = await this.authService.signin(dto)
 
     return ApiResponse.OkResponse({

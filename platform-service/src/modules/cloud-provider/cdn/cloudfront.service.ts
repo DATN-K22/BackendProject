@@ -10,8 +10,10 @@ export class CloudFrontService implements ICDNService {
 
   constructor(private readonly configService: ConfigService) {
     this.distributionDomain = this.configService.get<string>('CLOUDFRONT_DISTRIBUTION_DOMAIN', '');
+
     this.keyPairId = this.configService.get<string>('CLOUDFRONT_KEY_PAIR_ID', '');
-    this.privateKey = this.configService.get<string>('CLOUDFRONT_PRIVATE_KEY', '');
+
+    this.privateKey = this.configService.get<string>('CLOUDFRONT_PRIVATE_KEY', '').replace(/\\n/g, '\n');
 
     if (!this.distributionDomain || !this.keyPairId || !this.privateKey) {
       throw new InternalServerErrorException('CloudFront configuration is incomplete');

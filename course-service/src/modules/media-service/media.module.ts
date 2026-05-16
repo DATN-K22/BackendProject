@@ -8,7 +8,7 @@ import { MediaHtppClient } from './MediaHttpClient'
     HttpModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        baseURL: config.get<string>('Media_SERVICE_URL'),
+        baseURL: config.get<string>('MEDIA_SERVICE_URL'),
         timeout: 5000,
         maxRedirects: 5
       })

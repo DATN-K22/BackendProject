@@ -5,10 +5,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { S3Client } from '@aws-sdk/client-s3';
 import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
 
-import { CloudStorageConfigInitializer } from '../../config/CloudStorageConfigInitializer';
 import { ICloudStorageService } from './storage/cloud-storage.interface';
 import { CloudFrontService } from './cdn/cloudfront.service';
-import { CDN_SERVICE, CLOUD_STORAGE_INITIALIZER, CLOUD_STORAGE_SERVICE } from '../../config/constant';
+import { CDN_SERVICE, CLOUD_STORAGE_SERVICE } from '../../config/constant';
 import { S3Service } from './storage/s3-storage.service';
 
 @Global()
@@ -16,24 +15,10 @@ import { S3Service } from './storage/s3-storage.service';
   imports: [ConfigModule],
   providers: [
     {
-      provide: CLOUD_STORAGE_INITIALIZER,
-      useFactory: async (configService: ConfigService) => {
-        const provider = configService.get<string>('CLOUD_PROVIDER', 'local');
-
-        const initializer = new CloudStorageConfigInitializer(new Map(), provider);
-
-        initializer.init();
-
-        return initializer;
-      },
-      inject: [ConfigService]
-    },
-
-    {
       provide: CLOUD_STORAGE_SERVICE,
       useFactory: async (configService: ConfigService): Promise<ICloudStorageService> => {
-        const provider = configService.get<string>('CLOUD_PROVIDER', 'local');
-
+        const provider = configService.get<string>('CLOUD_PROVIDER', 'aws');
+        Logger.log(`Initializing cloud storage service for provider: ${provider}`);
         switch (provider) {
           case 'aws': {
             Logger.log('Using AWS S3 for cloud storage');
@@ -58,13 +43,25 @@ import { S3Service } from './storage/s3-storage.service';
               const sts = new STSClient({
                 region
               });
+              let assumed;
+              try {
+                Logger.debug('Attempting to assume cross-account role for S3 access');
+                assumed = await sts.send(
+                  new AssumeRoleCommand({
+                    RoleArn: roleArn,
+                    RoleSessionName: `media-service-${Date.now()}`
+                  })
+                );
 
-              const assumed = await sts.send(
-                new AssumeRoleCommand({
-                  RoleArn: roleArn,
-                  RoleSessionName: `media-service-${Date.now()}`
-                })
-              );
+                Logger.log('Cross-account role assumed successfully');
+
+                console.log(assumed);
+              } catch (err) {
+                Logger.error('AssumeRole failed');
+                console.error(err);
+
+                throw err;
+              }
 
               if (!assumed.Credentials) {
                 throw new Error('Failed to assume cross-account S3 role');
@@ -130,14 +127,14 @@ import { S3Service } from './storage/s3-storage.service';
     {
       provide: CDN_SERVICE,
       useFactory: (configService: ConfigService) => {
-        const provider = configService.get<string>('CLOUD_PROVIDER', 'local');
+        const provider = configService.get<string>('CLOUD_PROVIDER', 'aws');
 
         switch (provider) {
           case 'aws':
             return new CloudFrontService(configService);
 
           default:
-            throw new Error(`Unsupported cloud provider: ${provider}`);
+            throw new Error(`Unsupported cloud cdn: ${provider}`);
         }
       },
       inject: [ConfigService]

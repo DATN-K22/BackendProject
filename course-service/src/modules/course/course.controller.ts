@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Headers, UseGuards } from '@nestjs/common'
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Headers, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common'
 import { CourseService } from './course.service'
 import { ApiBody, ApiOkResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiResponse } from '../../utils/dto/ApiResponse'
@@ -80,6 +80,7 @@ export class CourseController {
   @Get('/search')
   @ApiOperation({ summary: 'Search courses' })
   @ApiOkResponse({ type: SearchCourseResponseDto })
+  @UsePipes(new ValidationPipe({ transform: true }))
   async searchCourses(@Query() filters: FilterOptionDto) {
     return ApiResponse.OkResponse(await this.courseService.searchCourses(filters), 'Search courses successfully')
   }

@@ -5,6 +5,7 @@ on:
     branches:
       - "*"
     paths:
+      - "course-service/**"
       - "course-service/src/**"
       - "course-service/tsconfig.json"
       - "course-service/Dockerfile"

@@ -10,13 +10,13 @@ import { SearchCourseResponseDto } from './dto/response/search-course-response.d
 
 @Injectable()
 export class CourseService {
+  private readonly logger = new Logger(CourseService.name)
   constructor(
     private readonly courseRepository: CourseRepositoy,
     private readonly chapterService: ChapterService,
-
     @Inject('IamClient')
     private readonly iamClient: IamClient
-  ) { }
+  ) {}
 
   async create(createCourseDto: CreateCourseDto) {
     return this.courseRepository.create(createCourseDto)
@@ -44,12 +44,20 @@ export class CourseService {
 
   async getLatestIncompleteCourseForUser(userId: string, offset: number, limit: number): Promise<IncompleteCourse[]> {
     // get latest incomplete course list for user
+    this.logger.debug(
+      `Fetching latest incomplete courses for user ${userId} with offset ${offset} and limit ${limit}...`
+    )
     const incompleteCourse = await this.courseRepository.getLatestIncompleteCourseForUser(userId, offset, limit)
     // get creator of each course and return with creator info
+
+    this.logger.debug(
+      `Fetched ${incompleteCourse.length} incomplete courses for user ${userId}, fetching creator info...`
+    )
     const creatorInfoMap = await this.getCreatorIds(incompleteCourse)
+
+    this.logger.debug(`Fetched ${incompleteCourse.length} incomplete courses for user ${userId}`)
     return incompleteCourse.map((course) => {
       const creatorInfo = creatorInfoMap.get(course.owner_id)
-
       return {
         id: course.id,
         thumbnail_url: course.thumbnail_url,
@@ -174,10 +182,10 @@ export class CourseService {
   }
 
   async searchCourses(filters: FilterOptionDto): Promise<SearchCourseResponseDto> {
-    const result = await this.courseRepository.searchCourses(filters);
+    const result = await this.courseRepository.searchCourses(filters)
 
     // Dùng getCreatorIds để batch gộp tất cả các request lấy user info (tránh lỗi N+1 API call)
-    const creatorInfoMap = await this.getCreatorIds(result.courses);
+    const creatorInfoMap = await this.getCreatorIds(result.courses)
 
     const data = result.courses.map((course) => ({
       ...course,
@@ -185,12 +193,12 @@ export class CourseService {
       price: Number(course.price), // Fix lỗi Decimal không assignable cho number
       course_level: course.course_level as string, // Fix lỗi Type enum
       user: creatorInfoMap.get(course.owner_id)
-    }));
+    }))
 
     return {
       data,
       meta: result.meta,
       facets: result.facets
-    };
+    }
   }
 }

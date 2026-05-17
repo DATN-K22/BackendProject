@@ -187,9 +187,5 @@ export class CourseController {
   async remove(@Param('id') id: string) {
     await this.courseService.remove(+id)
     return ApiResponse.OkResponse(null, 'Delete course successfully')
-    // @UseGuards(OwnershipGuard)
-    // remove(@Param('id') id: string) {
-    //   return this.courseService.remove(+id)
-    // }
   }
 }

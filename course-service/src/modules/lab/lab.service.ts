@@ -96,12 +96,16 @@ export class LabService {
         token.access_token
       )
 
+      this.logger.debug(this.labUserEmail)
+
       const leaseId =
         this.base64EncodeCompositeKey({
-          uuid: response.data.uuid,
-          userEmail: this.labUserEmail
+          userEmail: this.labUserEmail,
+          uuid: response.data.uuid
         }) || ''
 
+      this.logger.debug(`Started lab session ${labSession.id} with lease ID: ${leaseId}`)
+      this.logger.debug(`ISB response for starting session: ${JSON.stringify(response.data)}`)
       await this.labRepository.updateLabSessionLeaseId(labSession.id, leaseId)
 
       return {
@@ -157,18 +161,22 @@ export class LabService {
     }
   }
 
-  async terminateLab(leaseId: string, body: { userId: string; labId: string }) {
-    const { userId, labId } = body
+  async terminateLab(leaseId: string, body: { userId: string; chapterItemId: string }) {
+    const { userId, chapterItemId } = body
 
     // 1. Lấy LabSession kèm Lab để có IAMRoleName
-    const labSession = await this.labRepository.getLabSessionWithLab(userId, BigInt(labId), leaseId)
+    const lab = await this.labRepository.getLabByChapterItemId(chapterItemId)
+    if (!lab) {
+      throw new BadRequestException(`Lab not found for chapter item ID: ${chapterItemId}`)
+    }
+    const labSession = await this.labRepository.getLabSessionWithLab(userId, BigInt(lab.id), leaseId)
     if (!labSession) {
-      throw new BadRequestException(`Lab session not found for labId: ${labId}, userId: ${userId}`)
+      throw new BadRequestException(`Lab session not found for labId: ${lab.id}, userId: ${userId}`)
     }
 
     const iamRoleName = labSession.lab.IAMRoleName
     if (!iamRoleName) {
-      throw new BadRequestException(`Lab ${labId} has no IAMRoleName configured`)
+      throw new BadRequestException(`Lab ${lab.id} has no IAMRoleName configured`)
     }
 
     const token = await this.generateLabToken()
@@ -178,7 +186,8 @@ export class LabService {
       throw new BadRequestException('Cannot resolve awsAccountId from lease')
     }
 
-    // 3. Terminate lease trên ISB
+    await this.revokeActiveSession(lease.awsAccountId, iamRoleName)
+
     try {
       await this.isbClient.terminateLease(leaseId, token.access_token)
       this.logger.log(`Lease ${leaseId} terminated on ISB`)
@@ -186,24 +195,19 @@ export class LabService {
       this.logger.error(`Failed to terminate lease on ISB: ${leaseId}`, error)
       throw new InternalServerErrorException('Failed to terminate lease on ISB')
     }
-
-    // 4. Revoke active AWS session
-    await this.revokeActiveSession(lease.awsAccountId, iamRoleName)
-
     return { leaseId: labSession.lease_id }
   }
 
   private async revokeActiveSession(awsAccountId: string, roleName: string): Promise<void> {
-    // Assume role trung gian từ env (runner role có quyền attach policy)
-    const runnerRoleArn = this.configService.getOrThrow<string>('LAB_RUNNER_ROLE_ARN')
-
+    const runnerRoleArn = this.configService.getOrThrow<string>('ISB_ROLE_INTERMIDIATE_ARN')
+    const labRunnerRoleArn = this.configService.getOrThrow<string>('ISB_ROLE_ACCOUNT_INTERMEDIATE')
     let runnerCredentials: Credentials
     try {
       const res = await this.stsClient.send(
         new AssumeRoleCommand({
           RoleArn: runnerRoleArn,
           RoleSessionName: `terminate-runner-${Date.now()}`,
-          DurationSeconds: 900 // 15 phút là đủ
+          DurationSeconds: 900
         })
       )
 
@@ -211,16 +215,15 @@ export class LabService {
         throw new InternalServerErrorException('Failed to assume runner role')
       }
       runnerCredentials = res.Credentials
+      this.logger.log(`Successfully assumed runner role: ${runnerRoleArn}`)
     } catch (error) {
       this.logger.error(`Failed to assume runner role: ${runnerRoleArn}`, error)
       throw new InternalServerErrorException('Failed to assume runner role for termination')
     }
-
-    // Dùng runner credentials để assume role của lab account
-    const labRoleArn = this.buildRoleArn(awsAccountId, roleName)
+    const labRoleArn = this.buildRoleArn(awsAccountId, labRunnerRoleArn)
     let labCredentials: Credentials
     try {
-      const labStsClient = new STSClient({
+      const intermediateStsClient = new STSClient({
         region: this.configService.get<string>('AWS_REGION', 'us-east-1'),
         credentials: {
           accessKeyId: runnerCredentials.AccessKeyId!,
@@ -229,24 +232,24 @@ export class LabService {
         }
       })
 
-      const res = await labStsClient.send(
+      const res = await intermediateStsClient.send(
         new AssumeRoleCommand({
           RoleArn: labRoleArn,
-          RoleSessionName: `terminate-lab-${Date.now()}`,
+          RoleSessionName: `lab-admin-${Date.now()}`,
           DurationSeconds: 900
         })
       )
 
       if (!res.Credentials) {
-        throw new InternalServerErrorException('Failed to assume lab role')
+        throw new InternalServerErrorException('Failed to assume lab admin role')
       }
       labCredentials = res.Credentials
+      this.logger.log(`Successfully assumed lab admin role: ${labRoleArn}`)
     } catch (error) {
-      this.logger.error(`Failed to assume lab role: ${labRoleArn}`, error)
-      throw new InternalServerErrorException('Failed to assume lab role for termination')
+      this.logger.error(`Failed to assume lab admin role: ${labRoleArn}`, error)
+      throw new InternalServerErrorException('Failed to assume lab admin role for termination')
     }
 
-    // Attach inline deny policy để revoke tất cả session được issue trước thời điểm hiện tại
     const revokeTime = new Date().toISOString()
     const denyPolicy = {
       Version: '2012-10-17',
@@ -266,7 +269,7 @@ export class LabService {
     }
 
     try {
-      const iamClient = new IAMClient({
+      const labIamClient = new IAMClient({
         region: this.configService.get<string>('AWS_REGION', 'us-east-1'),
         credentials: {
           accessKeyId: labCredentials.AccessKeyId!,
@@ -275,7 +278,7 @@ export class LabService {
         }
       })
 
-      await iamClient.send(
+      await labIamClient.send(
         new PutRolePolicyCommand({
           RoleName: roleName,
           PolicyName: 'RevokeActiveSessionsPolicy',
@@ -283,9 +286,11 @@ export class LabService {
         })
       )
 
-      this.logger.log(`Successfully revoked sessions for role ${roleName} before ${revokeTime}`)
+      this.logger.log(
+        `Successfully revoked sessions for target role ${roleName} in account ${awsAccountId} before ${revokeTime}`
+      )
     } catch (error) {
-      this.logger.error(`Failed to attach revoke policy to role ${roleName}`, error)
+      this.logger.error(`Failed to attach revoke policy to target role ${roleName} in account ${awsAccountId}`, error)
       throw new InternalServerErrorException('Failed to revoke active sessions')
     }
   }
@@ -358,7 +363,7 @@ export class LabService {
     roleArn: string
     sessionPolicy?: string
   }> {
-    const roleArn = this.resolveRoleArn(lease)
+    const roleArn = await this.resolveRoleArn(lease)
     const sessionPolicy = await this.resolveSessionPolicy(lease)
 
     return {
@@ -371,20 +376,14 @@ export class LabService {
    * Resolves the IAM role ARN with fallback chain
    * Priority: lease template IAM role > env DEFAULT_LAB_ROLE_ARN
    */
-  private resolveRoleArn(lease: Lease): string {
+  private async resolveRoleArn(lease: Lease): Promise<string> {
     let roleArn: string | undefined
 
-    // Try to build from lease template if available
-    if (lease.originalLeaseTemplateUuid && lease.awsAccountId) {
-      // In a real scenario, fetch the template from DB/store
-      // For now, we'll use the env variable
-      const templateRoleName = this.configService.get<string>(``)
-
-      if (templateRoleName) {
-        roleArn = this.buildRoleArn(lease.awsAccountId, templateRoleName)
-      }
+    const lab = await this.labRepository.getLabByLeaseId(lease.leaseId)
+    if (!lab) {
+      throw new InternalServerErrorException("Can't get lab for lease, cannot resolve IAM role")
     }
-
+    roleArn = this.buildRoleArn(lease.awsAccountId, lab.IAMRoleName || '')
     // Fallback to default role
     if (!roleArn) {
       roleArn = this.configService.get<string>('DEFAULT_LAB_ROLE_ARN')

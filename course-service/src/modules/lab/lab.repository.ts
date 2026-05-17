@@ -73,4 +73,16 @@ export class LabRepository {
       }
     })
   }
+
+  async getLabByLeaseId(leaseId: string) {
+    return this.prisma.lab.findFirst({
+      where: {
+        labSessions: {
+          some: {
+            lease_id: leaseId
+          }
+        }
+      }
+    })
+  }
 }

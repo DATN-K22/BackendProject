@@ -44,7 +44,7 @@ export class LabController {
   }
 
   @Post('leases/:leaseId/terminate')
-  async terminateLab(@Param('leaseId') leaseId: string, @Body() body: { userId: string; labId: string }) {
+  async terminateLab(@Param('leaseId') leaseId: string, @Body() body: { userId: string; chapterItemId: string }) {
     const result = await this.labService.terminateLab(leaseId, body)
 
     return ApiResponse.OkResponse(result)

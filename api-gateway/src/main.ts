@@ -167,7 +167,6 @@ async function bootstrap() {
       req.headers['x-user-email'] = decoded.user.email;
       req.headers['x-user-role'] = primaryRole;
       req.headers['x-user-username'] = decoded.user.userName;
-      req.headers['x-user-display-name'] = decoded.user.displayName;
       req.headers['x-user-jti'] = decoded.jti;
       req.headers['x-user-token-exp'] = String(decoded.exp);
       req.headers['x-tenant-id'] =

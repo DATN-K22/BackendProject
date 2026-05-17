@@ -38,11 +38,11 @@ import { S3Service } from './storage/s3-storage.service';
              * =========================================================
              */
             if (roleArn) {
-              Logger.log(`Assuming cross-account role: ${roleArn}`);
-
               const sts = new STSClient({
                 region
               });
+
+              Logger.log(`Assuming cross-account role: ${roleArn}`);
               let assumed;
               try {
                 Logger.debug('Attempting to assume cross-account role for S3 access');

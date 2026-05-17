@@ -112,6 +112,10 @@
                 {
                     "name": "CLOUD_PROVIDER",
                     "value": "aws"
+                },
+                {
+                    "name": "AWS_S3_ASSUME_ROLE_ARN",
+                    "value": "arn:aws:iam::317287357350:role/CrossAccountS3UploadRole"
                 }
             ],
       "logConfiguration": {

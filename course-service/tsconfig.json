@@ -7,13 +7,20 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "sourceMap": true,
-    "ignoreDeprecations": "6.0",
     "incremental": true,
     "skipLibCheck": true,
-    "strict": true,                   
-    "esModuleInterop": true,         
-    "types": ["node", "jest"]         
+    "strict": true,
+    "esModuleInterop": true,
+    "types": [
+      "node",
+      "jest"
+    ]
   },
-  "include": ["src/**/*", "test/**/*"],
-  "exclude": ["node_modules"]
+  "include": [
+    "src/**/*",
+    "test/**/*"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

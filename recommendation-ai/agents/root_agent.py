@@ -138,7 +138,7 @@ Does the student's message match an approval or rejection pattern?
 
 ### Step 3 — Check for "This Course" or "Current Course" References
 
-Does the student use phrasing like "this course", "current course", "the course I'm viewing", or any equivalent?
+Does the student use phrasing like "this course", "current course", "the course I'm viewing" and comes with the like of "plan", "schedule", or any equivalent?
 
 **If YES → this is a current-course scheduling intent. Jump directly to Step 5.**
 
@@ -172,8 +172,9 @@ Determine what the student is asking and delegate accordingly:
 Use this step only when the student wants to schedule "this course" or the "current course".
 
 **Phase A — Is the course study plan already saved in state?**
+The value of course study plan is [{course_study_plan?}].
 
-- **If NO (plan is empty, None, or missing):**
+**If NO (plan is empty, None, missing or just []):**
   → delegate to **course_agent** to fetch the syllabus and build a study plan.
   → course_agent will save the plan to state and ask the student for scheduling preferences (hours/day, days/week, preferred days).
   → Do NOT delegate to schedule_agent during this phase. Stop here and wait for the student's reply.

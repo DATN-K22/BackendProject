@@ -65,6 +65,7 @@ logger = logging.getLogger(__name__)
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 HOST = os.getenv("HOST", "0.0.0.0")
+ADK_HOST = os.getenv("ADK_HOST", "recommendation-ai.local")
 PORT = int(os.getenv("PORT", "8080"))
 APP_NAME = "course_schedule_helper"
 
@@ -186,8 +187,7 @@ def build_app() -> Starlette:
     )
 
     runner = Runner(
-        agent=root_agent,
-        app_name=APP_NAME,
+        app=app,
         session_service=session_service,
         artifact_service=InMemoryArtifactService(),
     )
@@ -207,7 +207,7 @@ def build_app() -> Starlette:
     async def _setup_a2a(app: Starlette) -> None:
         card_builder = AgentCardBuilder(
             agent=root_agent,
-            rpc_url=f"http://{HOST}:{PORT}/",
+            rpc_url=f"http://{ADK_HOST}:{PORT}/",
         )
         agent_card = await card_builder.build()
         A2AStarletteApplication(

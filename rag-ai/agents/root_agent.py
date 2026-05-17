@@ -8,58 +8,12 @@ from google.genai import types
 from agents.rag_agent import create_rag_agent
 from config.settings import Settings
 from mcptools.toolset_factory import COURSE_MCP_CONFIG, build_toolset
-from google.adk.tools.example_tool import ExampleTool, Example
 
-
-example_tool = ExampleTool(examples=[
-    # Case 1: course_id empty/general → STOP immediately
-    Example(
-        input=types.Content(
-            role="user",
-            parts=[types.Part(text="What is taught in this course?")]
-            # course_id = "general" or empty
-        ),
-        output=[
-            types.Content(
-                role="model",
-                parts=[types.Part(text="No course ID provided. Cannot check enrollment status.")]
-            )
-        ]
-    ),
-    # Case 2: course_id valid, enrolled → delegate to rag_agent
-    Example(
-        input=types.Content(
-            role="user",
-            parts=[types.Part(text="What is taught in course 21?")]
-            # course_id = "21", fetch returns non-empty
-        ),
-        output=[
-            types.Content(
-                role="model",
-                parts=[types.Part(text="[from RAG agent] The course covers the following topics...")]
-            )
-        ]
-    ),
-    # Case 3: course_id valid but not enrolled → STOP
-    Example(
-        input=types.Content(
-            role="user",
-            parts=[types.Part(text="Explain the syllabus for course 99?")]
-            # course_id = "99", fetch returns empty list
-        ),
-        output=[
-            types.Content(
-                role="model",
-                parts=[types.Part(text="No enrollment found for course_id 99.")]
-            )
-        ]
-    ),
-])
 
 ROOT_INSTRUCTION = """
 You are the RAG Assistant coordinator of an A2A system.
 
-## Workflow (follow in strict order every turn)
+## Workflow (MUST follow in STRICT ORDER every turn)
 
 ### STEP 1 — CHECK COURSE ID:
 - course_id = "{course_id?}"
@@ -67,7 +21,7 @@ You are the RAG Assistant coordinator of an A2A system.
   Respond ONLY with JSON: "No course ID provided. Cannot check enrollment status."
   Then STOP.
 
-### STEP 2 — CALL FETCH TOOL (mandatory if course_id is valid):
+### STEP 2 — CALL FETCH TOOL (mandatory if passing step 1):
 - Call "fetch-enrolled-courses-by-ids" with course_id="{course_id?}" NOW.
 - Do NOT skip this call under any circumstance.
 - Do NOT assume the result. Wait for the actual tool response.
@@ -97,7 +51,7 @@ def create_root_agent(model_name: str, settings: Settings | None = None) -> LlmA
         name="rag_assistant",
         model=LiteLlm(model="vertex_ai/gemini-2.5-flash"),
         instruction=ROOT_INSTRUCTION,
-        tools=tools + [example_tool],
+        tools=tools,
         sub_agents=[
             create_rag_agent(model_name, settings=settings),
         ],

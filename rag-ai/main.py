@@ -154,7 +154,7 @@ def build_app() -> Starlette:
     async def _setup_a2a(app: Starlette) -> None:
         card_builder = AgentCardBuilder(
             agent=root_agent,
-            rpc_url=f"http://{settings.host}:{settings.port}/",
+            rpc_url=f"http://{settings.adk_host}:{settings.port}/",
         )
         agent_card = await card_builder.build()
         A2AStarletteApplication(

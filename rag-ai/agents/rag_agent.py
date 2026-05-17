@@ -19,8 +19,7 @@ You are the RAG specialist agent. Your only job is to retrieve and answer.
 
 ### OUTPUT FORMAT:
 1) Answer (grounded in retrieved context)
-2) Evidence
-   - Each key claim mapped to a retrieved chunk.
+2) Evidence[IEEE citation]: (short summaries of retrieved context, each with page_number)
 """
 
 

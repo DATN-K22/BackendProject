@@ -24,6 +24,7 @@ class Settings:
     qdrant_collection: str
     qdrant_vector_size: int
     qdrant_distance: str
+    adk_host: str
 
 
 def load_settings() -> Settings:
@@ -38,6 +39,7 @@ def load_settings() -> Settings:
     return Settings(
         app_name=os.getenv("APP_NAME", "rag_assistant"),
         host=os.getenv("HOST", "0.0.0.0"),
+        adk_host=os.getenv("ADK_HOST", "rag-ai.local"),
         port=int(os.getenv("PORT", "8090")),
         redis_url=redis_url,
         redis_password=redis_password,

@@ -30,10 +30,6 @@ export class LabService {
     this.initializeAwsClients()
   }
 
-  /**
-   * Build explicit IAM credentials from env/config
-   * Replaces ECS task role with static access key + secret key
-   */
   private getExplicitCredentials() {
     const accessKeyId = this.configService.getOrThrow<string>('AWS_ACKID')
     const secretAccessKey = this.configService.getOrThrow<string>('AWS_SACK')

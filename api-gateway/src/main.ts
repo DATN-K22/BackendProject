@@ -169,6 +169,8 @@ async function bootstrap() {
       req.headers['x-user-username'] = decoded.user.userName;
       req.headers['x-user-jti'] = decoded.jti;
       req.headers['x-user-token-exp'] = String(decoded.exp);
+
+      Logger.debug(`Request Headers ${JSON.stringify(req.headers)}`);
       req.headers['x-tenant-id'] = req.headers['X-Tenant-Id'] ?? 'general';
       req.headers['x-forwarded-by-gateway'] = 'true';
 

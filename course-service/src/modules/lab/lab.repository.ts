@@ -55,18 +55,21 @@ export class LabRepository {
     })
   }
 
-  async getLabSessionWithLab(userId: string, labId: bigint, leaseId: string) {
-    return this.prisma.labSession.findUnique({
+  async getLabSessionWithLab(userId: string, leaseId: string, chapterItemId: string) {
+    return this.prisma.labSession.findFirst({
       where: {
-        uq_lab_session_lab_user: {
-          lab_id: labId,
-          user_id: userId,
-          lease_id: leaseId
+        user_id: userId,
+        lease_id: leaseId,
+        lab: {
+          chapterItem: {
+            id: BigInt(chapterItemId)
+          }
         }
       },
       include: {
         lab: {
           select: {
+            id: true,
             IAMRoleName: true
           }
         }

@@ -5,6 +5,7 @@ on:
     branches:
       - "*"
     paths:
+      - "platform-service/**"
       - "platform-service/src/**"
       - "platform-service/Dockerfile"
       - "platform-service/package*.json"

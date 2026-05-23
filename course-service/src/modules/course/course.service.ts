@@ -183,17 +183,21 @@ export class CourseService {
 
   async searchCourses(filters: FilterOptionDto): Promise<SearchCourseResponseDto> {
     const result = await this.courseRepository.searchCourses(filters)
-
+ 
     const creatorInfoMap = await this.getCreatorIds(result.courses)
-
+ 
     const data = result.courses.map((course) => ({
-      ...course,
       id: course.id.toString(),
+      title: course.title,
+      thumbnail_url: course.thumbnail_url || null,
       price: Number(course.price),
       course_level: course.course_level as string,
+      rating: course.rating || 0,
+      short_description: course.short_description || null,
+      created_at: course.created_at,
       user: creatorInfoMap.get(course.owner_id)
     }))
-
+ 
     return {
       data,
       meta: result.meta,

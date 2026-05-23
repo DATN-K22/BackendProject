@@ -43,29 +43,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       modelName,
       schemaName = 'course_service',
       tableName,
-      vectorColumn = 'fts_vector',
       query,
       lang = 'english',
       limit = 10,
-      offset = 0,
-      minRank = 0
+      offset = 0
     } = options
 
-    if (!Object.values(Prisma.ModelName).includes(modelName)) {
-      throw new Error(`Invalid model name: ${modelName}`)
-    }
-
-    if (!this.ALLOWED_SCHEMAS.includes(schemaName)) {
-      throw new Error(`Invalid schema name: ${schemaName}`)
-    }
-
-    if (!this.ALLOWED_LANGUAGES.includes(lang)) {
-      throw new Error(`Invalid language: ${lang}. Allowed: ${this.ALLOWED_LANGUAGES.join(', ')}`)
-    }
-
-    if (!this.ALLOWED_VECTOR_COLUMNS.includes(vectorColumn)) {
-      throw new Error(`Invalid vector column: ${vectorColumn}`)
-    }
+    this.validateFtsOptions(modelName, schemaName, lang)
 
     if (!query || query.trim() === '') {
       return []
@@ -83,26 +67,45 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     const fullTablePath = `"${schemaName}"."${finalTableName}"`
 
     const sql = `
-      SELECT t.id::text, t.owner_id, t.title, t.short_description, t.long_description, 
-            t.price, t.status, t.created_at, t.course_level,
-            t.rating, t.language,
-            ts_rank(t."${vectorColumn}", to_tsquery($1::regconfig, $2)) as rank
+      SELECT 
+        t.id::text, 
+        t.owner_id, 
+        t.title, 
+        t.short_description, 
+        t.long_description, 
+        t.price, 
+        t.status, 
+        t.created_at, 
+        t.course_level,
+        t.rating, 
+        t.language,
+        t.thumbnail_url,
+        -- Calculate relevance score based on field priority
+        CASE 
+          WHEN t.title IS NOT NULL AND t.title ILIKE $2 THEN 3.0
+          WHEN t.long_description IS NOT NULL AND t.long_description ILIKE $2 THEN 2.0
+          WHEN t.short_description IS NOT NULL AND t.short_description ILIKE $2 THEN 1.5
+          ELSE 0.5
+        END as relevance_score
       FROM ${fullTablePath} t
-      WHERE t."${vectorColumn}" @@ to_tsquery($1::regconfig, $2)
-      ORDER BY rank DESC
-      LIMIT $3 OFFSET $4;
+      WHERE 
+        t.title ILIKE $2
+        OR t.long_description ILIKE $2
+        OR t.short_description ILIKE $2
+      ORDER BY 
+        relevance_score DESC,
+        t.created_at DESC
+      LIMIT $3 OFFSET $4
     `
 
     return this.$queryRawUnsafe<T[]>(
       sql,
-      lang, // $1
-      query, // $2
+      lang, // $1 - not used in ILIKE, but kept for consistency
+      '%' + query + '%', // $2 - wrapped with % for ILIKE
       limit, // $3
-      offset, // $4
-      minRank // $5
+      offset // $4
     )
   }
-
   /**
    * Full Text Search with total count (for pagination)
    */
@@ -111,58 +114,94 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       modelName,
       schemaName = 'course_service',
       tableName,
-      vectorColumn = 'fts_vector',
       query,
       lang = 'english',
       limit = 10,
-      offset = 0,
-      minRank = 0
+      offset = 0
     } = options
 
-    if (!Object.values(Prisma.ModelName).includes(modelName)) {
-      throw new Error(`Invalid model name: ${modelName}`)
-    }
-    if (!this.ALLOWED_SCHEMAS.includes(schemaName)) {
-      throw new Error(`Invalid schema name: ${schemaName}`)
-    }
-    if (!this.ALLOWED_LANGUAGES.includes(lang)) {
-      throw new Error(`Invalid language: ${lang}`)
-    }
-    if (!this.ALLOWED_VECTOR_COLUMNS.includes(vectorColumn)) {
-      throw new Error(`Invalid vector column: ${vectorColumn}`)
-    }
+    this.validateFtsOptions(modelName, schemaName, lang)
+
     if (!query || query.trim() === '') {
       return { data: [], total: 0 }
+    }
+
+    if (limit < 1 || limit > 100) {
+      throw new Error('Limit must be between 1 and 100')
+    }
+
+    if (offset < 0) {
+      throw new Error('Offset must be non-negative')
     }
 
     const finalTableName = tableName || modelName
     const fullTablePath = `"${schemaName}"."${finalTableName}"`
 
     const dataSQL = `
-      SELECT *, 
-             ts_rank("${vectorColumn}", plainto_tsquery($1::regconfig, $2)) as rank
-      FROM ${fullTablePath}
-      WHERE "${vectorColumn}" @@ plainto_tsquery($1::regconfig, $2)
-            AND ts_rank("${vectorColumn}", plainto_tsquery($1::regconfig, $2)) > $5
-      ORDER BY rank DESC
+      SELECT 
+        t.id::text, 
+        t.owner_id, 
+        t.title, 
+        t.short_description, 
+        t.long_description, 
+        t.price, 
+        t.status, 
+        t.created_at, 
+        t.course_level,
+        t.rating, 
+        t.language,
+        t.thumbnail_url,
+        CASE 
+          WHEN t.title IS NOT NULL AND t.title ILIKE $2 THEN 3.0
+          WHEN t.long_description IS NOT NULL AND t.long_description ILIKE $2 THEN 2.0
+          WHEN t.short_description IS NOT NULL AND t.short_description ILIKE $2 THEN 1.5
+          ELSE 0.5
+        END as relevance_score
+      FROM ${fullTablePath} t
+      WHERE 
+        t.title ILIKE $2
+        OR t.long_description ILIKE $2
+        OR t.short_description ILIKE $2
+      ORDER BY 
+        relevance_score DESC,
+        t.created_at DESC
       LIMIT $3 OFFSET $4
     `
 
     const countSQL = `
       SELECT COUNT(*) as total
-      FROM ${fullTablePath}
-      WHERE "${vectorColumn}" @@ plainto_tsquery($1::regconfig, $2)
-            AND ts_rank("${vectorColumn}", plainto_tsquery($1::regconfig, $2)) > $5
+      FROM ${fullTablePath} t
+      WHERE 
+        t.title ILIKE $2
+        OR t.long_description ILIKE $2
+        OR t.short_description ILIKE $2
     `
 
     const [data, countResult] = await Promise.all([
-      this.$queryRawUnsafe<T[]>(dataSQL, lang, query, limit, offset, minRank),
-      this.$queryRawUnsafe<[{ total: bigint }]>(countSQL, lang, query, minRank)
+      this.$queryRawUnsafe<T[]>(dataSQL, lang, '%' + query + '%', limit, offset),
+      this.$queryRawUnsafe<[{ total: bigint }]>(countSQL, lang, '%' + query + '%')
     ])
 
     return {
       data,
       total: Number(countResult[0]?.total || 0)
+    }
+  }
+
+  /**
+   * Validate FTS options for security
+   */
+  private validateFtsOptions(modelName: any, schemaName: string, lang: string): void {
+    if (!Object.values(Prisma.ModelName).includes(modelName)) {
+      throw new Error(`Invalid model name: ${modelName}`)
+    }
+
+    if (!this.ALLOWED_SCHEMAS.includes(schemaName)) {
+      throw new Error(`Invalid schema name: ${schemaName}`)
+    }
+
+    if (!this.ALLOWED_LANGUAGES.includes(lang)) {
+      throw new Error(`Invalid language: ${lang}. Allowed: ${this.ALLOWED_LANGUAGES.join(', ')}`)
     }
   }
 }

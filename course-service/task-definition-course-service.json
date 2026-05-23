@@ -10,80 +10,88 @@
     "name": "course-service",
     "image": "862087104858.dkr.ecr.ap-southeast-1.amazonaws.com/datn-course-service:latest",
     "portMappings": [{ "containerPort": 3002, "protocol": "tcp" }],
-"environment": [
-        {
-          "name": "REDIS_HOST",
-          "value": "datn-redis.fqtx7c.0001.apse1.cache.amazonaws.com"
-        },
-        {
-          "name": "AWS_REGION",
-          "value": "ap-southeast-1"
-        },
-        {
-          "name": "PORT",
-          "value": "3002"
-        },
-        {
-          "name": "LAB_USER_EMAIL",
-          "value": "sontn.forwork@gmail.com"
-        },
-        {
-          "name": "SECRET_MANAGEMENT_SERVICE",
-          "value": "aws-secrets-manager"
-        },
-        {
-          "name": "DATABASE_URL",
-          "value": "postgresql://dacn:LWarDs25qtfHCW5@datn-2026.postgres.database.azure.com:5432/datn?schema=course_service&sslmode=require"
-        },
-        {
-          "name": "REDIS_PORT",
-          "value": "6379"
-        },
-        {
-          "name": "IAM_SERVICE_URL",
-          "value": "http://iam-service.local:3001"
-        },
-        {
-          "name": "JWT_REFRESH_TOKEN_SECRET",
-          "value": "YOUR_REFRESH_SECRET"
-        },
-        {
-          "name": "JWT_SECRET_NAME",
-          "value": "arn:aws:secretsmanager:ap-southeast-1:688412149143:secret:/InnovationSandbox/myisb/Auth/JwtSecret-zOgQ1v"
-        },
-        {
-          "name": "REDIS_PASSWORD",
-          "value": ""
-        },
-        {
-          "name": "NODE_ENV",
-          "value": "production"
-        },
-        {
-          "name": "DEFAULT_LAB_ROLE_ARN",
-          "value": "keep-LabRunnerRole"
-        },
-        {
-          "name": "ISB_SERVICE_URL",
-          "value": "https://d1rj9bz6vwjklr.cloudfront.net/api/"
-        },
-        {
-          "name": "JWT_REFRESH_TOKEN_EXPIRATION",
-          "value": "7d"
-        },
-        {
-          "name": "MEDIA_SERVICE_URL",
-          "value": "http://platform-service.local:3003"
-        },
-        {
-          "name": "JWT_ACCESS_TOKEN_EXPIRATION",
-          "value": "15m"
-        },
-        {
-          "name": "CROSS_ACCOUNT_IAM_READER_ROLE_ARN",
-          "value": "arn:aws:iam::688412149143:role/CrossAccountIamReadRole"
-        }
-      ],
+    "environment": [
+      {
+        "name": "REDIS_HOST",
+        "value": "datn-redis.fqtx7c.0001.apse1.cache.amazonaws.com"
+      },
+      {
+        "name": "AWS_REGION",
+        "value": "ap-southeast-1"
+      },
+      {
+        "name": "PORT",
+        "value": "3002"
+      },
+      {
+        "name": "LAB_USER_EMAIL",
+        "value": "sontn.forwork@gmail.com"
+      },
+      {
+        "name": "SECRET_MANAGEMENT_SERVICE",
+        "value": "aws-secrets-manager"
+      },
+      {
+        "name": "DATABASE_URL",
+        "value": "postgresql://dacn:LWarDs25qtfHCW5@datn-2026.postgres.database.azure.com:5432/datn?schema=course_service&sslmode=require"
+      },
+      {
+        "name": "REDIS_PORT",
+        "value": "6379"
+      },
+      {
+        "name": "IAM_SERVICE_URL",
+        "value": "http://iam-service.local:3001"
+      },
+      {
+        "name": "JWT_REFRESH_TOKEN_SECRET",
+        "value": "YOUR_REFRESH_SECRET"
+      },
+      {
+        "name": "LAMBDA_REVOKE_SESSION_FUNCTION_NAME",
+        "value": "revokeSTSAssumption"
+      },
+      {
+        "name": "CROSS_ACCOUNT_IAM_READER_ROLE_ARN",
+        "value": "arn:aws:iam::688412149143:role/CrossAccountIamReadRole"
+      },
+      {
+        "name": "JWT_SECRET_NAME",
+        "value": "arn:aws:secretsmanager:ap-southeast-1:688412149143:secret:/InnovationSandbox/myisb/Auth/JwtSecret-zOgQ1v"
+      },
+      {
+        "name": "LAMBDA_CONSOLE_URL_FUNCTION_NAME",
+        "value": "assumeLabSessoinRole"
+      },
+      {
+        "name": "REDIS_PASSWORD",
+        "value": ""
+      },
+      {
+        "name": "DEFAULT_LAB_ROLE_ARN",
+        "value": "keep-LabRunnerRole"
+      },
+      {
+        "name": "ISB_SERVICE_URL",
+        "value": "https://d1rj9bz6vwjklr.cloudfront.net/api/"
+      },
+      {
+        "name": "JWT_REFRESH_TOKEN_EXPIRATION",
+        "value": "7d"
+      },
+      {
+        "name": "NODE_ENV",
+        "value": "production"
+      },
+      {
+        "name": "JWT_ACCESS_TOKEN_EXPIRATION",
+        "value": "15m"
+      },
+      {
+        "name": "MEDIA_SERVICE_URL",
+        "value": "http://platform-service.local:3003"
+      }
+    ],
     "logConfiguration": {
       "logDriver": "awslogs",
       "options": {

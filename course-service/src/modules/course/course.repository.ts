@@ -269,25 +269,7 @@ export class CourseRepositoy {
     }
 
     // 2. Chạy Query lấy Data và đếm Total song song
-    const [courses, totalItems] = await Promise.all([
-      this.prismaService.course.findMany({
-        where,
-        skip: offset,
-        take: limit,
-        select: {
-          id: true,
-          title: true,
-          thumbnail_url: true,
-          price: true,
-          course_level: true,
-          rating: true,
-          owner_id: true,
-          short_description: true,
-          created_at: true
-        }
-      }),
-      this.prismaService.course.count({ where })
-    ])
+    const [courses, totalItems] = await Promise.all([where, this.prismaService.course.count({ where })])
 
     // 3. FACETED SEARCH
     const [levelFacets, freeCount] = await Promise.all([

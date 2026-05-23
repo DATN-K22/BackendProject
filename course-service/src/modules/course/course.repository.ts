@@ -8,7 +8,7 @@ import { Prisma } from '@prisma/client'
 import { FilterOptionDto } from './dto/request/filter-option.dto'
 @Injectable()
 export class CourseRepositoy {
-  constructor(private readonly prismaService: PrismaService) { }
+  constructor(private readonly prismaService: PrismaService) {}
 
   async create(createCourseDto: CreateCourseDto) {
     const record = await this.prismaService.course.create({
@@ -209,8 +209,8 @@ export class CourseRepositoy {
     })
   }
   private async buildSearchWhereClause(filters: FilterOptionDto): Promise<Prisma.CourseWhereInput | null> {
-    const { q, levels, isPaid, minPrice, maxPrice } = filters;
-    const where: Prisma.CourseWhereInput = { status: 'published' };
+    const { q, levels, isPaid, minPrice, maxPrice } = filters
+    const where: Prisma.CourseWhereInput = { status: 'published' }
 
     // Return courses with latest updates
     if (q) {
@@ -218,54 +218,54 @@ export class CourseRepositoy {
         modelName: 'Course',
         query: q,
         limit: 100 // PrismaService có validate limit tối đa là 100
-      });
+      })
 
-      if (ftsResults.length === 0) return null; // Null indicates no results
+      if (ftsResults.length === 0) return null // Null indicates no results
 
-      const matchIds = ftsResults.map((c: any) => BigInt(c.id));
-      where.id = { in: matchIds };
+      const matchIds = ftsResults.map((c: any) => BigInt(c.id))
+      where.id = { in: matchIds }
     }
 
     // This section for filter the results based on course level.
     if (levels && levels.length > 0) {
-      where.course_level = { in: levels as any }; // Cast due to auto-generated type matching
+      where.course_level = { in: levels as any } // Cast due to auto-generated type matching
     }
 
     // This section for filter the results based on price.
     if (isPaid === false) {
-      where.price = 0;
+      where.price = 0
     } else {
-      const priceFilter: any = {};
+      const priceFilter: any = {}
       if (isPaid === true) {
-        priceFilter.gt = 0;
+        priceFilter.gt = 0
       }
       if (minPrice !== undefined) {
-        priceFilter.gte = isPaid === true ? Math.max(minPrice, 0.0001) : minPrice; // Ensure it stays gt 0 if paid
+        priceFilter.gte = isPaid === true ? Math.max(minPrice, 0.0001) : minPrice // Ensure it stays gt 0 if paid
       }
       if (maxPrice !== undefined) {
-        priceFilter.lte = maxPrice;
+        priceFilter.lte = maxPrice
       }
-      
+
       if (Object.keys(priceFilter).length > 0) {
-        where.price = priceFilter;
+        where.price = priceFilter
       }
     }
 
-    return where;
+    return where
   }
 
   async searchCourses(filters: FilterOptionDto) {
-    const { page = 1, limit = 10 } = filters;
-    const offset = (page - 1) * limit;
+    const { page = 1, limit = 10 } = filters
+    const offset = (page - 1) * limit
 
-    const where = await this.buildSearchWhereClause(filters);
+    const where = await this.buildSearchWhereClause(filters)
 
     if (where === null) {
       return {
         courses: [],
         meta: { totalItems: 0, page, limit, totalPages: 0 },
         facets: { levels: {}, priceTypes: { FREE: 0, PAID: 0 } }
-      };
+      }
     }
 
     // 2. Chạy Query lấy Data và đếm Total song song
@@ -274,7 +274,6 @@ export class CourseRepositoy {
         where,
         skip: offset,
         take: limit,
-        orderBy: { created_at: 'desc' },
         select: {
           id: true,
           title: true,
@@ -284,11 +283,11 @@ export class CourseRepositoy {
           rating: true,
           owner_id: true,
           short_description: true,
-          created_at: true,
+          created_at: true
         }
       }),
       this.prismaService.course.count({ where })
-    ]);
+    ])
 
     // 3. FACETED SEARCH
     const [levelFacets, freeCount] = await Promise.all([
@@ -300,12 +299,15 @@ export class CourseRepositoy {
       this.prismaService.course.count({
         where: { ...where, price: 0 }
       })
-    ]);
+    ])
 
-    const formattedLevelFacets = levelFacets.reduce((acc, curr) => {
-      acc[curr.course_level] = curr._count.course_level;
-      return acc;
-    }, {} as Record<string, number>);
+    const formattedLevelFacets = levelFacets.reduce(
+      (acc, curr) => {
+        acc[curr.course_level] = curr._count.course_level
+        return acc
+      },
+      {} as Record<string, number>
+    )
 
     return {
       courses,
@@ -322,6 +324,6 @@ export class CourseRepositoy {
           PAID: totalItems - freeCount
         }
       }
-    };
+    }
   }
 }

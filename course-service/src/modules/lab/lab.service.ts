@@ -174,6 +174,15 @@ export class LabService {
     })
     this.logger.log(`Revoked sessions for role ${iamRoleName} in account ${lease.awsAccountId}`)
 
+    await this.labRepository
+      .completeLabLesson(chapterItemId, userId)
+      .catch((err) =>
+        this.logger.error(
+          `Failed to mark lab lesson as complete for chapterItemId: ${chapterItemId}, userId: ${userId}`,
+          err
+        )
+      )
+
     await this.isbClient.terminateLease(leaseId, token.access_token)
     this.logger.log(`Lease ${leaseId} terminated on ISB`)
 

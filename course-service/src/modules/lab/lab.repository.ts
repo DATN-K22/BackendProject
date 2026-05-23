@@ -77,6 +77,22 @@ export class LabRepository {
     })
   }
 
+  async completeLabLesson(chapterItemId: string, userId: string) {
+    return await this.prisma.chapterItemStatus.upsert({
+      where: {
+        uq_chapter_item_status_user_item: {
+          user_id: userId,
+          chapter_item_id: BigInt(chapterItemId)
+        }
+      },
+      create: {
+        user_id: userId,
+        chapter_item_id: BigInt(chapterItemId)
+      },
+      update: {}
+    })
+  }
+
   async getLabByLeaseId(leaseId: string) {
     return this.prisma.lab.findFirst({
       where: {

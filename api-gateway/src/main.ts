@@ -171,7 +171,9 @@ async function bootstrap() {
       req.headers['x-user-token-exp'] = String(decoded.exp);
 
       Logger.debug(`Request Headers ${JSON.stringify(req.headers)}`);
-      req.headers['x-tenant-id'] = req.headers['X-Tenant-Id'] ?? 'general';
+      console.log(req.headers['x-tenant-id']);
+      console.log('Tenant ID: ', JSON.stringify(req.headers['x-tenant-id']));
+      Logger.debug(`Tenant ID: ${req.headers['x-tenant-id']}`);
       req.headers['x-forwarded-by-gateway'] = 'true';
 
       Logger.debug(

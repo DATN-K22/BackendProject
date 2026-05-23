@@ -230,19 +230,23 @@ export class CourseRepositoy {
     }
 
     // Logic giá
-    if (isPaid === true) {
-      where.price = { gt: 0 };
-    } else if (isPaid === false) {
+    if (isPaid === false) {
       where.price = 0;
-    }
-
-    // Lọc theo khoảng giá
-    if (minPrice !== undefined || maxPrice !== undefined) {
-      where.price = {
-        ...(typeof where.price === 'object' ? where.price : {}),
-        ...(minPrice !== undefined ? { gte: minPrice } : {}),
-        ...(maxPrice !== undefined ? { lte: maxPrice } : {}),
-      };
+    } else {
+      const priceFilter: any = {};
+      if (isPaid === true) {
+        priceFilter.gt = 0;
+      }
+      if (minPrice !== undefined) {
+        priceFilter.gte = isPaid === true ? Math.max(minPrice, 0.0001) : minPrice; // Ensure it stays gt 0 if paid
+      }
+      if (maxPrice !== undefined) {
+        priceFilter.lte = maxPrice;
+      }
+      
+      if (Object.keys(priceFilter).length > 0) {
+        where.price = priceFilter;
+      }
     }
 
     return where;

@@ -29,7 +29,10 @@ export class FilterOptionDto {
     @IsOptional()
     @IsArray()
     @IsEnum(CourseLevel, { each: true })
-    @Transform(({ value }) => (Array.isArray(value) ? value : value.split(',')))
+    @Transform(({ value }) => {
+        if (value === undefined || value === null || value === '') return undefined;
+        return Array.isArray(value) ? value : value.split(',');
+    })
     levels?: CourseLevel[];
 
     // Chỉ lấy khóa học trả phí hay miễn phí (nếu cần)
@@ -38,7 +41,10 @@ export class FilterOptionDto {
         example: true
     })
     @IsOptional()
-    @Transform(({ value }) => value === 'true' || value === true)
+    @Transform(({ value }) => {
+        if (value === undefined || value === null || value === '') return undefined;
+        return value === 'true' || value === true;
+    })
     isPaid?: boolean;
 
     // Lọc theo khoảng giá

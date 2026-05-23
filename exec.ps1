@@ -13,7 +13,7 @@ $python = Join-Path $rootDir ".venv\Scripts\activate.ps1"
 $pip = Join-Path $rootDir ".venv\Scripts\pip.exe"
 
 # Node.js services (npm install + prisma generate)
-$nodeServices = @("iam-service", "media-service", "api-gateway", "course-service")
+$nodeServices = @("iam-service", "platform-service", "api-gateway", "course-service")
 
 # Python AI services (pip install)
 $aiServices = @("orchestrator-ai", "rag-ai", "recommendation-ai")

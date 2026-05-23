@@ -212,6 +212,7 @@ export class CourseRepositoy {
     const { q, levels, isPaid, minPrice, maxPrice } = filters;
     const where: Prisma.CourseWhereInput = { status: 'published' };
 
+    // Return courses with latest updates
     if (q) {
       const ftsResults = await this.prismaService.fullTextSearch({
         modelName: 'Course',
@@ -225,11 +226,12 @@ export class CourseRepositoy {
       where.id = { in: matchIds };
     }
 
+    // This section for filter the results based on course level.
     if (levels && levels.length > 0) {
       where.course_level = { in: levels as any }; // Cast due to auto-generated type matching
     }
 
-    // Logic giá
+    // This section for filter the results based on price.
     if (isPaid === false) {
       where.price = 0;
     } else {
@@ -256,7 +258,6 @@ export class CourseRepositoy {
     const { page = 1, limit = 10 } = filters;
     const offset = (page - 1) * limit;
 
-    // 1. Lấy mệnh đề WHERE (trả về null nếu FTS không match kết quả nào)
     const where = await this.buildSearchWhereClause(filters);
 
     if (where === null) {

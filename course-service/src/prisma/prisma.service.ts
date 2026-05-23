@@ -84,14 +84,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
 
     const sql = `
       SELECT t.id::text, t.owner_id, t.title, t.short_description, t.long_description, 
-             t.price, t.status, t.created_at, t.course_level,
-             t.rating, t.language,
-             ts_rank(t."${vectorColumn}", plainto_tsquery($1::regconfig, $2)) as rank
+            t.price, t.status, t.created_at, t.course_level,
+            t.rating, t.language,
+            ts_rank(t."${vectorColumn}", to_tsquery($1::regconfig, $2)) as rank
       FROM ${fullTablePath} t
-      WHERE t."${vectorColumn}" @@ plainto_tsquery($1::regconfig, $2)
-            AND ts_rank(t."${vectorColumn}", plainto_tsquery($1::regconfig, $2)) > $5
+      WHERE t."${vectorColumn}" @@ to_tsquery($1::regconfig, $2)
       ORDER BY rank DESC
-      LIMIT $3 OFFSET $4
+      LIMIT $3 OFFSET $4;
     `
 
     return this.$queryRawUnsafe<T[]>(

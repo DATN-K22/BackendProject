@@ -184,14 +184,13 @@ export class CourseService {
   async searchCourses(filters: FilterOptionDto): Promise<SearchCourseResponseDto> {
     const result = await this.courseRepository.searchCourses(filters)
 
-    // Dùng getCreatorIds để batch gộp tất cả các request lấy user info (tránh lỗi N+1 API call)
     const creatorInfoMap = await this.getCreatorIds(result.courses)
 
     const data = result.courses.map((course) => ({
       ...course,
-      id: course.id.toString(), // Fix lỗi BigInt không assignable cho string
-      price: Number(course.price), // Fix lỗi Decimal không assignable cho number
-      course_level: course.course_level as string, // Fix lỗi Type enum
+      id: course.id.toString(),
+      price: Number(course.price),
+      course_level: course.course_level as string,
       user: creatorInfoMap.get(course.owner_id)
     }))
 

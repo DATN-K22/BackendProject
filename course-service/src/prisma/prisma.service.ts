@@ -35,9 +35,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     await this.$connect()
   }
 
-  /**
-   * Full Text Search with improved security and features
-   */
   async fullTextSearch<T = any>(options: FtsOptions): Promise<T[]> {
     const {
       modelName,
@@ -106,9 +103,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       offset // $4
     )
   }
-  /**
-   * Full Text Search with total count (for pagination)
-   */
+
   async fullTextSearchWithCount<T = any>(options: FtsOptions): Promise<FtsResult<T>> {
     const {
       modelName,
@@ -188,9 +183,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     }
   }
 
-  /**
-   * Validate FTS options for security
-   */
   private validateFtsOptions(modelName: any, schemaName: string, lang: string): void {
     if (!Object.values(Prisma.ModelName).includes(modelName)) {
       throw new Error(`Invalid model name: ${modelName}`)

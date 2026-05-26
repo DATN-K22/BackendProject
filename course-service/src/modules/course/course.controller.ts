@@ -53,9 +53,9 @@ export class CourseController {
     type: PaginationDto
   })
   @ApiSuccessResponse(CoursesListResponse)
-  async findAll(@Query('offset') offset: string, @Query('limit') limit: string, @Query('owner_id') ownerId?: string) {
+  async findAll(@Query('offset') offset: string, @Query('limit') limit: string) {
     return ApiResponse.OkResponse(
-      await this.courseService.findAll(+offset, +limit, ownerId),
+      await this.courseService.findAll(+offset, +limit),
       'Get all courses successfully'
     )
   }

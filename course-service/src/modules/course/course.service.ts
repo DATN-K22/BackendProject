@@ -22,8 +22,8 @@ export class CourseService {
     return this.courseRepository.create(createCourseDto)
   }
 
-  async findAll(offset: number, limit: number, ownerId?: string) {
-    const { data: courses, totalItems } = await this.courseRepository.findAll(offset, limit, ownerId)
+  async findAll(offset: number, limit: number) {
+    const { data: courses, totalItems } = await this.courseRepository.findAll(offset, limit)
     const totalPages = Math.ceil(totalItems / limit)
     const currentPage = offset
 

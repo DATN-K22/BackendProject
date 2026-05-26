@@ -63,18 +63,15 @@ export class CourseRepositoy {
       isEnrolled: course.enrollments.length > 0
     }
   }
-  async findAll(offset: number, limit: number, ownerId?: string) {
+  async findAll(offset: number, limit: number) {
     const skip = (offset - 1) * limit
     const [data, totalItems] = await Promise.all([
       this.prismaService.course.findMany({
         skip: skip,
         take: limit,
-        orderBy: { created_at: 'desc' },
-        where: ownerId ? { owner_id: ownerId } : undefined
+        orderBy: { created_at: 'desc' }
       }),
-      this.prismaService.course.count({
-        where: ownerId ? { owner_id: ownerId } : undefined
-      })
+      this.prismaService.course.count({})
     ])
 
     return {

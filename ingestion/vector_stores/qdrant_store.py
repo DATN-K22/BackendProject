@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from qdrant_client import QdrantClient, models
@@ -22,6 +23,9 @@ def build_qdrant_client(settings: Settings) -> QdrantClient:
     return QdrantClient(
         url=settings.qdrant_url,
         api_key=settings.qdrant_api_key,
+        # Default httpx timeout (5 s) is too short for large vector payloads.
+        # 60 s gives headroom for dense+sparse upserts under load.
+        timeout=60,
     )
 
 
@@ -47,25 +51,27 @@ class QdrantVectorStore(VectorStore):
  
     # ── Internal helpers ──────────────────────────────────────────────────
  
+    # Payload fields to index for fast filtering (document_id, filename, namespace).
+    # All three are string keyword fields — exact-match only, no tokenization.
+    _INDEXED_FIELDS: tuple[str, ...] = ("document_id", "filename", "namespace")
+
     def _ensure_collection(self) -> None:
         """Đảm bảo collection tồn tại. Chỉ tạo mới nếu thực sự chưa có (404).
         Các lỗi khác (500, auth, network) sẽ được raise lên caller."""
         if self._collection_ready:
             return
- 
+
         try:
             self._client.get_collection(self._collection_name)
-            self._collection_ready = True
+            logger.info("Collection %r already exists.", self._collection_name)
         except UnexpectedResponse as exc:
-            # FIX 2: Chỉ tạo collection khi status 404 (chưa tồn tại)
-            # Không nuốt các lỗi khác như 500, 401, network error
             if exc.status_code != 404:
                 logger.error(
                     "Unexpected error checking collection %r: %s %s",
                     self._collection_name, exc.status_code, exc.reason_phrase,
                 )
                 raise
- 
+
             logger.info(
                 "Collection %r not found, creating with size=%d distance=%s",
                 self._collection_name, self._vector_size, self._distance,
@@ -78,17 +84,45 @@ class QdrantVectorStore(VectorStore):
                         distance=self._distance,
                     )
                 },
-                sparse_vectors_config= {
+                sparse_vectors_config={
                     "sparse": models.SparseVectorParams(
                         index=models.SparseIndexParams(on_disk=False),
-                        modifier=models.Modifier.IDF
+                        modifier=models.Modifier.IDF,
                     )
-                }
+                },
             )
-            self._collection_ready = True
- 
+
+        # Always ensure payload indexes exist — this is idempotent:
+        # Qdrant returns HTTP 200 with no error if the index already exists.
+        self._ensure_payload_indexes()
+        self._collection_ready = True
+
+    def _ensure_payload_indexes(self) -> None:
+        """Create keyword payload indexes for filtering fields if they don't exist.
+
+        Safe to call on an existing collection — Qdrant is idempotent here.
+        These indexes speed up delete_document() and similarity_search() filters.
+        """
+        for field in self._INDEXED_FIELDS:
+            try:
+                self._client.create_payload_index(
+                    collection_name=self._collection_name,
+                    field_name=field,
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                )
+                logger.debug("Payload index ensured for field %r.", field)
+            except UnexpectedResponse as exc:
+                # 409 Conflict means the index already exists with a compatible
+                # schema — safe to ignore.  Any other status is a real error.
+                if exc.status_code != 409:
+                    logger.error(
+                        "Failed to create payload index for field %r: %s %s",
+                        field, exc.status_code, exc.reason_phrase,
+                    )
+                    raise
+
     # ── Public API ────────────────────────────────────────────────────────
- 
+
     def connect(self) -> None:
         """Backward-compatible: gọi _ensure_collection tường minh nếu cần."""
         self._ensure_collection()
@@ -123,16 +157,36 @@ class QdrantVectorStore(VectorStore):
  
         if not qdrant_points:
             return
- 
-        # FIX 3: Dùng upload_points thay vì vòng lặp tuần tự
-        # Built-in batching + parallel upload, nhanh hơn đáng kể với data lớn
-        self._client.upload_points(
-            collection_name=self._collection_name,
-            points=qdrant_points,
-            batch_size=batch_size,
-            parallel=4,
-            wait=True,
-        )
+
+        # Split into batches and upload in parallel using threads.
+        # We cannot use Qdrant's built-in parallel= parameter because it uses
+        # multiprocessing internally, which raises AssertionError inside Celery
+        # workers (daemonic processes cannot spawn child processes).
+        # Threads have no such restriction and are equally fast for I/O-bound
+        # HTTP uploads to Qdrant.
+        # Use a smaller per-thread batch (50) to avoid WriteTimeout on large
+        # dense+sparse payloads — the caller's batch_size is the overall hint
+        # but we cap each HTTP request at 50 points.
+        num_parallel = 4
+        thread_batch_size = min(batch_size, 50)
+        batches = [
+            qdrant_points[i : i + thread_batch_size]
+            for i in range(0, len(qdrant_points), thread_batch_size)
+        ]
+
+        def _upload_batch(batch: list[PointStruct]) -> int:
+            self._client.upsert(
+                collection_name=self._collection_name,
+                points=batch,
+                wait=True,
+            )
+            return len(batch)
+
+        with ThreadPoolExecutor(max_workers=num_parallel) as executor:
+            futures = [executor.submit(_upload_batch, batch) for batch in batches]
+            for future in as_completed(futures):
+                future.result()  # re-raise any upload exception immediately
+
         logger.info(
             "Upserted %d points into collection %r (namespace=%r)",
             len(qdrant_points), self._collection_name, namespace,

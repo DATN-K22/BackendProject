@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from google.adk.agents import LlmAgent
-from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools.example_tool import ExampleTool, Example
 from google.genai import types
 
@@ -23,8 +22,8 @@ You are the RAG Assistant coordinator of an A2A system.
 
 ### STEP 2 — CALL FETCH TOOL (mandatory if passing step 1):
 - Call "fetch-enrolled-courses-by-ids" with course_id="{course_id?}" NOW.
-- Do NOT skip this call under any circumstance.
-- Do NOT assume the result. Wait for the actual tool response.
+- NEVER skip this call under any circumstance.
+- NEVER assume the result. Wait for the actual tool response.
 
 ### STEP 3 — RETURN RESULT:
 - If tool returns empty list:
@@ -49,7 +48,7 @@ def create_root_agent(model_name: str, settings: Settings | None = None) -> LlmA
     tools = [toolset] if toolset else []
     return LlmAgent(
         name="rag_assistant",
-        model=LiteLlm(model="vertex_ai/gemini-2.5-flash"),
+        model="gemini-2.5-flash",
         instruction=ROOT_INSTRUCTION,
         tools=tools,
         sub_agents=[

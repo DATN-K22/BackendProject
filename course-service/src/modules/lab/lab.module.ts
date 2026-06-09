@@ -28,6 +28,6 @@ import { IsbModule } from '../innovation-sandbox/isb.module'
       inject: [ConfigService]
     }
   ],
-  exports: [LabService, 'SECRET_MANAGEMENT_SERVICE']
+  exports: [LabService, LabRepository, 'SECRET_MANAGEMENT_SERVICE']
 })
 export class LabModule {}

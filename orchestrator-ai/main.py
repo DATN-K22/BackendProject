@@ -7,15 +7,29 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from dotenv import load_dotenv
-load_dotenv() 
+if not os.getenv("DOPPLER_PROJECT"):
+    load_dotenv()
 import uvicorn
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 from uuid import uuid4
-#ADK core
-from google.adk.a2a.utils.agent_to_a2a import to_a2a
+
+# A2A server
+from a2a.server.apps import A2AStarletteApplication
+from a2a.server.request_handlers import DefaultRequestHandler
+from a2a.server.tasks import InMemoryPushNotificationConfigStore, InMemoryTaskStore
+from a2a.server.agent_execution.context import RequestContext
+
+# ADK core
+from google.adk.a2a.utils.agent_card_builder import AgentCardBuilder
+from google.adk.a2a.executor.a2a_agent_executor import A2aAgentExecutor
+from google.adk.a2a.executor.config import A2aAgentExecutorConfig
+from google.adk.a2a.converters.request_converter import (
+    AgentRunRequest,
+    convert_a2a_request_to_agent_run_request,
+)
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
@@ -23,14 +37,12 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.sessions.database_session_service import DatabaseSessionService
 from google.adk.apps.app import EventsCompactionConfig, App
+
 # LangSmith
 from langsmith.integrations.google_adk import configure_google_adk
 from langsmith import Client
 
-
-
-
-#Local
+# Local
 from agents.root_agent import create_root_agent
 from agents.remote_http_client import close_remote_agent_http_client
 from docs.openapi import DOCS_ROUTES
@@ -62,9 +74,28 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 HOST = os.getenv("HOST", "0.0.0.0")
+ADK_HOST = os.getenv("ADK_HOST", "orchestrator-ai.local")
 PORT = int(os.getenv("PORT", "8080"))
 APP_NAME = "edu_assistant"
 LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "default")
+
+
+# ---------------------------------------------------------------------------
+# State Bridge — inject adk_state metadata into session state on every message
+# ---------------------------------------------------------------------------
+
+def _convert_request_with_state_bridge(request: RequestContext, part_converter) -> AgentRunRequest:
+    """Custom request converter that reads adk_state from A2A message metadata
+    and applies it as a state_delta so the orchestrator's session is always
+    up-to-date without a separate /session_state endpoint call."""
+    run_request = convert_a2a_request_to_agent_run_request(request, part_converter)
+    metadata = request.metadata or {}
+    adk_state = metadata.get("adk_state")
+    if isinstance(adk_state, dict):
+        state_delta = {k: v for k, v in adk_state.items() if v is not None}
+        if state_delta:
+            run_request.state_delta = state_delta
+    return run_request
 
 # ---------------------------------------------------------------------------
 # Health Check
@@ -246,32 +277,24 @@ def build_app() -> Starlette:
     Build and return the fully configured Starlette ASGI app.
 
     Call order matters:
-      1. Create session service
-      2. Create the root agent and runner
-      3. Wrap with to_a2a() — passes our services in
-      4. Layer GatewaySecurityMiddleware on top
-      5. Add routes and attach lifespan hooks
+      1. Create session service (DatabaseSessionService / Postgres)
+      2. Create the root agent, App, and Runner
+      3. Wire A2aAgentExecutor with the state-bridge request converter
+      4. Build the A2AStarletteApplication and mount routes
+      5. Layer GatewaySecurityMiddleware on top
     """
     session_service = DatabaseSessionService(DATABASE_URL, connect_args={
         "server_settings": {
             "search_path": "ai_service"   # your schema name
         },
-        "ssl": True 
+        "ssl": True
     })
-    # 1. Redis session service with in-memory fallback
+    # Redis alternative (uncomment to switch):
     # session_service = RedisSessionService(
     #     redis_url=REDIS_URL,
     #     redis_password=REDIS_PASSWORD,
     # )
     session_backend = "postgres"  # Update this if you switch to Redis or another backend
-    # try:
-    #     logger.info("Redis session service connected at %s", REDIS_URL)
-    # except Exception as e:
-    #     logger.error(f"Failed to connect to Redis at {REDIS_URL}: {e}")
-    #     logger.warning("Falling back to in-memory session service; sessions won't persist across restarts.")
-    #     session_service = InMemorySessionService()
-    #     session_backend = "in-memory"
-
 
     root_agent = create_root_agent()
 
@@ -290,25 +313,45 @@ def build_app() -> Starlette:
         artifact_service=InMemoryArtifactService(),
     )
 
-    a2a_app: Starlette = to_a2a(
-        root_agent,
-        port=PORT,
+    # Wire the custom executor so adk_state metadata is applied to session state
+    # on every incoming message — no separate /session_state call needed.
+    agent_executor = A2aAgentExecutor(
         runner=runner,
-        lifespan=app_lifespan,
+        config=A2aAgentExecutorConfig(
+            request_converter=_convert_request_with_state_bridge,
+        ),
     )
-    logger.info("to_a2a() wrapped root_agent as A2A Starlette app.")
+    request_handler = DefaultRequestHandler(
+        agent_executor=agent_executor,
+        task_store=InMemoryTaskStore(),
+        push_config_store=InMemoryPushNotificationConfigStore(),
+    )
+
+    async def _setup_a2a(app: Starlette) -> None:
+        card_builder = AgentCardBuilder(
+            agent=root_agent,
+            rpc_url=f"http://{ADK_HOST}:{PORT}/",
+        )
+        agent_card = await card_builder.build()
+        A2AStarletteApplication(
+            agent_card=agent_card,
+            http_handler=request_handler,
+        ).add_routes_to_app(app)
+
+    @asynccontextmanager
+    async def _combined_lifespan(app: Starlette) -> AsyncIterator[None]:
+        await _setup_a2a(app)
+        async with app_lifespan(app):
+            yield
+
+    a2a_app: Starlette = Starlette(lifespan=_combined_lifespan)
+    logger.info("Custom A2A app initialized with request metadata -> state bridge.")
 
     a2a_app.add_middleware(
         GatewaySecurityMiddleware,
         trusted_gateway_secret=os.getenv("GATEWAY_SHARED_SECRET"),
     )
     logger.info("GatewaySecurityMiddleware applied.")
-    
-    
-    
-    # a2a_app.add_middleware(TracingMiddleware)
-    # logger.info("TracingMiddleware applied to A2A app.")
-        
 
     a2a_app.routes.insert(0, Route("/health", health_check, methods=["GET"]))
     a2a_app.routes.insert(1, Route("/ready", readiness_check, methods=["GET"]))
@@ -316,11 +359,10 @@ def build_app() -> Starlette:
     a2a_app.routes.insert(3, Route("/sessions", get_list_of_sessions, methods=["GET"]))
     a2a_app.routes.insert(4, Route("/session_state", session_state_update, methods=["POST"]))
     for i, route in enumerate(DOCS_ROUTES):
-        a2a_app.routes.insert(2 + i, route)
+        a2a_app.routes.insert(5 + i, route)
 
-    logger.info("Health check endpoints added at /health, /ready, /chat_history, and /sessions")
+    logger.info("Routes added: /health, /ready, /chat_history, /sessions, /session_state")
     logger.info("API docs available at /docs")
-
 
     a2a_app.state.session_service = session_service
     a2a_app.state.session_backend = session_backend

@@ -25,3 +25,10 @@ orchestrator-ai/task-definition-orchestrator-ai.json
 =======
 recommendation-ai/task-definition-recommendation-ai.json
 >>>>>>> 39212d1e6a1918e706e433d9ba8900feaef43324
+*.pyc
+*.pyc
+*.pyc
+*.pyc
+*.pyc
+PLAN.md
+*.pyc

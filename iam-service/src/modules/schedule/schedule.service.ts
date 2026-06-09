@@ -165,7 +165,18 @@ export class ScheduleService {
 
       // Only allow mutable event fields from update payload.
       // This prevents leaking auth/tool metadata (e.g. userId/user_id) into Prisma update data.
-      const { title, description, location, status, time_start, time_end, timezone, rrule_string, recurrence_id } =
+      const {
+        title,
+        description,
+        location,
+        status,
+        time_start,
+        time_end,
+        timezone,
+        rrule_string,
+        recurrence_id,
+        course_id
+      } =
         updateEventDto as Record<string, unknown>
 
       const updateFields: Record<string, unknown> = {
@@ -177,7 +188,8 @@ export class ScheduleService {
         time_end,
         timezone,
         rrule_string,
-        recurrence_id
+        recurrence_id,
+        course_id
       }
       const updateData: Record<string, unknown> = {}
 
@@ -188,6 +200,8 @@ export class ScheduleService {
           updateData[key] = new Date(value as string)
         } else if (key === 'recurrence_id') {
           updateData[key] = value ? new Date(value as string) : null
+        } else if (key === 'course_id') {
+          updateData[key] = value != null ? BigInt(value as string | number | bigint) : null
         } else {
           updateData[key] = value
         }

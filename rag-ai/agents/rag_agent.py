@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from google.adk.agents import LlmAgent
-from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools import FunctionTool
 
 from config.settings import Settings, load_settings
@@ -28,7 +27,7 @@ def create_rag_agent(model_name: str, settings: Settings | None = None) -> LlmAg
     retrieval_tool = FunctionTool(func=build_retrieval_tool(active_settings))
     return LlmAgent(
         name="rag_agent",
-        model=LiteLlm(model="vertex_ai/gemini-2.5-flash"),
+        model="gemini-2.5-flash",
         instruction=RAG_AGENT_INSTRUCTION,
         tools=[retrieval_tool],
         description="RAG specialist agent for retrieval-grounded answers.",

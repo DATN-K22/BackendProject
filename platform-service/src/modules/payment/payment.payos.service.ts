@@ -56,9 +56,7 @@ export class PayosPaymentProvider implements IPaymentProvider {
   async createPayment(dto: PaymentCreationDto, userId: string, courseId: string): Promise<CreatePaymentResponse> {
     const idempotencyKey = randomUUID();
     const orderCode = this.generateOrderCode();
-    const amountVnd = Math.round(
-      dto.items.reduce((sum, item) => sum + item.price * item.quantity, 0) * this.vndMultiplier
-    );
+    const amountVnd = Math.round(dto.items.reduce((sum, item) => sum + item.price * item.quantity, 0));
 
     this.logger.log(
       `Creating payment - orderCode: ${orderCode}, userId: ${userId}, courseId: ${courseId}, amount: ${amountVnd} VND`

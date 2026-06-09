@@ -40,6 +40,7 @@ const mockPaymentProvider = {
   handleWebhook: jest.fn(),
   registerWebhook: jest.fn(),
   getPaymentStatus: jest.fn(),
+  getEnrollJobStatus: jest.fn(),
   cancelPayment: jest.fn()
 };
 
@@ -158,6 +159,33 @@ describe('PaymentController', () => {
       mockPaymentProvider.getPaymentStatus.mockRejectedValue(new Error('Order not found'));
 
       await expect(controller.getStatus('INVALID-CODE')).rejects.toThrow('Order not found');
+    });
+  });
+
+  describe('getEnrollJobStatus()', () => {
+    it('should call paymentProvider.getEnrollJobStatus with courseId and userId', async () => {
+      const mockEnrollJobStatus = {
+        courseId: mockCourseId,
+        userId: mockUserId,
+        orderCode: mockOrderCode,
+        paymentStatus: 'PAID',
+        enrollJobStatus: 'DONE',
+        done: true
+      };
+
+      mockPaymentProvider.getEnrollJobStatus.mockResolvedValue(mockEnrollJobStatus);
+
+      const result = await controller.getEnrollJobStatus(mockCourseId, mockUserId);
+
+      expect(mockPaymentProvider.getEnrollJobStatus).toHaveBeenCalledTimes(1);
+      expect(mockPaymentProvider.getEnrollJobStatus).toHaveBeenCalledWith(mockCourseId, mockUserId);
+      expect(result).toEqual(mockEnrollJobStatus);
+    });
+
+    it('should propagate errors when no payment record is found', async () => {
+      mockPaymentProvider.getEnrollJobStatus.mockRejectedValue(new Error('Payment not found'));
+
+      await expect(controller.getEnrollJobStatus(mockCourseId, mockUserId)).rejects.toThrow('Payment not found');
     });
   });
 

@@ -3,7 +3,7 @@ import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PaymentCreationDto } from './dto/payment.request.dto';
 import { PayosWebhookDto, WebhookResponseDto } from './dto/payment.webhook.dto';
 import { IPaymentProvider, PAYMENT_PROVIDER } from './payment.interface';
-
+import { ApiResponse as ApiResponseDto } from '../../utils/dto/ApiResponse';
 @ApiTags('payment')
 @Controller('payment')
 export class PaymentController {
@@ -61,6 +61,15 @@ export class PaymentController {
   @ApiResponse({ status: 400, description: 'Order not found' })
   async getStatus(@Param('orderCode') orderCode: string) {
     return this.paymentProvider.getPaymentStatus(orderCode);
+  }
+
+  @Get('enroll-job/status/:course_id/:user_id')
+  @ApiOperation({ summary: 'Get enroll job status by course and user' })
+  @ApiParam({ name: 'course_id', description: 'Course ID' })
+  @ApiParam({ name: 'user_id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'Returns the latest enroll job status for the course and user' })
+  async getEnrollJobStatus(@Param('course_id') courseId: string, @Param('user_id') userId: string) {
+    return ApiResponseDto.OkResponse(await this.paymentProvider.getEnrollJobStatus(courseId, userId));
   }
 
   @Delete(':orderCode')

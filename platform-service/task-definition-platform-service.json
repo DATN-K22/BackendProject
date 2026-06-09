@@ -78,8 +78,8 @@
                     "value": "uyaqgzideeatgutp"
                 },
                 {
-                    "name": "PAYOS_WEBHOOK_URL",
-                    "value": "https://potentially-participant-style-clarity.trycloudflare.com/payment/webhook"
+                "name": "PAYOS_WEBHOOK_URL",
+                "value": "https://d24dddy9ciqfbd.cloudfront.net/webhook/payment/webhook"
                 },
                 {
                     "name": "DATABASE_URL",

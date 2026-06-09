@@ -11,8 +11,6 @@ import {
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 interface JwtPayload {
   user: {
     sub: string;

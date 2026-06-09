@@ -17,8 +17,9 @@ export class CourseRepositoy {
         title: createCourseDto.title,
         short_description: createCourseDto.short_description,
         long_description: createCourseDto.long_description,
-        thumbnail_url: createCourseDto.thumbnail_url,
+        thumbnail_url: "https://temporary-datn.s3.ap-southeast-1.amazonaws.com/images/aws-2.jpg",
         price: createCourseDto.price,
+        course_level: createCourseDto.course_level,
         status: createCourseDto.status as any
       }
     })

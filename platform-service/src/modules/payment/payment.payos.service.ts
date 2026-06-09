@@ -15,6 +15,7 @@ import {
   CancelPaymentResponse,
   CreatePaymentPayload,
   CreatePaymentResponse,
+  EnrollJobStatusResult,
   IPaymentProvider,
   PaymentStatusResult
 } from './payment.interface';
@@ -120,6 +121,33 @@ export class PayosPaymentProvider implements IPaymentProvider {
     } catch (error) {
       throw this.mapError(error);
     }
+  }
+
+  async getEnrollJobStatus(courseId: string, userId: string): Promise<EnrollJobStatusResult | null> {
+    this.logger.log(`Fetching enroll job status - courseId: ${courseId}, userId: ${userId}`);
+
+    const payment = await this.prisma.paymentRecord.findFirst({
+      where: { courseId, userId },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!payment) {
+      return null;
+    }
+
+    const enrollJob = await this.prisma.enrollJob.findFirst({
+      where: { paymentId: payment.id },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    return {
+      courseId,
+      userId,
+      orderCode: payment.orderCode,
+      paymentStatus: payment.status,
+      enrollJobStatus: enrollJob?.status ?? null,
+      done: enrollJob?.status === 'DONE'
+    };
   }
 
   async registerWebhook(): Promise<{ success: boolean; message?: string }> {

@@ -70,10 +70,12 @@ const mockRedis = {
 const mockPrisma = {
   paymentRecord: {
     create: jest.fn(),
-    update: jest.fn()
+    update: jest.fn(),
+    findFirst: jest.fn()
   },
   enrollJob: {
-    create: jest.fn()
+    create: jest.fn(),
+    findFirst: jest.fn()
   },
   $transaction: jest.fn()
 } as any;
@@ -207,6 +209,52 @@ describe('PayosPaymentProvider', () => {
       mockRequests.get.mockRejectedValue({ code: 'ORDER_NOT_FOUND' });
 
       await expect(provider.getPaymentStatus('999')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('getEnrollJobStatus()', () => {
+    it('should return DONE when the latest enroll job is DONE', async () => {
+      mockPrisma.paymentRecord.findFirst.mockResolvedValue({
+        id: 'pay-1',
+        orderCode: String(mockOrderCode),
+        status: 'PAID'
+      });
+      mockPrisma.enrollJob.findFirst.mockResolvedValue({ status: 'DONE' });
+
+      const result = await provider.getEnrollJobStatus(mockCourseId, mockUserId);
+
+      expect(mockPrisma.paymentRecord.findFirst).toHaveBeenCalledWith({
+        where: { courseId: mockCourseId, userId: mockUserId },
+        orderBy: { createdAt: 'desc' }
+      });
+      expect(mockPrisma.enrollJob.findFirst).toHaveBeenCalledWith({
+        where: { paymentId: 'pay-1' },
+        orderBy: { updatedAt: 'desc' }
+      });
+      expect(result).toEqual({
+        courseId: mockCourseId,
+        userId: mockUserId,
+        orderCode: String(mockOrderCode),
+        paymentStatus: 'PAID',
+        enrollJobStatus: 'DONE',
+        done: true
+      });
+    });
+
+    it('should return done=false when no payment record exists', async () => {
+      mockPrisma.paymentRecord.findFirst.mockResolvedValue(null);
+
+      const result = await provider.getEnrollJobStatus(mockCourseId, mockUserId);
+
+      expect(mockPrisma.enrollJob.findFirst).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        courseId: mockCourseId,
+        userId: mockUserId,
+        orderCode: null,
+        paymentStatus: null,
+        enrollJobStatus: null,
+        done: false
+      });
     });
   });
 

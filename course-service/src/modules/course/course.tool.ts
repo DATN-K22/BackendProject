@@ -6,6 +6,8 @@ import { Tool } from '@rekog/mcp-nest'
 import z from 'zod'
 import { stringify } from 'yaml'
 import { PrismaService } from '../../prisma/prisma.service'
+import { QuizRepository } from '../quiz/quiz.repository'
+import { LabRepository } from '../lab/lab.repository'
 
 @Injectable()
 export class CourseTool {
@@ -76,7 +78,9 @@ export class CourseTool {
     private readonly courseService: CourseService,
     private readonly lessonsService: LessonService,
     private readonly chapterService: ChapterService,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    private readonly quizRepository: QuizRepository,
+    private readonly labRepository: LabRepository
   ) {}
 
   private normalizeText(value?: string | null) {
@@ -106,51 +110,6 @@ export class CourseTool {
         if (estimatedHours < 2.5) return "low";
         if (estimatedHours < 5) return "medium";
         return "high";
-    }
-
-    private buildWeekPlan(
-        chapters: Array<{ chapter_no: number; estimated_hours: number }>,
-        opts: {
-            weeklyHoursTarget: number;
-            cadenceWeeks: number;
-            oneChapterPerActiveWeek: boolean;
-            prioritizeLight: boolean;
-        }
-    ): { durationWeeks: number; chaptersPerWeek: string[] } {
-        const queue = opts.prioritizeLight
-            ? [...chapters].sort((a, b) => a.estimated_hours - b.estimated_hours)
-            : [...chapters];
-
-        const chaptersPerWeek: string[] = [];
-        let currentWeek = 1;
-        let idx = 0;
-
-        while (idx < queue.length) {
-            const picked: number[] = [];
-
-            if (opts.oneChapterPerActiveWeek) {
-                picked.push(queue[idx].chapter_no);
-                idx += 1;
-            } else {
-                let budget = Math.max(opts.weeklyHoursTarget, 1);
-                while (idx < queue.length) {
-                    const next = queue[idx];
-                    if (picked.length > 0 && next.estimated_hours > budget) break;
-                    picked.push(next.chapter_no);
-                    budget -= next.estimated_hours;
-                    idx += 1;
-                    if (budget <= 0) break;
-                }
-            }
-
-            chaptersPerWeek.push(`W${currentWeek}: ${picked.join(",")}`);
-            currentWeek += opts.cadenceWeeks;
-        }
-
-        return {
-            durationWeeks: currentWeek - opts.cadenceWeeks,
-            chaptersPerWeek,
-        };
     }
 
 
@@ -288,6 +247,39 @@ export class CourseTool {
       .filter((candidate) => candidate.length > 1)
       .sort((a, b) => b.length - a.length)
       .slice(0, 8)
+  }
+
+
+  private async getQuizProgress(chapterItemId: string, userId: string, lessonDuration: number | null) {
+    const quizzes = await this.quizRepository.getQuizHistory(userId, chapterItemId, 1000, 0);
+    const quizAttempt = quizzes.reverse();
+    let totalTimeTaken = 0;
+    let maxTimeTaken = 0;
+    for (const quiz of quizzes) {
+      // Process each quiz
+      if (quiz.started_at && quiz.ended_at) {
+        let timeTaken = (quiz.ended_at.getTime() - quiz.started_at.getTime()) / 1000; // time in seconds
+        if (timeTaken > 24 * 3600) {
+          // If time taken is more than 24 hours, consider it as max time taken (to prevent outliers), if maxTimeTaken is 0, lessonDuration * 2 is used as fallback
+          if (maxTimeTaken === 0) {
+            timeTaken = lessonDuration ? lessonDuration * 2 : 24 * 3600;
+          } else {            
+            timeTaken = maxTimeTaken;
+          }
+        } else {
+          maxTimeTaken = Math.max(maxTimeTaken, timeTaken);
+        }
+        totalTimeTaken += timeTaken;
+        if (quiz.rightQuestions == quiz.totalQuestions) {
+          break;
+        }
+      }
+    }
+    return totalTimeTaken;
+  }
+
+  private async getLabProgress(chapterItemId: string, duration: number, userId: string) {
+    return duration ? duration + 3600 : null;
   }
 
   @Tool({
@@ -474,15 +466,16 @@ export class CourseTool {
     }
 
         // Shared per-chapter computation (runs always, cheap)
-        const result = chapters.map((chapter, chapterIndex) => {
-            const allLessons = chapter.lessons.map((lesson, lessonIndex) => ({
+        const result = await Promise.all(chapters.map(async (chapter, chapterIndex) => {
+            const allLessons = await Promise.all(chapter.lessons.map(async (lesson, lessonIndex) => ({
                 index: lessonIndex + 1,
                 title: lesson.title,
                 isFinished: lesson.isFinished,
                 duration: lesson.duration ?? null,
-            }));
+                timeSpent: lesson.type === 'quiz' ? await this.getQuizProgress(lesson.id, userId, lesson.duration) : lesson.type === 'lab' ? await this.getLabProgress(lesson.id, lesson.duration, userId) : null,
+            })));
 
-      const lessons = typeof maxLessonsPerChapter === 'number' ? allLessons.slice(0, maxLessonsPerChapter) : allLessons
+            const lessons = typeof maxLessonsPerChapter === 'number' ? allLessons.slice(0, maxLessonsPerChapter) : allLessons
 
             const base = {
                 index: chapterIndex + 1,
@@ -507,7 +500,8 @@ export class CourseTool {
                 estimated_hours: estimatedHours,
                 difficulty: this.chapterDifficulty(estimatedHours),
             };
-        });
+        })
+      );
 
         const totalLessons = result.reduce((sum, c) => sum + c.lessonCount, 0);
 

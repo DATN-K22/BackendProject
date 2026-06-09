@@ -4,13 +4,16 @@ import os
 from dotenv import load_dotenv
 from a2a.types import Message as A2AMessage
 
-load_dotenv()
+if not os.getenv("DOPPLER_PROJECT"):
+    load_dotenv()
 
 
 from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.agents.remote_a2a_agent import RemoteA2aAgent, AGENT_CARD_WELL_KNOWN_PATH
 from google.adk.agents.invocation_context import InvocationContext
+from google.adk.tools.base_tool import BaseTool
+from google.adk.tools.tool_context import ToolContext
 from google.genai import types
 
 from .remote_http_client import get_remote_agent_http_client
@@ -37,6 +40,10 @@ def _build_a2a_request_metadata(
         "adk_state": {
             "course_id": state.get("course_id"),
             "timezone": state.get("timezone"),
+            "user_preference_weights": state.get("user_preference_weights", {}),
+            "preference_weights_updated_at": state.get("preference_weights_updated_at", ""),
+            "course_study_plan": state.get("course_study_plan", {}),
+            "course_schedule_reschedule_request": state.get("course_schedule_reschedule_request"),
         }
     }
 
@@ -60,18 +67,46 @@ rag_agent = RemoteA2aAgent(
     use_legacy=False,
 )
 
+async def _before_agent_callback(callback_context) -> None:
+    processed_events = callback_context.state.get("processed_a2a_events", [])
+    if callback_context.session.events:
+        for event in reversed(callback_context.session.events[-10:]):
+            if getattr(event, "custom_metadata", None) and "a2a:response" in event.custom_metadata:
+                if event.id not in processed_events:
+                    a2a_response = event.custom_metadata["a2a:response"]
+                    if isinstance(a2a_response, dict) and "metadata" in a2a_response and isinstance(a2a_response["metadata"], dict):
+                        adk_state = a2a_response["metadata"].get("adk_state", {})
+                        if isinstance(adk_state, dict):
+                            for k, v in adk_state.items():
+                                if v is not None:
+                                    callback_context.state[k] = v
+                    processed_events.append(event.id)
+                    callback_context.state["processed_a2a_events"] = processed_events
+
+    user_data = callback_context.session.state.get("user:user_preference_weights", {})
+    callback_context.state["user_preference_weights"] = user_data
+
+async def _after_tool_callback(
+    tool: BaseTool, args: dict, tool_context: ToolContext, tool_response: dict
+) -> None:
+    if tool.name == "transfer_to_agent" and args.get("agent_name") == "course_schedule_agent":
+        if "user_preference_weights" in tool_context.state:
+            user_data = tool_context.state.get("user:user_preference_weights", {})
+            user_data = tool_context.state["user_preference_weights"]
+            tool_context.state["user:user_preference_weights"] = user_data
 
 
 def create_root_agent() -> LlmAgent:
     root_agent = LlmAgent(
         name="edu_assistant",
-        model=LiteLlm(model="vertex_ai/gemini-2.5-flash"),
+        model="gemini-2.5-flash",
         instruction="""You are EduAssistant, the main AI coordinator for an educational platform.
 
 You have two specialist sub-agents and context:
 - course_schedule_agent: handles AWS course discovery, comparison, learning-path recommendations, and schedule management.
 - rag_agent: answers deep course-content questions grounded in retrieved knowledge base context.
 - MUST DELEGATE, NEVER answer those about COURSES, SCHEDULING, or LEARNING TOPICS yourself.
+- Never shorten the answer from both sub-agents by yourself, especially those about event details from course_schedule_agent or retrieved sources from rag_agent. Relay them in full to the user.
 
 ## STEP 1 — Check if this is a relay turn (evaluate BEFORE any routing)
 
@@ -126,6 +161,7 @@ Result format:
             rag_agent,
         ],
         description="Root orchestrator for EduAssistant AI service.",
-        
+        before_agent_callback=_before_agent_callback,
+        after_tool_callback=_after_tool_callback,
     )
     return root_agent

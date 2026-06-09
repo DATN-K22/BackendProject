@@ -41,6 +41,10 @@ export class CreateEventDto {
   @IsOptional()
   @IsInt()
   original_event_id?: bigint
+
+  @IsOptional()
+  @IsInt()
+  course_id?: bigint
 }
 
 export class EventResponseDto {
@@ -60,6 +64,7 @@ export class EventResponseDto {
   updated_at!: Date
   recurrence_id?: Date
   original_event_id?: bigint
+  course_id?: bigint
 }
 
 export class EventExceptionResponseDto {

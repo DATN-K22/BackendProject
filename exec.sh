@@ -43,7 +43,7 @@ resolve_pip_for_service() {
 }
 
 # Node.js services (npm install + prisma generate)
-NODE_SERVICES=("iam-service" "media-service" "api-gateway" "course-service")
+NODE_SERVICES=("iam-service" "platform-service" "api-gateway" "course-service")
 
 # Python AI services (pip install)
 AI_SERVICES=("orchestrator-ai" "rag-ai" "recommendation-ai")

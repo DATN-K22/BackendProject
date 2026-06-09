@@ -222,12 +222,15 @@ class QdrantVectorStore:
         query_filter = Filter(must=must) if must else None
 
         if sparse_indices is not None and sparse_values is not None:
-            # Hybrid search using Prefetch and RRF
+            # Hybrid search using Prefetch and RRF.
+            # Apply the filter inside each Prefetch so namespace/tenant isolation
+            # is enforced BEFORE fusion — not just as a post-fusion cut.
             prefetch = [
                 models.Prefetch(
                     query=query_vector,
                     using="dense",
                     limit=limit,
+                    filter=query_filter,
                 ),
                 models.Prefetch(
                     query=models.SparseVector(
@@ -236,8 +239,13 @@ class QdrantVectorStore:
                     ),
                     using="sparse",
                     limit=limit,
+                    filter=query_filter,
                 ),
             ]
+            # NOTE: Do NOT pass score_threshold here.
+            # RRF fusion scores are on a completely different scale than cosine
+            # similarity (typically 0.016–0.065). Applying a 0.5 threshold would
+            # filter out ALL results. Quality is controlled by top-k + reranker.
             results = self._client.query_points(
                 collection_name=self._collection_name,
                 prefetch=prefetch,

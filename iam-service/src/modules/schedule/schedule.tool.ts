@@ -4,6 +4,7 @@ import { Tool } from "@rekog/mcp-nest";
 import z from "zod";
 import { stringify } from "yaml";
 import { RRule } from "rrule";
+import { id } from "zod/v4/locales";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -146,7 +147,7 @@ export class ScheduleTool {
 
     @Tool({
         name: "get-events",
-        description: "Fetch events in a user's schedule from today to endDate (inclusive). If endDate is omitted, the window defaults to 90 days from today. Date boundaries are interpreted in timeZone.",
+        description: "Fetch events in a user's schedule from today to endDate (inclusive). If endDate is omitted, the window defaults to 90 days later from today. Date boundaries are interpreted in timeZone.",
         parameters: z.object({
             today: z.string(),
             endDate: z.string().optional(),
@@ -222,9 +223,10 @@ export class ScheduleTool {
             rrule_string: z.string().optional().describe("RRULE string, e.g. 'RRULE:FREQ=WEEKLY;BYDAY=MO'"),
             recurrence_id: z.string().optional(),
             original_event_id: z.string().optional().describe("Parent event ID for exception instances"),
+            course_id: z.string().trim().regex(/^\d+$/, "course_id must be a numeric string").optional(),
         }),
     })
-    async createEvent({ approval_status, original_event_id, ...dto }: any, context: any, req: any) {
+    async createEvent({ approval_status, original_event_id, course_id, ...dto }: any, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
         const approvalError = this.requireMutationApproval(approval_status);
         if (approvalError) {
@@ -236,6 +238,7 @@ export class ScheduleTool {
             {
                 ...dto,
                 ...(original_event_id != null && { original_event_id: BigInt(original_event_id) }),
+                ...(course_id != null && { course_id: BigInt(course_id) }),
             } as any,
             userId
         );
@@ -260,9 +263,10 @@ export class ScheduleTool {
             timezone: z.string().optional(),
             rrule_string: z.string().optional(),
             recurrence_id: z.string().optional(),
+            course_id: z.string().trim().regex(/^\d+$/, "course_id must be a numeric string").optional(),
         }),
     })
-    async updateEvent({ approval_status, eventId, userId: _userId, ...dto }: any, context: any, req: any) {
+    async updateEvent({ approval_status, eventId, userId: _userId, course_id, ...dto }: any, context: any, req: any) {
         const userId = req.user?.id ?? req.headers["x-user-id"];
         const approvalError = this.requireMutationApproval(approval_status);
         if (approvalError) {
@@ -270,7 +274,14 @@ export class ScheduleTool {
                 content: [{ type: 'text', text: approvalError }],
             };
         }
-        const result = await this.scheduleService.updateEvent(dto, userId, BigInt(eventId));
+        const result = await this.scheduleService.updateEvent(
+            {
+                ...dto,
+                ...(course_id != null && { course_id: BigInt(course_id) }),
+            } as any,
+            userId,
+            BigInt(eventId)
+        );
         return {
             content: [{ type: 'text', text: stringify(result) }],
         };
@@ -534,6 +545,194 @@ export class ScheduleTool {
 
         return {
             content: [{ type: 'text', text: stringify(freeSlots) }]
+        };
+    }
+    @Tool({
+        name: "build-event-by-block-planner",
+        description: "Commit a course schedule in full-replace mode. Supports either (A) direct sessions list, or (B) lesson blocks + time slots for automatic packing.",
+        parameters: z.object({
+            approval_status: z.literal("approved").describe("Set to 'approved' only after the schedule approval flow is completed."),
+            approval_id: z.string().optional().describe("The approval_id returned by the approval flow."),
+            courseTitle: z.string().min(1).describe("Course title used for matching/deleting previous course events."),
+            course_id: z.string().trim().regex(/^\d+$/, "course_id must be a numeric string").optional().describe("Optional course id stored on created events and used for precise replacement matching."),
+            replace_mode: z.boolean().optional().default(false).describe("If true, delete existing related events before creating new ones. Default false (append-only)."),
+            sessions: z.array(
+                z.object({
+                    title: z.string().min(1),
+                    description: z.string().optional().default(""),
+                    time_start: z.iso.datetime({ offset: true }),
+                    time_end: z.iso.datetime({ offset: true }),
+                    timezone: z.string().optional().default("Asia/Ho_Chi_Minh"),
+                })
+            ).optional().describe("Preferred mode: direct list of sessions to create."),
+            blocks: z.array(
+                z.object({
+                    title: z.string(),
+                    durationMinutes: z.number().int().positive(),
+                    chapter_index: z.number().int().positive(),
+                    lesson_index: z.number().int().positive(),
+                })
+            ).optional().describe("Optional mode B input. If sessions is omitted, blocks are packed into provided time slots."),
+            timeSlot: z.array(
+                z.object({
+                    from: z.iso.datetime({ offset: true }),
+                    to: z.iso.datetime({ offset: true })
+                })
+            ).optional().describe("Optional mode B input. Ordered free time slots for packing blocks."),
+        }).refine(
+            (v) => (Array.isArray(v.sessions) && v.sessions.length > 0) || ((Array.isArray(v.blocks) && v.blocks.length > 0) && (Array.isArray(v.timeSlot) && v.timeSlot.length > 0)),
+            "Provide either sessions, or both blocks and timeSlot"
+        )
+    })
+    async buildEventByBlockPlanner(
+        {
+            approval_status,
+            courseTitle,
+            course_id,
+            replace_mode = false,
+            sessions,
+            blocks,
+            timeSlot,
+        }: {
+            approval_status: "approved";
+            approval_id?: string;
+            courseTitle: string;
+            course_id?: string;
+            replace_mode?: boolean;
+            sessions?: { title: string; description?: string; time_start: string; time_end: string; timezone?: string }[];
+            blocks?: { title: string; durationMinutes: number; chapter_index: number; lesson_index: number }[];
+            timeSlot?: { from: string; to: string }[];
+        },
+        context: any,
+        req: any
+    ) {
+        const userId = req.user?.id ?? req.headers["x-user-id"];
+        const approvalError = this.requireMutationApproval(approval_status);
+        if (approvalError) {
+            return {
+                content: [{ type: 'text', text: approvalError }],
+            };
+        }
+
+        let unscheduledBlocks: { title: string; durationMinutes: number; chapter_index: number; lesson_index: number }[] = [];
+        const planned: Array<{
+            key: string;
+            title: string;
+            description: string;
+            time_start: string;
+            time_end: string;
+            timezone: string;
+        }> = [];
+
+        if (sessions && sessions.length > 0) {
+            sessions.forEach((s, idx) => {
+                planned.push({
+                    key: `session:${idx + 1}`,
+                    title: s.title,
+                    description: s.description ?? "",
+                    time_start: new Date(s.time_start).toISOString(),
+                    time_end: new Date(s.time_end).toISOString(),
+                    timezone: s.timezone ?? "Asia/Ho_Chi_Minh",
+                });
+            });
+        } else {
+            const safeBlocks = blocks ?? [];
+            const safeTimeSlots = timeSlot ?? [];
+            let blockIndex = 0;
+            for (const slot of safeTimeSlots) {
+                let cursor = new Date(slot.from).getTime();
+                const slotEnd = new Date(slot.to).getTime();
+                if (!Number.isFinite(cursor) || !Number.isFinite(slotEnd) || slotEnd <= cursor) continue;
+
+                while (blockIndex < safeBlocks.length) {
+                    const block = safeBlocks[blockIndex];
+                    const durationMs = block.durationMinutes * 60 * 1000;
+                    if (cursor + durationMs > slotEnd) break;
+                    const start = new Date(cursor);
+                    const end = new Date(cursor + durationMs);
+                    planned.push({
+                        key: `${block.chapter_index}:${block.lesson_index}`,
+                        title: `${courseTitle} - Study Session`,
+                        description: block.title,
+                        time_start: start.toISOString(),
+                        time_end: end.toISOString(),
+                        timezone: "Asia/Ho_Chi_Minh",
+                    });
+                    cursor = end.getTime();
+                    blockIndex += 1;
+                }
+                if (blockIndex >= safeBlocks.length) break;
+            }
+            unscheduledBlocks = safeBlocks.slice(blockIndex);
+        }
+
+        const courseIdBigInt = course_id ? BigInt(course_id) : null;
+        const creates = planned;
+
+        const results = {
+            created: [] as any[],
+            deleted: [] as any[],
+            failed: [] as any[],
+            unscheduled_blocks: unscheduledBlocks,
+        };
+
+        if (replace_mode) {
+            const existingEvents = await this.scheduleService.getMySchedule(userId);
+            const courseTitleLower = courseTitle.toLowerCase();
+            const deletes = existingEvents
+                .filter(e => {
+                    if (e?.id == null) return false;
+                    if (courseIdBigInt != null) {
+                        return (e as any).course_id != null && BigInt((e as any).course_id) === courseIdBigInt;
+                    }
+                    return String(e.title ?? "").toLowerCase().includes(courseTitleLower);
+                })
+                .map(e => String(e.id));
+
+            for (const id of deletes) {
+                try {
+                    const out = await this.scheduleService.deleteEvent(BigInt(id), userId);
+                    results.deleted.push({ id, result: out });
+                } catch (error: any) {
+                    results.failed.push({ action: "delete", id, error: error?.message ?? "unknown error" });
+                }
+            }
+        }
+
+        for (const c of creates) {
+            try {
+                const out = await this.scheduleService.createEvent(
+                    {
+                        title: c.title,
+                        description: c.description,
+                        time_start: c.time_start,
+                        time_end: c.time_end,
+                        timezone: c.timezone,
+                        status: "CONFIRMED",
+                        ...(courseIdBigInt != null && { course_id: courseIdBigInt }),
+                    } as any,
+                    userId
+                );
+                results.created.push(out);
+            } catch (error: any) {
+                results.failed.push({ action: "create", title: c.title, time_start: c.time_start, error: error?.message ?? "unknown error" });
+            }
+        }
+
+        return {
+            content: [{
+                type: 'text',
+                text: stringify({
+                    summary: {
+                        planned: planned.length,
+                        created: results.created.length,
+                        deleted: results.deleted.length,
+                        failed: results.failed.length,
+                        unscheduled: results.unscheduled_blocks.length,
+                    },
+                    results
+                })
+            }],
         };
     }
 }

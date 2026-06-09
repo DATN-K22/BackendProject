@@ -74,7 +74,8 @@ export class ScheduleRepository {
           original_event: {
             connect: { id: createEventDto.original_event_id }
           }
-        })
+        }),
+        course_id: createEventDto.course_id ?? null
       },
       include: {
         exception_dates: true,

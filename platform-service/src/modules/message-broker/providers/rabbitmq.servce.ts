@@ -31,7 +31,7 @@ export class RabbitMQService implements IMessageBroker {
       const channel = await conn.createChannel();
       const message = {
         id: uuidv4(),
-        task: 'ingestion.index_document',   
+        task: 'index_document',   
         args: [],
         kwargs: { document_id, source_uri, tenant_id },
         retries: 0,

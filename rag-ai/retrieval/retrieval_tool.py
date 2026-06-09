@@ -129,7 +129,6 @@ def build_retrieval_tool(settings: Settings):
     def retrieve_context(
         query: str,
         top_k: int = 5,
-        tenant_id: str | None = None,
         use_expansion: bool = True,    # mặc định bật
         use_rerank: bool = True,       # mặc định bật
         score_threshold: float = 0.5,
@@ -153,7 +152,10 @@ def build_retrieval_tool(settings: Settings):
             safe_top_k = max(1, min(int(top_k), 10))
         except (TypeError, ValueError):
             safe_top_k = 5
-
+        
+        headers = FORWARDED_IDENTITY_HEADERS.get()
+        tenant_id = headers["x-tenant-id"] if headers else "general"
+        
         # ── 2. Cache check ────────────────────────────────────────────────
         key = _cache_key(query, tenant_id, safe_top_k)
         if key in _result_cache:
@@ -171,8 +173,8 @@ def build_retrieval_tool(settings: Settings):
             }
 
         # ── 4. Tenant filter ──────────────────────────────────────────────
-        # Ưu tiên: tham số tenant_id > header x-tenant-id từ middleware
-        effective_tenant = None
+        # Ưu tiên: header x-tenant-id từ middleware > tham số tenant_id
+        effective_tenant = tenant_id
         if effective_tenant is None:
             headers = FORWARDED_IDENTITY_HEADERS.get()
             if headers:

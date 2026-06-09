@@ -8,6 +8,8 @@ from typing import AsyncIterator
 
 from dotenv import load_dotenv
 load_dotenv()  # Load .env before any os.getenv() calls
+if not os.getenv("DOPPLER_PROJECT"):
+    load_dotenv()
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
@@ -31,7 +33,8 @@ from google.adk.a2a.converters.request_converter import (
     AgentRunRequest,
     convert_a2a_request_to_agent_run_request,
 )
-from google.adk.apps.app import EventsCompactionConfig, App
+from google.adk.sessions.database_session_service import DatabaseSessionService
+from google.adk.apps.app import EventsCompactionConfig, App, ResumabilityConfig
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -40,6 +43,13 @@ from langsmith.integrations.google_adk import configure_google_adk
 # LangSmith
 from langsmith.integrations.otel import configure
 from langsmith.middleware import TracingMiddleware
+
+from google.adk.a2a.executor.config import ExecuteInterceptor
+from google.adk.a2a.executor.executor_context import ExecutorContext
+from a2a.types import TaskStatusUpdateEvent
+from a2a.server.events import Event as A2AEvent
+from google.adk.events.event import Event as AdkEvent
+from adk_database_memory import DatabaseMemoryService
 
 # Local modules
 from agents.root_agent import create_root_agent
@@ -68,6 +78,7 @@ HOST = os.getenv("HOST", "0.0.0.0")
 ADK_HOST = os.getenv("ADK_HOST", "recommendation-ai.local")
 PORT = int(os.getenv("PORT", "8080"))
 APP_NAME = "course_schedule_helper"
+DATABASE_URL = os.getenv("POSTGRE_URL", "postgresql+asyncpg://dacn:LWarDs25qtfHCW5@datn-2026.postgres.database.azure.com:5432/datn")
 
 def _convert_request_with_state_bridge(request: RequestContext, part_converter) -> AgentRunRequest:
     run_request = convert_a2a_request_to_agent_run_request(request, part_converter)
@@ -78,6 +89,59 @@ def _convert_request_with_state_bridge(request: RequestContext, part_converter) 
         if state_delta:
             run_request.state_delta = state_delta
     return run_request
+
+
+def _build_adk_state_snapshot(session_state: dict) -> dict:
+    course_id = session_state.get("course_id")
+    adk_state = {
+        "course_id": course_id,
+        "timezone": session_state.get("timezone"),
+        "user_preference_weights": session_state.get("user_preference_weights", {}),
+        "preference_weights_updated_at": session_state.get("preference_weights_updated_at", ""),
+        "course_study_plan": session_state.get("course_study_plan", {}),
+        "course_schedule_reschedule_request": session_state.get("course_schedule_reschedule_request"),
+    }
+    user_course_key = f"user:{course_id}" if course_id is not None else None
+    if user_course_key and isinstance(session_state.get(user_course_key), dict):
+        adk_state[user_course_key] = session_state[user_course_key]
+    return adk_state
+
+async def _attach_state_to_response(
+    ctx: ExecutorContext, final_event: TaskStatusUpdateEvent
+) -> TaskStatusUpdateEvent:
+    try:
+        session = await ctx.runner.session_service.get_session(
+            app_name=ctx.app_name, user_id=ctx.user_id, session_id=ctx.session_id
+        )
+        if session and hasattr(session, "state"):
+            adk_state = _build_adk_state_snapshot(session.state)
+            if getattr(final_event, "metadata", None) is None:
+                final_event.metadata = {}
+            final_event.metadata["adk_state"] = adk_state
+    except Exception as e:
+        logger.error(f"Failed to attach state to response: {e}")
+    return final_event
+
+async def _attach_state_to_event(
+    ctx: ExecutorContext, a2a_event: A2AEvent, adk_event: AdkEvent
+) -> list[A2AEvent] | A2AEvent:
+    try:
+        session = await ctx.runner.session_service.get_session(
+            app_name=ctx.app_name, user_id=ctx.user_id, session_id=ctx.session_id
+        )
+        if session and hasattr(session, "state"):
+            adk_state = _build_adk_state_snapshot(session.state)
+            if getattr(a2a_event, "metadata", None) is None:
+                a2a_event.metadata = {}
+            a2a_event.metadata["adk_state"] = adk_state
+    except Exception as e:
+        logger.error(f"Failed to attach state to event: {e}")
+    return a2a_event
+
+state_interceptor = ExecuteInterceptor(
+    after_agent=_attach_state_to_response,
+    after_event=_attach_state_to_event,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -170,11 +234,14 @@ def build_app() -> Starlette:
       5. Add health check routes
     """
     # 1. Create Redis session service (connected in lifespan startup)
-    session_service = RedisSessionService(
-        redis_url=REDIS_URL,
-        redis_password=REDIS_PASSWORD,
-    )
+    session_service = DatabaseSessionService(DATABASE_URL, connect_args={
+        "server_settings": {
+            "search_path": "recommendation_memory"   # your schema name
+        },
+        "ssl": False
+    })
     session_backend = "redis"
+    
     root_agent = create_root_agent()
 
     app = App(
@@ -183,19 +250,23 @@ def build_app() -> Starlette:
         events_compaction_config=EventsCompactionConfig(
             compaction_interval=6,  # Trigger compaction every 6 new invocations.
             overlap_size=2          # Include last invocation from the previous window.
+        ),
+        resumability_config=ResumabilityConfig(
+            is_resumable=True,
         )
     )
 
     runner = Runner(
         app=app,
         session_service=session_service,
-        artifact_service=InMemoryArtifactService(),
+        artifact_service=InMemoryArtifactService()  
     )
 
     agent_executor = A2aAgentExecutor(
         runner=runner,
         config=A2aAgentExecutorConfig(
             request_converter=_convert_request_with_state_bridge,
+            execute_interceptors=[state_interceptor],
         ),
     )
     request_handler = DefaultRequestHandler(

@@ -1,0 +1,139 @@
+{
+  "family": "datn-platform-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::862087104858:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::862087104858:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "platform-service",
+      "image": "862087104858.dkr.ecr.ap-southeast-1.amazonaws.com/datn-platform-service:latest",
+      "portMappings": [
+        {
+          "containerPort": 3003,
+          "protocol": "tcp"
+        }
+      ],
+            "environment": [
+                {
+                    "name": "MESSAGE_BROKER_PROVVIDER",
+                    "value": "rabbitmq"
+                },
+                {
+                    "name": "REDIS_HOST",
+                    "value": "datn-redis.fqtx7c.0001.apse1.cache.amazonaws.com"
+                },
+                {
+                    "name": "AWS_REGION",
+                    "value": "ap-southeast-1"
+                },
+                {
+                    "name": "AWS_S3_INPUT_BUCKET",
+                    "value": "amzn-s3-bucket-datn-input"
+                },
+                {
+                    "name": "PORT",
+                    "value": "3003"
+                },
+                {
+                    "name": "CLOUDFRONT_DISTRIBUTION_DOMAIN",
+                    "value": "dgl3d69rlnsz4.cloudfront.net"
+                },
+                {
+                    "name": "PAYOS_API_KEY",
+                    "value": "f0b7c44d-69d5-4f38-86d1-da97d3fe9cd9"
+                },
+                {
+                    "name": "CLIENT_URL",
+                    "value": "https://d24dddy9ciqfbd.cloudfront.net"
+                },
+                {
+                    "name": "EMAIL_USER",
+                    "value": "son.trannam.bku@gmail.com"
+                },
+                {
+                    "name": "COURSE_SERVICE_URL",
+                    "value": "http://course-service.local:3002"
+                },
+                {
+                    "name": "PAYMENT_PROVIDER",
+                    "value": "payos"
+                },
+                {
+                    "name": "AWS_S3_OUTPUT_BUCKET",
+                    "value": "amzn-s3-bucket-datn-output"
+                },
+                {
+                    "name": "CLOUDFRONT_KEY_PAIR_ID",
+                    "value": "KQCWWBX9833I8"
+                },
+                {
+                    "name": "CLOUDFRONT_PRIVATE_KEY",
+                    "value": "-----BEGIN PRIVATE KEY-----\\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCmD+l9awIn5Oqm\\n7TZsnChB9Ed0D12RhyvgGc8h2fQg4W53BcDf1WkCT1hU74v3O3Nc7mInOm+VJOen\\nYnxH7/T2ctWLW4bz6b3gHcDlSChhwTYiD1zUhS0vm5QCSPqIUtpb4HvI0CIxdfkK\\nQDaFMQmZK4w8b3EHxABrIxu5xjmEqoGl21r3BkJ+w0ApXwp1yozwM4aQ5j16VcGS\\nzHMP1yZfx/+8sW6gcSgI1gzMdbJ5dMgbiYF6dFDyCGa/EItt3w11isVx99MKK0gr\\ne3cFw303i49o+81Gxe8Yx+q4MEDRz6S3y0e7nqOPSKtoy5AmJ3wYEMw1CiZbZySA\\nTr2H+syTAgMBAAECggEAEsjrAzZ3JHcnOiHMTcXuYeOVr6HLVlqBkpSo0y36CTwn\\nCEy80DUub0X1eoosfZeaibEnpkNcevUVRWCFKYgR4E0GLgD5B59xzKfg+a7Lbp9y\\nFbFCMYItJd0GBaomuQQSUmFW71ToAUtUlB3GbROqf8qmzvFWSmgYGgZ7LO0o9YI7\\ngVjtFfUXQxnp6KDimj0jc1Jd/m3V7mIXVlBHaJ5Fbzwv2/MzM35x5GjQTG1jHo43\\n6QSSBGPgDl6d6cVwPA6uLo3+NZNDmIcDNdCPkT0vu3bCBDPD2wDhamRhS2A3JeQM\\nHaM8GK93iJ5q6S9GLDjrfo46dgJax724Namkj6zUnQKBgQDV7jVR/7givkUcvBuW\\nd5SaKOf0Dz+1+94X++VNIRVs0lyA25W9bSOdtr/86wgGEKm1qQwaPwR3/2DlHzwO\\nq7Cd/tB+TL0gXNS3lkopGYwAQZuLaaufi6Z5HUJ3ueXyAvrbEPNy+INCjHGbCDLm\\nMY1hEFRhmuiODqRs8MIZyS2SrQKBgQDGt+SFsryQ1hYPT4n1acSyCHraN+WbJvat\\n6MGNh+7E+27yDgO0bCMJLXDoUPnwcEZitTA051suoSvJgXbw59u5VgUq9xz+sDfB\\nH3cLhn7DKIJpupF+P9ZBtaLqXDdDSbjwD86aY6RkjDDy3dYIDeA7VdsmIo3/M2FA\\n2F1FlX0EPwKBgG3dlQKUmoM1RhcYv+5JYUa+hUkA385dGFUm5z7yI6esbRc8Li2H\\nNEhVx0ljhs5ellmWBIIiJPBfdeqVXOmH4P9zEq4aSPKq2g+inll3JkAncXNqhFo+\\nhPMkRLNqBB6Cy0Pf87byy65MpDdjQYiYoCveEAfEX3Q9LtJH3tcRS1dNAoGAY/Ls\\nYv7Sbzru34aPCjvHrhAr0oRY3R/M5Q30BD7BrpwUYnUAEght2tjbOE46WF/wVwdx\\nFrrjFuIDxxdx/ptv3ZlRghnGoKd7c4xi8Q4Vxg0jAxDOyyRKnMRCDAST2ylCdqRM\\ns0S408XbfNxtIaHxDYcScezhZOGv4dCxoSUeOzsCgYEAqPfrbDfbh4j/5A5RatWp\\nfNJPIfapoZM1we8HVHM071tjemh79CtZf7uumeQIm1eJ4HvCzh9vycQd5XwbOytw\\naggvaln3+X4RU9mYnWCi8W9JO0RcwA+U7JzX60pBPbLDueGZaiauSIrrLqShiP9h\\nhFAAqDOU8PO3PdADNZBJZqo=\\n-----END PRIVATE KEY-----\\n"
+                },
+                {
+                    "name": "EMAIL_PASS",
+                    "value": "uyaqgzideeatgutp"
+                },
+                {
+                "name": "PAYOS_WEBHOOK_URL",
+                "value": "https://d24dddy9ciqfbd.cloudfront.net/webhook/payment/webhook"
+                },
+                {
+                    "name": "DATABASE_URL",
+                    "value": "postgresql://dacn:LWarDs25qtfHCW5@datn-2026.postgres.database.azure.com:5432/datn?schema=media_service&sslmode=require"
+                },
+                {
+                    "name": "REDIS_PORT",
+                    "value": "6379"
+                },
+                {
+                    "name": "PAYOS_CHECKSUM_KEY",
+                    "value": "3f0264cba70631d3c98cc92577d2f957f861e118e3bd14ae76558ed834aca753"
+                },
+                {
+                    "name": "MESSAGE_BROKER_URL",
+                    "value": "amqps://sqvtiphg:llHMMroZ3pfRMpm6H5x6qSVnbQWkkZq2@chameleon.lmq.cloudamqp.com/sqvtiphg"
+                },
+                {
+                    "name": "REDIS_PASSWORD",
+                    "value": ""
+                },
+                {
+                    "name": "NODE_ENV",
+                    "value": "production"
+                },
+                {
+                    "name": "PAYOS_CLIENT_ID",
+                    "value": "925a33ad-d3fa-498e-86df-98b7d6e68845"
+                },
+                {
+                    "name": "CLOUD_PROVIDER",
+                    "value": "aws"
+                },
+                {
+                    "name": "AWS_S3_ASSUME_ROLE_ARN",
+                    "value": "arn:aws:iam::317287357350:role/CrossAccountS3UploadRole"
+                }
+            ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/datn-platform-service",
+          "awslogs-region": "ap-southeast-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -qO- http://localhost:3003/health-platform || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "essential": true
+    }
+  ]
+}

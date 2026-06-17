@@ -1,0 +1,34 @@
+recommendation-ai/.env
+orchestrator-ai/.env
+rag-ai/.env
+rag-ai/task-definition-rag-ai.json
+ingestion/task-definition-rag-ai.json
+rag-ai/google-credentials.json
+.venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+orchestrator-ai/error.txt
+orchestrator-ai/google-credentials.json
+rag-ai/google-credentials.json
+recommendation-ai/google-credentials.json
+ingestion/.env
+ingestion/google-credentials.json
+CLAUDE.md
+orchestrator-ai/eval/implementation_plan.md
+orchestrator-ai/task-definition-orchestrator-ai.json
+<<<<<<< HEAD
+=======
+recommendation-ai/task-definition-recommendation-ai.json
+>>>>>>> 39212d1e6a1918e706e433d9ba8900feaef43324
+*.pyc
+*.pyc
+*.pyc
+*.pyc
+*.pyc
+PLAN.md
+*.pyc

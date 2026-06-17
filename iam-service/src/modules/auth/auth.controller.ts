@@ -8,12 +8,19 @@ import {
   ValidationPipe,
   HttpCode,
   HttpStatus,
-  UnauthorizedException
+  UnauthorizedException,
+  Headers,
+  Query,
+  Patch,
+  Param
 } from '@nestjs/common'
 import { AuthService } from './auth.service'
 import { AuthRefeshTokenDto, AuthSignInDto, AuthSignUpDto, JtiDto } from './dto/auth.dto'
 import { Request, Response } from 'express'
 import { ApiTags } from '@nestjs/swagger'
+import { ApiResponse } from '../../utils/dto/ApiResponse.dto'
+import { ForgotPasswordDto, OTPDto, OTPVerificationDto } from './dto/otp.dto'
+import { UpdateUserPasswordDto } from '../user/dto/update-user.dto'
 
 @Controller('auth')
 @UsePipes(
@@ -29,67 +36,76 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
-  async signup(@Body() dto: AuthSignUpDto, @Res({ passthrough: true }) res: Response) {
-    const tokens = await this.authService.signup(dto)
+  @HttpCode(HttpStatus.OK)
+  async signup(@Body() dto: AuthSignUpDto) {
+    return ApiResponse.OkResponse(await this.authService.signup(dto), 'Signup successfully')
+  }
 
-    res.cookie('refreshToken', tokens.refresh_token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/auth/refresh',
-      maxAge: 1000 * 60 * 60 * 24 * 30
-    })
+  @HttpCode(HttpStatus.OK)
+  @Post('otp')
+  async sendOtp(@Body() dto: OTPDto) {
+    const { email } = dto
+    if (!email) throw new UnauthorizedException('No email provided')
+    return ApiResponse.OkResponse(await this.authService.sendOtp(email), 'OTP sent successfully')
+  }
 
-    return { access_token: tokens.access_token, refresh_token: tokens.refresh_token, role: tokens.role }
+  @HttpCode(HttpStatus.OK)
+  @Post('otp-verifications')
+  async verifyOtp(@Body() dto: OTPVerificationDto, @Query('type') type?: string) {
+    const { email, otp } = dto
+    if (!email || !otp) throw new UnauthorizedException('No email or OTP provided')
+    return ApiResponse.OkResponse(await this.authService.verifyOtp(email, otp, type), 'OTP verified successfully')
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ForgotPasswordDto) {
+    return ApiResponse.OkResponse(
+      await this.authService.resetPassword(dto.email, dto.otp, dto.newPassword),
+      'Password reset successfully'
+    )
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('signin')
-  async signin(@Body() dto: AuthSignInDto, @Res({ passthrough: true }) res: Response) {
-    const tokens = await this.authService.signin(dto)
+  async signin(@Body() dto: AuthSignInDto) {
+    const { tokens, user } = await this.authService.signin(dto)
 
-    res.cookie('refreshToken', tokens.refresh_token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/auth/refresh',
-      maxAge: 1000 * 60 * 60 * 24 * 30
+    return ApiResponse.OkResponse({
+      tokens: tokens,
+      user: user
     })
-
-    return { access_token: tokens.access_token, refresh_token: tokens.refresh_token, role: tokens.role }
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
-  async refreshToken(
-    @Body() refreshToken: AuthRefeshTokenDto,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response
-  ) {
-    const token = refreshToken.refreshToken
-    console.log('Received refresh token from cookie:', token) // Debug log
+  async refreshToken(@Body() refreshToken: AuthRefeshTokenDto) {
+    const token = refreshToken.refresh_token
     if (!token) throw new UnauthorizedException('No refresh token provided')
 
     const tokens = await this.authService.refreshToken(token)
 
-    res.cookie('refreshToken', tokens.refresh_token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/auth/refresh',
-      maxAge: 1000 * 60 * 60 * 24 * 30
+    return ApiResponse.OkResponse({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token
     })
-
-    return { access_token: tokens.access_token, refresh_token: tokens.refresh_token }
   }
 
+  @HttpCode(HttpStatus.OK)
   @Post('logout')
-  async logout(@Body() jti: JtiDto, @Res({ passthrough: true }) res: Response) {
-    if (jti) {
-      const result = await this.authService.logout(jti.jti)
-      if (result == true) {
-        res.clearCookie('refreshToken', { path: '/auth/refresh' })
-        return { ok: true }
-      }
-    } else {
-      throw new UnauthorizedException('No jti provided')
-    }
+  async logout(
+    @Headers('x-user-id') userId: string,
+    @Headers('x-user-jti') jti: string,
+    @Headers('x-user-token-exp') tokenExp: number
+  ) {
+    return ApiResponse.OkResponse(await this.authService.logout(userId, jti, tokenExp))
+  }
+
+  @Patch(':id/password')
+  async updatePassword(@Param('id') id: string, @Body() updatePassword: UpdateUserPasswordDto) {
+    return ApiResponse.OkResponse(
+      await this.authService.updatePassword(id, updatePassword),
+      'Password updated successfully'
+    )
   }
 }

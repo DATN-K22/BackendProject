@@ -1,0 +1,284 @@
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from qdrant_client import QdrantClient, models
+from qdrant_client.http.exceptions import UnexpectedResponse
+from qdrant_client.models import FieldCondition, Filter, MatchValue, PointStruct
+from config.settings import Settings
+
+logger = logging.getLogger(__name__)
+
+def build_qdrant_client(settings: Settings) -> QdrantClient:
+    return QdrantClient(
+        url=settings.qdrant_url,
+        api_key=settings.qdrant_api_key,
+    )
+
+class VectorPoint:
+    """Đại diện cho một điểm vector cần upsert vào store."""
+
+    def __init__(
+        self,
+        point_id: str,
+        vector: list[float],
+        payload: dict[str, Any],
+    ) -> None:
+        self.point_id = point_id
+        self.vector = vector
+        self.payload = payload
+
+
+class QdrantVectorStore:
+    """
+    Vector store dùng Qdrant, đứng độc lập — không kế thừa interface nào.
+
+    Dùng chung cho cả ingestion pipeline và retrieval tool.
+    """
+
+    def __init__(
+        self,
+        client: QdrantClient,
+        collection_name: str,
+        vector_size: int = 1536,
+        distance: models.Distance | str = models.Distance.COSINE,
+    ) -> None:
+        self._client = client
+        self._collection_name = collection_name
+        self._vector_size = vector_size
+        self._distance = (
+            models.Distance[distance.upper()]
+            if isinstance(distance, str)
+            else distance
+        )
+        self._collection_ready = False
+
+    # ── Internal ──────────────────────────────────────────────────────────
+
+    def _ensure_collection(self) -> None:
+        """Lazy init: đảm bảo collection tồn tại, chỉ tạo mới khi 404."""
+        if self._collection_ready:
+            return
+
+        try:
+            self._client.get_collection(self._collection_name)
+            self._collection_ready = True
+        except UnexpectedResponse as exc:
+            if exc.status_code != 404:
+                logger.error(
+                    "Unexpected error checking collection %r: %s %s",
+                    self._collection_name, exc.status_code, exc.reason_phrase,
+                )
+                raise
+
+            logger.info(
+                "Collection %r not found — creating (size=%d, distance=%s)",
+                self._collection_name, self._vector_size, self._distance,
+            )
+            self._client.create_collection(
+                collection_name=self._collection_name,
+                vectors_config={
+                    "dense": models.VectorParams(
+                        size=self._vector_size,
+                        distance=self._distance,
+                    )
+                },
+                sparse_vectors_config={
+                    "sparse": models.SparseVectorParams(
+                        index=models.SparseIndexParams(on_disk=False),
+                        modifier=models.Modifier.IDF
+                    )
+                }
+            )
+            self._collection_ready = True
+        except Exception as exc:
+            logger.error(
+                "Network/connection error while ensuring collection %r: %s",
+                self._collection_name, exc,
+            )
+            raise
+
+    # ── Public API ────────────────────────────────────────────────────────
+
+    def upsert(
+        self,
+        points: list[VectorPoint],
+        namespace: str | None = None,
+        batch_size: int = 100,
+    ) -> None:
+        """Upsert danh sách VectorPoint vào collection."""
+        self._ensure_collection()
+
+        qdrant_points: list[PointStruct] = []
+        for point in points:
+            payload = dict(point.payload)
+            if namespace:
+                payload["namespace"] = namespace
+            qdrant_points.append(
+                PointStruct(
+                    id=point.point_id,
+                    vector={
+                        "dense": point.vector,
+                    },
+                    payload=payload,
+                )
+            )
+
+        if not qdrant_points:
+            return
+
+        self._client.upload_points(
+            collection_name=self._collection_name,
+            points=qdrant_points,
+            batch_size=batch_size,
+            parallel=4,
+            wait=True,
+        )
+        logger.info(
+            "Upserted %d points → collection=%r namespace=%r",
+            len(qdrant_points), self._collection_name, namespace,
+        )
+
+    def delete_document(
+        self,
+        document_id: str,
+        namespace: str | None = None,
+    ) -> int:
+        """Xóa tất cả points của một document. Trả về số points đã xóa."""
+        self._ensure_collection()
+
+        must: list[FieldCondition] = [
+            FieldCondition(key="document_id", match=MatchValue(value=document_id))
+        ]
+        if namespace:
+            must.append(
+                FieldCondition(key="namespace", match=MatchValue(value=namespace))
+            )
+
+        count = self._client.count(
+            collection_name=self._collection_name,
+            count_filter=Filter(must=must),
+            exact=True,
+        ).count
+
+        if count == 0:
+            logger.warning(
+                "delete_document: not found document_id=%r namespace=%r",
+                document_id, namespace,
+            )
+            return 0
+
+        self._client.delete(
+            collection_name=self._collection_name,
+            points_selector=models.FilterSelector(filter=Filter(must=must)),
+            wait=True,
+        )
+        logger.info(
+            "Deleted %d points — document_id=%r namespace=%r",
+            count, document_id, namespace,
+        )
+        return count
+
+    def similarity_search(
+        self,
+        query_vector: list[float],
+        *,
+        limit: int = 5,
+        namespace: str | None = None,
+        filters: dict[str, Any] | None = None,
+        score_threshold: float = 0.5,
+        sparse_indices: list[int] | None = None,
+        sparse_values: list[float] | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Tìm kiếm các điểm gần nhất với query_vector (hybrid search nếu có sparse).
+
+        Args:
+            query_vector: Dense embedding vector của câu hỏi.
+            limit: Số kết quả tối đa.
+            namespace: Giới hạn tìm kiếm trong một tenant cụ thể.
+            filters: Bộ lọc payload bổ sung dạng {key: value}.
+            score_threshold: Ngưỡng similarity tối thiểu (0.0–1.0).
+            sparse_indices: Token indices cho BM25.
+            sparse_values: TF scores cho BM25.
+
+        Returns:
+            List các dict gồm id, score, payload.
+        """
+        self._ensure_collection()
+
+        must: list[FieldCondition] = []
+        if namespace:
+            must.append(
+                FieldCondition(key="namespace", match=MatchValue(value=namespace))
+            )
+        if filters:
+            must.extend(
+                FieldCondition(key=k, match=MatchValue(value=v))
+                for k, v in filters.items()
+            )
+
+        query_filter = Filter(must=must) if must else None
+
+        if sparse_indices is not None and sparse_values is not None:
+            # Hybrid search using Prefetch and RRF.
+            # Apply the filter inside each Prefetch so namespace/tenant isolation
+            # is enforced BEFORE fusion — not just as a post-fusion cut.
+            prefetch = [
+                models.Prefetch(
+                    query=query_vector,
+                    using="dense",
+                    limit=limit,
+                    filter=query_filter,
+                ),
+                models.Prefetch(
+                    query=models.SparseVector(
+                        indices=sparse_indices,
+                        values=sparse_values,
+                    ),
+                    using="sparse",
+                    limit=limit,
+                    filter=query_filter,
+                ),
+            ]
+            # NOTE: Do NOT pass score_threshold here.
+            # RRF fusion scores are on a completely different scale than cosine
+            # similarity (typically 0.016–0.065). Applying a 0.5 threshold would
+            # filter out ALL results. Quality is controlled by top-k + reranker.
+            results = self._client.query_points(
+                collection_name=self._collection_name,
+                prefetch=prefetch,
+                query=models.FusionQuery(fusion=models.Fusion.RRF),
+                query_filter=query_filter,
+                limit=limit,
+                with_payload=True,
+                with_vectors=False,
+            ).points
+        else:
+            # Dense only search
+            results = self._client.query_points(
+                collection_name=self._collection_name,
+                query=query_vector,
+                using="dense",
+                limit=limit,
+                query_filter=query_filter,
+                score_threshold=score_threshold,
+                with_payload=True,
+                with_vectors=False,
+            ).points
+        
+        output = [
+            {
+                "id": r.id,
+                "score": getattr(r, "score", 0.0), # RRF might not have a direct score attribute in the same way, but point structure usually has score
+                "payload": r.payload or {},
+            }
+            for r in results
+        ]
+
+        logger.info(
+            "similarity_search: namespace=%r limit=%d threshold=%.2f → %d results",
+            namespace, limit, score_threshold, len(output),
+        )
+        return output

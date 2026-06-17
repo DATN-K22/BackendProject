@@ -1,11 +1,41 @@
-import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { PrismaModule } from './modules/prisma/prisma.module';
+import { Module } from '@nestjs/common'
+import { AppController } from './app.controller'
+import { AppService } from './app.service'
+import { PrismaModule } from './prisma/prisma.module'
+import { ConfigModule } from '@nestjs/config/dist/config.module'
+import { CourseModule } from './modules/course/course.module'
+import { ChapterModule } from './modules/chapter/chapter.module'
+import { LessonModule } from './modules/lesson/lesson.module'
+import { IamModule } from './modules/iam-service/iam.module'
+import { MediaModule } from './modules/media-service/media.module'
+import { McpModule } from '@rekog/mcp-nest'
+import { QuizModule } from './modules/quiz/quiz.module'
+import { RedisModule } from './modules/redis/redis.module'
+import { LabModule } from './modules/lab/lab.module'
+import { IsbModule } from './modules/innovation-sandbox/isb.module'
 
-@Module({ 
-  imports: [ PrismaModule],
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env'
+    }),
+    McpModule.forRoot({
+      name: 'course-mcp',
+      version: '1.0.0'
+    }),
+    PrismaModule,
+    CourseModule,
+    ChapterModule,
+    LessonModule,
+    IamModule,
+    MediaModule,
+    QuizModule,
+    RedisModule,
+    LabModule,
+    IsbModule
+  ],
   controllers: [AppController],
-  providers: [AppService],
-})  
+  providers: [AppService]
+})
 export class AppModule {}

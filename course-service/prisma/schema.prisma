@@ -1,130 +1,230 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client-js"
-  engineType = "binary"
-  previewFeatures = ["multiSchema"]
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres", "multiSchema"]
+  engineType      = "binary"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas = ["course_service"]
+  schemas  = ["course_service"]
+}
+
+model Course {
+  id                BigInt                   @id @default(autoincrement())
+  owner_id          String
+  title             String                   @db.VarChar(255)
+  short_description String?
+  long_description  String?
+  thumbnail_url     String?                  @db.VarChar(255)
+  price             Decimal                  @default(0) @db.Decimal(10, 2)
+  status            ContentStatus            @default(draft)
+  created_at        DateTime                 @default(now()) @db.Timestamptz(6)
+  course_level      CourseLevel              @default(Beginner)
+  language          String                   @default("simple")
+  rating            Float                    @default(0)
+  fts_vector        Unsupported("tsvector")?
+  chapters          Chapter[]
+  enrollments       Enrollment[]
+
+  @@schema("course_service")
+}
+
+model Chapter {
+  id           BigInt        @id @default(autoincrement())
+  course_id    BigInt?
+  resource_id  BigInt?
+  title        String        @db.VarChar(255)
+  status       ContentStatus @default(draft)
+  sort_order   Int?
+  course       Course?       @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  chapterItems ChapterItem[]
+
+  @@index([course_id], map: "idx_chapter_course")
+  @@schema("course_service")
+}
+
+model ChapterItem {
+  id         BigInt          @id @default(autoincrement())
+  chapter_id BigInt
+  item_type  ChapterItemType
+
+  sort_order        Int
+  duration          Float         @default(0)
+  status            ContentStatus @default(published)
+  long_description  String?
+  short_description String?
+  title             String        @db.VarChar(255)
+
+  lesson_id BigInt? @unique
+  quiz_id   BigInt? @unique
+  lab_id    BigInt? @unique
+  lab       Lab?    @relation(fields: [lab_id], references: [id], onDelete: Cascade)
+  lesson    Lesson? @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+  quiz      Quiz?   @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+
+  chapter             Chapter             @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
+  chapterItemStatuses ChapterItemStatus[]
+
+  @@unique([chapter_id, sort_order], name: "uq_chapter_item_order")
+  @@index([chapter_id], map: "idx_chapter_item_chapter")
+  @@schema("course_service")
+}
+
+model Lesson {
+  id          BigInt       @id @default(autoincrement())
+  resources   BigInt[]
+  is_free     Boolean      @default(false)
+  chapterItem ChapterItem?
+
+  @@schema("course_service")
+}
+
+model Lab {
+  id              BigInt       @id @default(autoincrement())
+  leaseTemplateId String?      @db.VarChar(255)
+  IAMRoleName     String?      @db.VarChar(255)
+  resources       BigInt[]
+  instruction     String?
+  sessionPolicy   String?      @db.Text
+  chapterItem     ChapterItem?
+
+  labSessions LabSession[]
+
+  @@schema("course_service")
+}
+
+model LabSession {
+  id         BigInt   @id @default(autoincrement())
+  user_id    String
+  lab_id     BigInt
+  lease_id   String   @db.VarChar(255)
+  started_at DateTime @default(now()) @db.Timestamptz(6)
+  lab        Lab      @relation(fields: [lab_id], references: [id], onDelete: Cascade)
+
+  @@unique([lab_id, user_id, lease_id], name: "uq_lab_session_lab_user")
+  @@index([user_id, started_at(sort: Desc), lease_id], map: "idx_lab_session_user_started")
+  @@schema("course_service")
+}
+
+model ChapterItemStatus {
+  id              BigInt      @id @default(autoincrement())
+  user_id         String
+  chapter_item_id BigInt
+  completed       Boolean     @default(false)
+  updated_at      DateTime    @default(now()) @db.Timestamptz(6)
+  chapterItem     ChapterItem @relation(fields: [chapter_item_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, chapter_item_id], name: "uq_chapter_item_status_user_item")
+  @@index([user_id, updated_at(sort: Desc)], map: "idx_chapter_item_status_user_updated")
+  @@index([chapter_item_id], map: "idx_chapter_item_status_item")
+  @@schema("course_service")
+}
+
+model Enrollment {
+  id               BigInt   @id @default(autoincrement())
+  course_id        BigInt
+  user_id          String
+  enrolled_at      DateTime @default(now()) @db.Timestamptz(6)
+  complete_percent Float    @default(0)
+  course           Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, enrolled_at(sort: Desc)], map: "idx_enrollment_user_enrolled")
+  @@index([course_id], map: "idx_enrollment_course")
+  @@schema("course_service")
+}
+
+model Quiz {
+  id             BigInt         @id @default(autoincrement())
+  chapterItem    ChapterItem?
+  quiz_questions QuizQuestion[]
+  quiz_sessions  QuizSession[]
+
+  @@schema("course_service")
+}
+
+model QuizQuestion {
+  id            BigInt       @id @default(autoincrement())
+  quiz_id       BigInt
+  question_text String
+  questionType  QuestionType @default(SINGLE_CHOICE)
+  quiz_options  QuizOption[]
+  quiz          Quiz         @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+
+  @@index([quiz_id], map: "idx_quiz_question_quiz")
+  @@schema("course_service")
+}
+
+model QuizOption {
+  id               BigInt       @id @default(autoincrement())
+  quiz_question_id BigInt
+  option_text      String
+  is_correct       Boolean
+  description      String
+  reason           String       @default("")
+  quizQuestion     QuizQuestion @relation(fields: [quiz_question_id], references: [id], onDelete: Cascade)
+
+  @@index([quiz_question_id], map: "idx_quiz_option_question")
+  @@schema("course_service")
+}
+
+model QuizSession {
+  id             BigInt     @id @default(autoincrement())
+  quiz_id        BigInt
+  user_id        String
+  started_at     DateTime   @default(now()) @db.Timestamptz(6)
+  ended_at       DateTime?  @db.Timestamptz(6)
+  finish         Boolean    @default(false)
+  rightQuestions Int        @default(0)
+  questionOrder  BigInt[]
+  answeredCount  Int        @default(0)
+  skillEstimate  SkillLevel @default(basic)
+  totalQuestions Int        @default(0)
+  quiz           Quiz       @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, started_at(sort: Desc)], map: "idx_quiz_session_user_started")
+  @@index([quiz_id], map: "idx_quiz_session_quiz")
+  @@schema("course_service")
 }
 
 enum ContentStatus {
   draft
   published
   archived
+
   @@schema("course_service")
 }
 
+enum CourseLevel {
+  Beginner
+  Intermediate
+  Advanced
+  Expert
+  AllLevels
 
-model Course {
-  id                 BigInt         @id @default(autoincrement())
-  owner_id           String        // References user from iam-service
-  title              String         @db.VarChar(255)
-  short_description  String?        @db.Text
-  long_description   String?        @db.Text
-  thumbnail_url      String?        @db.VarChar(255)
-  price              Decimal        @default(0) @db.Decimal(10, 2)
-  status             ContentStatus  @default(draft)
-  created_at         DateTime       @default(now()) @db.Timestamptz
-
-  // Relations
-  course_skills      CourseSkill[]
-  enrollments        String[]
-  chapters           Chapter[]
-  forum              Forum?
   @@schema("course_service")
 }
 
-model Skill {
-  id            BigInt        @id @default(autoincrement())
-  name          String        @unique @db.VarChar(100)
+enum ChapterItemType {
+  lesson
+  quiz
+  lab
 
-  // Relations
-  course_skills CourseSkill[]
   @@schema("course_service")
 }
 
-model CourseSkill {
-  course_id     BigInt
-  skill_id      BigInt
+enum SkillLevel {
+  basic
+  intermediate
+  advanced
 
-  // Relations
-  course        Course  @relation(fields: [course_id], references: [id], onDelete: Cascade)
-  skill         Skill   @relation(fields: [skill_id], references: [id], onDelete: Cascade)
-
-  @@id([course_id, skill_id])
   @@schema("course_service")
 }
 
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTI_CHOICE
+  FILL_BLANK
 
-model Chapter {
-  id                 BigInt         @id @default(autoincrement())
-  course_id          BigInt?
-  resource_id        BigInt?
-  title              String         @db.VarChar(255)
-  short_description  String?        @db.Text
-  long_description   String?        @db.Text
-  price              Decimal?       @db.Decimal(10, 2)
-  status             ContentStatus  @default(draft)
-  sort_order         Int?
-
-  // Relations
-  course             Course?        @relation(fields: [course_id], references: [id], onDelete: Cascade)
-  lessons            Lesson[]
-  @@schema("course_service")
-}
-
-model Lesson {
-  id                 BigInt         @id @default(autoincrement())
-  chapter_id         BigInt
-  title              String         @db.VarChar(255)
-  short_description  String?        @db.Text
-  long_description   String?        @db.Text
-  thumbnail_url      String?        @db.VarChar(255)
-  status             ContentStatus  @default(published)
-  sort_order         Int?
-
-  // Relations
-  chapter            Chapter        @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
-  resources          BigInt[]
-  @@schema("course_service")
-}
-
-model Forum {
-  id                 BigInt         @id @default(autoincrement())
-  course_id          BigInt         @unique
-  short_description  String?        @db.VarChar(255)
-  long_description   String?        @db.Text
-  thumbnail_url      String?        @db.VarChar(255)
-
-  // Relations
-  course             Course         @relation(fields: [course_id], references: [id], onDelete: Cascade)
-  messages           Message[]
-  @@schema("course_service")
-}
-
-model Message {
-  id                  BigInt    @id @default(autoincrement())
-  forum_id            BigInt
-  user_id             BigInt?   // References user from iam-service
-  parent_message_id   BigInt?
-  content             String    @db.Text
-  open_time           DateTime? @db.Timestamptz
-  closed_time         DateTime? @db.Timestamptz
-  status              String    @default("active") @db.VarChar(50)
-  created_at          DateTime  @default(now()) @db.Timestamptz
-
-  // Relations
-  forum               Forum     @relation(fields: [forum_id], references: [id], onDelete: Cascade)
-  parent_message      Message?  @relation("MessageReplies", fields: [parent_message_id], references: [id], onDelete: Cascade)
-  replies             Message[] @relation("MessageReplies")
   @@schema("course_service")
 }

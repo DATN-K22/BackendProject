@@ -1,0 +1,122 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+  engineType      = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["media_service"]
+}
+
+enum ResourceType {
+  video
+  document
+  image
+
+  @@schema("media_service")
+}
+
+enum UploadStatus {
+  INITIATED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  ABORTED
+
+  @@schema("media_service")
+}
+
+model Resource {
+  id             BigInt         @id @default(autoincrement())
+  title          String
+  type           ResourceType
+  path           String
+  filename       String
+  lesson_id      BigInt?
+  upload_session UploadSession?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@schema("media_service")
+}
+
+model UploadSession {
+  id             BigInt       @id @default(autoincrement())
+  upload_id      String       @unique // S3 UploadId
+  key            String // S3 object key
+  status         UploadStatus @default(INITIATED)
+  uploaded_parts Json         @default("[]") // [{ partNumber, etag }]
+  total_parts    Int?
+  resource_id    BigInt       @unique
+  resource       Resource     @relation(fields: [resource_id], references: [id], onDelete: Cascade)
+  lesson_id      BigInt
+  expires_at     DateTime // abort if exceeded
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([lesson_id])
+  @@index([status])
+  @@schema("media_service")
+}
+
+model PaymentRecord {
+  id          String        @id @default(uuid())
+  orderCode   String        @unique
+  userId      String
+  courseId    String
+  status      PaymentStatus @default(PENDING)
+  amount      Int
+  description String?
+  buyerEmail  String?
+  buyerName   String?
+  rawWebhook  Json?
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  enrollJobs EnrollJob[]
+
+  @@schema("media_service")
+}
+
+model EnrollJob {
+  id            String    @id @default(uuid())
+  paymentId     String
+  status        JobStatus @default(PENDING)
+  attemptCount  Int       @default(0)
+  lastAttemptAt DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  payment PaymentRecord @relation(fields: [paymentId], references: [id])
+
+  @@schema("media_service")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELLED
+  FAILED
+
+  @@schema("media_service")
+}
+
+enum JobStatus {
+  PENDING
+  DONE
+  DEAD
+
+  @@schema("media_service")
+}

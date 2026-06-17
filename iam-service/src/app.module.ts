@@ -5,16 +5,27 @@ import { PrismaModule } from './prisma/prisma.module'
 import { AuthModule } from './modules/auth/auth.module'
 import { ConfigModule } from '@nestjs/config/dist/config.module'
 import { ScheduleModule } from './modules/schedule/schedule.module'
+import { UserModule } from './modules/user/user.module'
+import { RedisModule } from './modules/redis/redis.module'
+import { McpAuthModule, McpModule } from '@rekog/mcp-nest'
+import { MessageBrokerModule } from './modules/message_broker/message-broker.module'
 
 @Module({
   imports: [
+    McpModule.forRoot({
+      name: 'schedule-mcp',
+      version: '1.0.0'
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env'
     }),
     PrismaModule,
     AuthModule,
-    ScheduleModule
+    ScheduleModule,
+    UserModule,
+    RedisModule,
+    MessageBrokerModule
   ],
   controllers: [AppController],
   providers: [AppService]

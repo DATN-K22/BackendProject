@@ -1,0 +1,144 @@
+{
+    "taskDefinition": {
+        "taskDefinitionArn": "arn:aws:ecs:ap-southeast-1:862087104858:task-definition/datn-api-gateway:1",
+        "containerDefinitions": [
+            {
+                "name": "api-gateway",
+                "image": "862087104858.dkr.ecr.ap-southeast-1.amazonaws.com/datn-api-gateway:latest",
+                "cpu": 0,
+                "portMappings": [
+                    {
+                        "containerPort": 3000,
+                        "hostPort": 3000,
+                        "protocol": "tcp"
+                    }
+                ],
+                "essential": true,
+                "environment": [
+                    {
+                        "name": "REDIS_HOST",
+                        "value": "datn-redis.fqtx7c.0001.apse1.cache.amazonaws.com"
+                    },
+                    {
+                        "name": "AWS_REGION",
+                        "value": "ap-southeast-1"
+                    },
+                    {
+                        "name": "PORT",
+                        "value": "3000"
+                    },
+                    {
+                        "name": "REDIS_PORT",
+                        "value": "6379"
+                    },
+                    {
+                        "name": "IAM_SERVICE_URL",
+                        "value": "http://placeholder"
+                    },
+                    {
+                        "name": "JWT_SECRET_NAME",
+                        "value": "/InnovationSandbox/myisb/Auth/JwtSecret"
+                    },
+                    {
+                        "name": "REDIS_PASSWORD",
+                        "value": ""
+                    },
+                    {
+                        "name": "NODE_ENV",
+                        "value": "production"
+                    },
+                    {
+                        "name": "ORCHESTRATOR_SERVICE_URL",
+                        "value": "http://placeholder"
+                    },
+                    {
+                        "name": "MEDIA_SERVICE_URL",
+                        "value": "http://placeholder"
+                    },
+                    {
+                        "name": "COURSE_SERVICE_URL",
+                        "value": "http://placeholder"
+                    },
+                    {
+                        "name": "LAB_SERVICE_URL",
+                        "value": "http://placeholder"
+                    }
+                ],
+                "mountPoints": [],
+                "volumesFrom": [],
+                "logConfiguration": {
+                    "logDriver": "awslogs",
+                    "options": {
+                        "awslogs-group": "/ecs/datn-api-gateway",
+                        "awslogs-region": "ap-southeast-1",
+                        "awslogs-stream-prefix": "ecs"
+                    }
+                },
+                "healthCheck": {
+                    "command": [
+                        "CMD-SHELL",
+                        "wget -qO- http://localhost:3000/api/orchestrator/health || exit 1"
+                    ],
+                    "interval": 30,
+                    "timeout": 10,
+                    "retries": 3,
+                    "startPeriod": 60
+                },
+                "systemControls": []
+            }
+        ],
+        "family": "datn-api-gateway",
+        "taskRoleArn": "arn:aws:iam::862087104858:role/ecsTaskRole",
+        "executionRoleArn": "arn:aws:iam::862087104858:role/ecsTaskExecutionRole",
+        "networkMode": "awsvpc",
+        "revision": 1,
+        "volumes": [],
+        "status": "ACTIVE",
+        "requiresAttributes": [
+            {
+                "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+            },
+            {
+                "name": "ecs.capability.execution-role-awslogs"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.ecr-auth"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.task-iam-role"
+            },
+            {
+                "name": "ecs.capability.container-health-check"
+            },
+            {
+                "name": "ecs.capability.execution-role-ecr-pull"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+            },
+            {
+                "name": "ecs.capability.task-eni"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
+            }
+        ],
+        "placementConstraints": [],
+        "compatibilities": [
+            "EC2",
+            "MANAGED_INSTANCES",
+            "FARGATE"
+        ],
+        "requiresCompatibilities": [
+            "FARGATE"
+        ],
+        "cpu": "512",
+        "memory": "1024",
+        "registeredAt": "2026-05-06T03:13:34.584000+00:00",
+        "registeredBy": "arn:aws:iam::862087104858:user/DailyAccess"
+    },
+    "tags": []
+}

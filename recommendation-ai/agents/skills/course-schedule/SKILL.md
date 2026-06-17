@@ -11,7 +11,7 @@ description: >
 
 ## Trigger phrases
 "schedule this course", "set up my study plan", "add course to my calendar",
-"schedule more lessons", "I finished a session", "book my course sessions"
+"schedule more lessons", "I finished a session", "book my course sessions", "reschedule the course to fit the progress"
 
 ---
 
@@ -25,12 +25,12 @@ description: >
 ---
 
 ## Phase 2 — Gather preferences
-
-
-Follow the **recommend-slots** skill's preference learning flow (steps 1–2).
-Skip this entire phase if preferences were already confirmed earlier in this conversation.
-
-Note: If user ask to use the previously created schedule course, skip to Phase 3 directly, but still call `get-free-time` to confirm up-to-date availability and adjust the schedule if needed.
+1. Call the get-events tool to check if there are any existing events linked to this course (using `course_id` or course metadata from the plan).
+2. If there are existing linked events, confirm with the user if they want to reuse the same schedule (with possible adjustments) or create a new one from scratch. If they want to reuse, skip to Phase 3 directly.
+3. If there are no existing linked events, or the user wants to create a new schedule, gather their scheduling preferences:
+- How many hours per day can you study?
+- How many days per week?
+- Do you have any preferred days? (e.g. Mon/Wed/Fri)
 
 Then:
 - Call `get-free-time` with a **30-day window**.
@@ -66,6 +66,7 @@ Then:
    - Keep lesson `duration` only as original estimate reference when needed.
    - In `description`, include a short pace note such as `Pace-adjusted by x1.18 from your completed lessons.`
    - Keep times in user timezone offset format (e.g. `+07:00`).
+   - Note: Skip today's date and the past date alignment if the user wants to reuse the same pattern, but still apply the new pacing multiplier and preferences to compute the new times.
    - Example:
 ```json
 [

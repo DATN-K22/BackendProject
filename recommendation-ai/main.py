@@ -49,7 +49,6 @@ from google.adk.a2a.executor.executor_context import ExecutorContext
 from a2a.types import TaskStatusUpdateEvent
 from a2a.server.events import Event as A2AEvent
 from google.adk.events.event import Event as AdkEvent
-from adk_database_memory import DatabaseMemoryService
 
 # Local modules
 from agents.root_agent import create_root_agent
@@ -238,7 +237,7 @@ def build_app() -> Starlette:
         "server_settings": {
             "search_path": "recommendation_memory"   # your schema name
         },
-        "ssl": False
+        "ssl": True
     })
     session_backend = "redis"
     
@@ -250,9 +249,6 @@ def build_app() -> Starlette:
         events_compaction_config=EventsCompactionConfig(
             compaction_interval=6,  # Trigger compaction every 6 new invocations.
             overlap_size=2          # Include last invocation from the previous window.
-        ),
-        resumability_config=ResumabilityConfig(
-            is_resumable=True,
         )
     )
 

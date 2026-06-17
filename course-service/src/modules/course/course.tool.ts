@@ -279,7 +279,37 @@ export class CourseTool {
   }
 
   private async getLabProgress(chapterItemId: string, duration: number, userId: string) {
-    return duration ? duration + 3600 : null;
+    const status = await this.prismaService.chapterItemStatus.findUnique({
+      where: {
+        uq_chapter_item_status_user_item: {
+          user_id: userId,
+          chapter_item_id: BigInt(chapterItemId)
+        }
+      }
+    });
+
+    if (!status || !status.completed) return 0;
+
+    const item = await this.prismaService.chapterItem.findUnique({
+      where: { id: BigInt(chapterItemId) }
+    });
+
+    if (!item || !item.lab_id) return 0;
+
+    const sessions = await this.prismaService.labSession.findMany({
+      where: { user_id: userId, lab_id: item.lab_id },
+      orderBy: { started_at: 'desc' }
+    });
+
+    for (const session of sessions) {
+      if (session.started_at < status.updated_at) {
+        const timeTaken = (status.updated_at.getTime() - session.started_at.getTime()) / 1000;
+        // Cap the time taken at 24 hours to prevent extreme outliers
+        return Math.min(timeTaken, 24 * 3600);
+      }
+    }
+
+    return 0;
   }
 
   @Tool({

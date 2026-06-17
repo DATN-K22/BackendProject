@@ -375,9 +375,17 @@ def _build_reschedule_planner_context(
 
     reschedule_request = state.get(COURSE_RESCHEDULE_STATE_KEY)
     if not isinstance(reschedule_request, dict):
-        if existing_blocks:
-            return existing_blocks
-        return blocks
+        now = datetime.now(dt_timezone.utc)
+        future_blocks = []
+        for b in existing_blocks:
+            t_end = _parse_optional_dt(b.get("time_end"))
+            if t_end and t_end > now:
+                future_blocks.append(b)
+            elif not t_end:
+                t_start = _parse_optional_dt(b.get("time_start"))
+                if not t_start or t_start > now:
+                    future_blocks.append(b)
+        return future_blocks if future_blocks else None
 
     timezone = schedule_plan.get("timezone") or state.get("timezone", "UTC")
     duration_each_block = schedule_plan.get("duration_each_block")
@@ -586,8 +594,10 @@ async def build_lessons_block_plan(
     # If a reschedule request is pending, enrich the response with planner context
     # so the LLM has everything it needs in a single tool call.
     reschedule_context = _build_reschedule_planner_context(state, course_id, blocks)
-    if reschedule_context is not None:
+    if isinstance(reschedule_context, dict):
         result["reschedule"] = reschedule_context
+    elif isinstance(reschedule_context, list):
+        result["existing_blocks"] = reschedule_context
 
     return result
 
